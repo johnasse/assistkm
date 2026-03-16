@@ -19,18 +19,15 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  if (!logoutBtn) {
-    console.warn("Bouton logoutBtn introuvable dans la page.");
-    return;
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        window.location.href = "login.html";
+      } catch (error) {
+        console.error("Erreur déconnexion :", error);
+        alert("Impossible de se déconnecter.");
+      }
+    });
   }
-
-  logoutBtn.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "login.html";
-    } catch (error) {
-      console.error("Erreur déconnexion :", error);
-      alert("Impossible de se déconnecter.");
-    }
-  });
 });
