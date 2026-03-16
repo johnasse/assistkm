@@ -15,6 +15,7 @@ import {
   increment
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
+/* CONFIG FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyCc9uGltdHfmKmnVOcqIYAY7nD6qHnykeo",
   authDomain: "assistkm-24d0a.firebaseapp.com",
@@ -29,21 +30,24 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+/* STRIPE */
 const STRIPE_PRICE_ID = "price_1TBX8WCA2m5OcqFbTHBH4bHa";
-const FREE_PDF_LIMIT = 2;
 
+/* LIMITES PDF */
+const FIRST_MONTH_FREE_PDF_LIMIT = 3;
+const NORMAL_MONTH_FREE_PDF_LIMIT = 1;
+
+/* URLS */
 function getBaseSiteUrl() {
   const origin = window.location.origin;
   const path = window.location.pathname;
 
-  // GitHub Pages : /assistkm/...
   if (origin.includes("github.io")) {
     const parts = path.split("/").filter(Boolean);
     const repoName = parts.length > 0 ? parts[0] : "assistkm";
     return `${origin}/${repoName}`;
   }
 
-  // Autres hébergements
   return origin;
 }
 
@@ -53,6 +57,7 @@ function getAppUrl(page = "") {
   return `${base}/${page}`;
 }
 
+/* UTILISATEUR ACTUEL */
 function getCurrentUserPromise() {
   return new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -62,6 +67,7 @@ function getCurrentUserPromise() {
   });
 }
 
+/* CLE DU MOIS */
 function getCurrentMonthKey() {
   const now = new Date();
   const year = now.getFullYear();
@@ -69,6 +75,36 @@ function getCurrentMonthKey() {
   return `${year}-${month}`;
 }
 
+/* SAVOIR SI C'EST LE PREMIER MOIS DU COMPTE */
+function isSameYearMonth(dateA, dateB) {
+  return (
+    dateA.getFullYear() === dateB.getFullYear() &&
+    dateA.getMonth() === dateB.getMonth()
+  );
+}
+
+function getAccountCreationDate(user) {
+  const creationTime = user?.metadata?.creationTime;
+  if (!creationTime) return null;
+
+  const date = new Date(creationTime);
+  if (isNaN(date.getTime())) return null;
+
+  return date;
+}
+
+function getFreePdfLimitForUser(user) {
+  const createdAt = getAccountCreationDate(user);
+  const now = new Date();
+
+  if (createdAt && isSameYearMonth(createdAt, now)) {
+    return FIRST_MONTH_FREE_PDF_LIMIT;
+  }
+
+  return NORMAL_MONTH_FREE_PDF_LIMIT;
+}
+
+/* STRIPE CHECKOUT */
 export async function startStripeSubscriptionCheckout() {
   const user = await getCurrentUserPromise();
 
@@ -113,6 +149,7 @@ export async function startStripeSubscriptionCheckout() {
   }
 }
 
+/* PREMIUM */
 export async function hasPremiumAccess() {
   const user = await getCurrentUserPromise();
   if (!user) return false;
@@ -163,6 +200,7 @@ export async function updatePremiumBadge(elementId = "premiumStatus") {
   }
 }
 
+/* INFOS QUOTA PDF */
 export async function getPdfUsageInfo() {
   const user = await getCurrentUserPromise();
 
@@ -171,7 +209,8 @@ export async function getPdfUsageInfo() {
       premium: false,
       used: 0,
       remaining: 0,
-      limit: FREE_PDF_LIMIT
+      limit: NORMAL_MONTH_FREE_PDF_LIMIT,
+      isFirstMonth: false
     };
   }
 
@@ -182,7 +221,8 @@ export async function getPdfUsageInfo() {
       premium: true,
       used: 0,
       remaining: Infinity,
-      limit: FREE_PDF_LIMIT
+      limit: Infinity,
+      isFirstMonth: false
     };
   }
 
@@ -197,19 +237,25 @@ export async function getPdfUsageInfo() {
     used = Number(data.count || 0);
   }
 
+  const limit = getFreePdfLimitForUser(user);
+  const createdAt = getAccountCreationDate(user);
+  const isFirstMonth = createdAt ? isSameYearMonth(createdAt, new Date()) : false;
+
   return {
     premium: false,
     used,
-    remaining: Math.max(0, FREE_PDF_LIMIT - used),
-    limit: FREE_PDF_LIMIT
+    remaining: Math.max(0, limit - used),
+    limit,
+    isFirstMonth
   };
 }
 
 export async function canDownloadPdf() {
   const info = await getPdfUsageInfo();
-  return info.premium || info.used < FREE_PDF_LIMIT;
+  return info.premium || info.used < info.limit;
 }
 
+/* ENREGISTRER TELECHARGEMENT PDF */
 export async function registerPdfDownload() {
   const user = await getCurrentUserPromise();
   if (!user) return false;
@@ -221,11 +267,14 @@ export async function registerPdfDownload() {
   const usageRef = doc(db, "customers", user.uid, "usage", `pdf_${monthKey}`);
   const usageSnap = await getDoc(usageRef);
 
+  const limit = getFreePdfLimitForUser(user);
+
   if (!usageSnap.exists()) {
     await setDoc(usageRef, {
       type: "pdf_download",
       month: monthKey,
       count: 1,
+      limit,
       updatedAt: new Date().toISOString()
     });
     return true;
@@ -234,18 +283,20 @@ export async function registerPdfDownload() {
   const data = usageSnap.data();
   const count = Number(data.count || 0);
 
-  if (count >= FREE_PDF_LIMIT) {
+  if (count >= limit) {
     return false;
   }
 
   await updateDoc(usageRef, {
     count: increment(1),
+    limit,
     updatedAt: new Date().toISOString()
   });
 
   return true;
 }
 
+/* VERIFIER ACCES PDF */
 export async function requirePdfAccess() {
   const user = await getCurrentUserPromise();
 
@@ -258,16 +309,26 @@ export async function requirePdfAccess() {
   const premium = await hasPremiumAccess();
   if (premium) return true;
 
-  const allowed = await canDownloadPdf();
-  if (!allowed) {
-    alert("Version gratuite limitée à 2 téléchargements PDF par mois. Passez en premium pour un accès illimité.");
+  const info = await getPdfUsageInfo();
+
+  if (info.used >= info.limit) {
+    if (info.isFirstMonth) {
+      alert("Vous avez utilisé vos 3 PDF gratuits du premier mois. Passez en premium pour un accès illimité.");
+    } else {
+      alert("Vous avez utilisé votre PDF gratuit du mois. Passez en premium pour un accès illimité.");
+    }
     window.location.href = getAppUrl("premium.html");
     return false;
   }
 
   const recorded = await registerPdfDownload();
+
   if (!recorded) {
-    alert("Version gratuite limitée à 2 téléchargements PDF par mois. Passez en premium pour un accès illimité.");
+    if (info.isFirstMonth) {
+      alert("Vous avez utilisé vos 3 PDF gratuits du premier mois. Passez en premium pour un accès illimité.");
+    } else {
+      alert("Vous avez utilisé votre PDF gratuit du mois. Passez en premium pour un accès illimité.");
+    }
     window.location.href = getAppUrl("premium.html");
     return false;
   }
@@ -275,6 +336,7 @@ export async function requirePdfAccess() {
   return true;
 }
 
+/* AFFICHER QUOTA PDF */
 export async function updatePdfQuotaBadge(elementId = "pdfQuotaStatus") {
   const el = document.getElementById(elementId);
   if (!el) return;
@@ -287,10 +349,16 @@ export async function updatePdfQuotaBadge(elementId = "pdfQuotaStatus") {
     return;
   }
 
-  el.textContent = `PDF gratuits restants ce mois-ci : ${info.remaining} / ${info.limit}`;
+  if (info.isFirstMonth) {
+    el.textContent = `Offre découverte : ${info.remaining} / ${info.limit} PDF gratuits restants ce mois-ci`;
+  } else {
+    el.textContent = `Version gratuite : ${info.remaining} / ${info.limit} PDF gratuit restant ce mois-ci`;
+  }
+
   el.style.color = info.remaining > 0 ? "#b45309" : "#b91c1c";
 }
 
+/* PORTAIL CLIENT STRIPE */
 export async function openCustomerPortal() {
   const user = await getCurrentUserPromise();
 

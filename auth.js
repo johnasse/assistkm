@@ -5,7 +5,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendEmailVerification
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 /* CONFIG FIREBASE */
@@ -22,15 +23,70 @@ const firebaseConfig = {
 /* INITIALISATION FIREBASE SANS DOUBLE INIT */
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
+auth.languageCode = "fr";
 
-/* CREER COMPTE */
-export function registerUser(email, password) {
-  return createUserWithEmailAndPassword(auth, email, password);
+/* URLS ADAPTEES GITHUB PAGES / AUTRE HEBERGEMENT */
+function getBaseSiteUrl() {
+  const origin = window.location.origin;
+  const path = window.location.pathname;
+
+  if (origin.includes("github.io")) {
+    const parts = path.split("/").filter(Boolean);
+    const repoName = parts.length > 0 ? parts[0] : "assistkm";
+    return `${origin}/${repoName}`;
+  }
+
+  return origin;
 }
 
-/* CONNEXION */
-export function loginUser(email, password) {
-  return signInWithEmailAndPassword(auth, email, password);
+function getAppUrl(page = "") {
+  const base = getBaseSiteUrl();
+  if (!page) return `${base}/`;
+  return `${base}/${page}`;
+}
+
+/* CREER COMPTE + ENVOI EMAIL DE CONFIRMATION */
+export async function registerUser(email, password) {
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
+
+  await sendEmailVerification(user, {
+    url: getAppUrl("login.html"),
+    handleCodeInApp: false
+  });
+
+  return userCredential;
+}
+
+/* RENVOYER L'EMAIL DE VERIFICATION */
+export async function resendVerificationEmail() {
+  const user = auth.currentUser;
+
+  if (!user) {
+    throw new Error("Aucun utilisateur connecté.");
+  }
+
+  await sendEmailVerification(user, {
+    url: getAppUrl("login.html"),
+    handleCodeInApp: false
+  });
+
+  return true;
+}
+
+/* CONNEXION AVEC VERIFICATION EMAIL OBLIGATOIRE */
+export async function loginUser(email, password) {
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
+
+  await user.reload();
+
+  if (!user.emailVerified) {
+    await signOut(auth);
+    throw new Error("EMAIL_NOT_VERIFIED");
+  }
+
+  return userCredential;
 }
 
 /* DECONNEXION */
@@ -58,7 +114,28 @@ export async function requireAuth() {
   const user = await getCurrentUser();
 
   if (!user) {
-    window.location.href = "login.html";
+    window.location.href = getAppUrl("login.html");
+    return null;
+  }
+
+  return user;
+}
+
+/* VERIFIER UTILISATEUR CONNECTE + EMAIL VERIFIE */
+export async function requireVerifiedAuth() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    window.location.href = getAppUrl("login.html");
+    return null;
+  }
+
+  await user.reload();
+
+  if (!user.emailVerified) {
+    alert("Merci de confirmer votre adresse email avant de continuer.");
+    await logoutUser();
+    window.location.href = getAppUrl("login.html");
     return null;
   }
 
@@ -70,8 +147,24 @@ export async function redirectIfLoggedIn() {
   const user = await getCurrentUser();
 
   if (user) {
-    window.location.href = "index.html";
+    window.location.href = getAppUrl("index.html");
     return user;
+  }
+
+  return null;
+}
+
+/* REDIRECTION SI CONNECTE ET EMAIL VERIFIE */
+export async function redirectIfVerifiedLoggedIn() {
+  const user = await getCurrentUser();
+
+  if (user) {
+    await user.reload();
+
+    if (user.emailVerified) {
+      window.location.href = getAppUrl("index.html");
+      return user;
+    }
   }
 
   return null;
@@ -85,7 +178,7 @@ export function initLogoutButton(id = "btnLogout") {
   btn.addEventListener("click", async () => {
     try {
       await logoutUser();
-      window.location.href = "login.html";
+      window.location.href = getAppUrl("login.html");
     } catch (error) {
       console.error("Erreur lors de la déconnexion :", error);
       alert("Impossible de se déconnecter pour le moment.");
