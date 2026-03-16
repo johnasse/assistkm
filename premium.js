@@ -32,6 +32,27 @@ const db = getFirestore(app);
 const STRIPE_PRICE_ID = "price_1TBX8WCA2m5OcqFbTHBH4bHa";
 const FREE_PDF_LIMIT = 2;
 
+function getBaseSiteUrl() {
+  const origin = window.location.origin;
+  const path = window.location.pathname;
+
+  // GitHub Pages : /assistkm/...
+  if (origin.includes("github.io")) {
+    const parts = path.split("/").filter(Boolean);
+    const repoName = parts.length > 0 ? parts[0] : "assistkm";
+    return `${origin}/${repoName}`;
+  }
+
+  // Autres hébergements
+  return origin;
+}
+
+function getAppUrl(page = "") {
+  const base = getBaseSiteUrl();
+  if (!page) return `${base}/`;
+  return `${base}/${page}`;
+}
+
 function getCurrentUserPromise() {
   return new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -53,7 +74,7 @@ export async function startStripeSubscriptionCheckout() {
 
   if (!user) {
     alert("Aucun utilisateur connecté.");
-    window.location.href = "login.html";
+    window.location.href = getAppUrl("login.html");
     return;
   }
 
@@ -68,8 +89,8 @@ export async function startStripeSubscriptionCheckout() {
     const docRef = await addDoc(checkoutSessionsRef, {
       price: STRIPE_PRICE_ID,
       trial_period_days: 7,
-      success_url: `${window.location.origin}/index.html`,
-      cancel_url: `${window.location.origin}/premium.html`
+      success_url: getAppUrl("premium.html?checkout=success"),
+      cancel_url: getAppUrl("premium.html?checkout=cancel")
     });
 
     onSnapshot(docRef, (snap) => {
@@ -112,7 +133,7 @@ export async function requirePremium() {
   const user = await getCurrentUserPromise();
 
   if (!user) {
-    window.location.href = "login.html";
+    window.location.href = getAppUrl("login.html");
     return false;
   }
 
@@ -120,7 +141,7 @@ export async function requirePremium() {
 
   if (!premium) {
     alert("Cette fonctionnalité est réservée aux comptes premium.");
-    window.location.href = "premium.html";
+    window.location.href = getAppUrl("premium.html");
     return false;
   }
 
@@ -230,7 +251,7 @@ export async function requirePdfAccess() {
 
   if (!user) {
     alert("Vous devez être connecté.");
-    window.location.href = "login.html";
+    window.location.href = getAppUrl("login.html");
     return false;
   }
 
@@ -240,14 +261,14 @@ export async function requirePdfAccess() {
   const allowed = await canDownloadPdf();
   if (!allowed) {
     alert("Version gratuite limitée à 2 téléchargements PDF par mois. Passez en premium pour un accès illimité.");
-    window.location.href = "premium.html";
+    window.location.href = getAppUrl("premium.html");
     return false;
   }
 
   const recorded = await registerPdfDownload();
   if (!recorded) {
     alert("Version gratuite limitée à 2 téléchargements PDF par mois. Passez en premium pour un accès illimité.");
-    window.location.href = "premium.html";
+    window.location.href = getAppUrl("premium.html");
     return false;
   }
 
@@ -275,7 +296,7 @@ export async function openCustomerPortal() {
 
   if (!user) {
     alert("Vous devez être connecté.");
-    window.location.href = "login.html";
+    window.location.href = getAppUrl("login.html");
     return;
   }
 
@@ -288,7 +309,7 @@ export async function openCustomerPortal() {
     );
 
     const docRef = await addDoc(portalSessionsRef, {
-      return_url: `${window.location.origin}/premium.html`
+      return_url: getAppUrl("premium.html")
     });
 
     onSnapshot(docRef, (snap) => {
