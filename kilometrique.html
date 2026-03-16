@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frais kilométriques</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<script src="premium.js"></script>
+<body>
+  <div class="container">
+    <div class="top-bar">
+      <a href="index.html" class="back-link">← Accueil</a>
+      <h1 class="page-title center-title">Frais kilométriques</h1>
+    </div>
+
+    <section class="card">
+      <h2>Informations générales</h2>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="moisEtat">Mois de l'état de frais</label>
+          <input type="month" id="moisEtat" />
+        </div>
+
+        <div class="field">
+          <label for="assistantNom">Nom et prénom de l'assistant familial</label>
+          <input type="text" id="assistantNom" placeholder="Ex. Catherine Martin" />
+        </div>
+
+        <div class="field">
+          <label for="dateTrajet">Date</label>
+          <input type="date" id="dateTrajet" />
+        </div>
+
+        <div class="field">
+          <label for="enfant">Nom de l’enfant</label>
+          <input type="text" id="enfant" placeholder="Ex. Zoé" />
+        </div>
+
+        <div class="field">
+          <label for="professionnel">Nom du professionnel / lieu du RDV</label>
+          <input type="text" id="professionnel" placeholder="Ex. Service SPF ROUEN" />
+        </div>
+
+        <div class="field">
+          <label for="motif">Motif du déplacement</label>
+          <input type="text" id="motif" placeholder="Ex. RDV psychologue" />
+        </div>
+      </div>
+
+      <div class="grid grid-3 mt-16">
+        <div class="field">
+          <label for="heureDebut">Heure début</label>
+          <input type="time" id="heureDebut" />
+        </div>
+
+        <div class="field">
+          <label for="heureFin">Heure fin</label>
+          <input type="time" id="heureFin" />
+        </div>
+
+        <div class="field">
+          <label for="cv">Chevaux fiscaux</label>
+          <select id="cv">
+            <option value="3">3 CV et moins</option>
+            <option value="4">4 CV</option>
+            <option value="5">5 CV</option>
+            <option value="6">6 CV</option>
+            <option value="7" selected>7 CV et plus</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Domicile</h2>
+
+      <div class="field">
+        <label for="domicile">Adresse du domicile</label>
+        <input type="text" id="domicile" placeholder="Ex. 12 rue ..., 76400 Fécamp" />
+        <small id="domicileSaved" class="saved-msg"></small>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" type="button" id="btnSaveDomicile">
+          Enregistrer le domicile
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Trajet</h2>
+
+      <div class="field">
+        <label for="depart">Adresse de départ</label>
+        <input type="text" id="depart" placeholder="Adresse de départ" />
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="departDomicile" />
+        <label for="departDomicile">Départ du domicile</label>
+      </div>
+
+      <div class="field mt-16">
+        <label>Destinations</label>
+        <div id="destinations"></div>
+        <button class="btn btn-secondary mt-10" type="button" id="btnAddDestination">
+          + Ajouter une destination
+        </button>
+      </div>
+
+      <div class="checkbox-row mt-16">
+        <input type="checkbox" id="retourDomicile" checked />
+        <label for="retourDomicile">Retour au domicile</label>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" type="button" id="btnCalculer">Calculer le trajet</button>
+        <button class="btn btn-success" type="button" id="btnAjouterDeplacement">Ajouter le déplacement</button>
+        <button class="btn btn-secondary" type="button" id="btnReset">Réinitialiser</button>
+      </div>
+    </section>
+
+    <section class="card result-box">
+      <h2>Résultat du trajet</h2>
+
+      <div class="result-grid">
+        <div class="result-card">
+          <div class="result-title">Distance totale</div>
+          <div class="result-value" id="distanceTotale">0 km</div>
+        </div>
+
+        <div class="result-card">
+          <div class="result-title">Temps total</div>
+          <div class="result-value" id="tempsTotal">0 min</div>
+        </div>
+
+        <div class="result-card">
+          <div class="result-title">Montant estimé</div>
+          <div class="result-value" id="montantTotal">0,00 €</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Liste des déplacements du mois</h2>
+
+      <div class="table-wrap">
+        <table class="deplacements-table">
+          <thead>
+            <tr>
+              <th>Enfant</th>
+              <th>Motif</th>
+              <th>Date</th>
+              <th>Heure début</th>
+              <th>Heure fin</th>
+              <th>Lieu départ</th>
+              <th>Lieu RDV</th>
+              <th>KM A/R</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="deplacementsBody">
+            <tr id="emptyRow">
+              <td colspan="9" class="empty-cell">Aucun déplacement enregistré</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="monthly-summary">
+        <div class="summary-box">
+          <span>Total kilomètres</span>
+          <strong id="totalKmMois">0 km</strong>
+        </div>
+        <div class="summary-box">
+          <span>Total montant estimé</span>
+          <strong id="totalMontantMois">0,00 €</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-success" type="button" id="btnPdfMensuel">Générer PDF mensuel</button>
+        <button class="btn btn-danger" type="button" id="btnViderListe">Vider la liste</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Carte</h2>
+      <div id="map"></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast">Action effectuée avec succès</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="script.js"></script>
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places&callback=initMap"
+    async
+    defer
+  ></script>
+</body>
+</html>

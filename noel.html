@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frais de Noël</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="top-bar">
+      <a href="index.html" class="back-link">← Accueil</a>
+      <h1 class="page-title center-title">Frais de Noël</h1>
+    </div>
+
+    <section class="card">
+      <h2>Informations générales</h2>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="moisNoel">Mois de l'état de frais</label>
+          <input type="month" id="moisNoel" />
+        </div>
+
+        <div class="field">
+          <label for="assistantNomNoel">Nom et prénom de l'assistant familial</label>
+          <input type="text" id="assistantNomNoel" placeholder="Ex. David Martin" />
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Ajouter une dépense de Noël</h2>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="dateNoel">Date</label>
+          <input type="date" id="dateNoel" />
+        </div>
+
+        <div class="field">
+          <label for="enfantNoel">Nom de l’enfant</label>
+          <input type="text" id="enfantNoel" placeholder="Ex. Rudy" />
+        </div>
+
+        <div class="field">
+          <label for="typeNoel">Type de frais</label>
+          <select id="typeNoel">
+            <option value="">Choisir</option>
+            <option value="Cadeau">Cadeau</option>
+            <option value="Jouet">Jouet</option>
+            <option value="Vêtement">Vêtement</option>
+            <option value="Repas">Repas</option>
+            <option value="Décoration">Décoration</option>
+            <option value="Sortie">Sortie</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="magasinNoel">Magasin / lieu</label>
+          <input type="text" id="magasinNoel" placeholder="Ex. Amazon, JouéClub, Carrefour..." />
+        </div>
+
+        <div class="field">
+          <label for="objetNoel">Objet / description</label>
+          <input type="text" id="objetNoel" placeholder="Ex. Lego, pull de Noël, repas..." />
+        </div>
+
+        <div class="field">
+          <label for="montantNoel">Montant (€)</label>
+          <input type="number" id="montantNoel" step="0.01" min="0" placeholder="Ex. 18.50" />
+        </div>
+
+        <div class="field">
+          <label for="justificatifNoel">Justificatif (PDF ou photo)</label>
+
+          <input
+            type="file"
+            id="justificatifNoel"
+            accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+            capture="environment"
+            hidden
+          />
+
+          <button type="button" class="btn btn-secondary" id="btnPhotoNoel">
+            📷 Ajouter photo ou facture
+          </button>
+
+          <small id="nomJustificatifNoel" class="saved-msg"></small>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-success" type="button" id="btnAjouterNoel">Ajouter la dépense</button>
+        <button class="btn btn-secondary" type="button" id="btnResetNoel">Réinitialiser</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Liste des frais de Noël</h2>
+
+      <div class="table-wrap">
+        <table class="deplacements-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Enfant</th>
+              <th>Type</th>
+              <th>Magasin / lieu</th>
+              <th>Objet</th>
+              <th>Montant</th>
+              <th>Justificatif</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="noelBody">
+            <tr>
+              <td colspan="8" class="empty-cell">Aucune dépense enregistrée</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="monthly-summary">
+        <div class="summary-box">
+          <span>Nombre de dépenses</span>
+          <strong id="totalLignesNoel">0</strong>
+        </div>
+        <div class="summary-box">
+          <span>Total du mois</span>
+          <strong id="totalMontantNoel">0,00 €</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-success" type="button" id="btnPdfNoel">Générer PDF mensuel</button>
+        <button class="btn btn-danger" type="button" id="btnViderNoel">Vider la liste</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="toastNoel" class="toast">Action effectuée avec succès</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="noel.js"></script>
+</body>
+</html>

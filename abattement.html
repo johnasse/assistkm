@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AssistKM - Abattement fiscal</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      padding: 24px 18px;
+      text-align: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+
+    .header p {
+      margin: 8px 0 0;
+      opacity: 0.95;
+      font-size: 15px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 28px auto;
+      padding: 0 16px 30px;
+    }
+
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .top-actions-left,
+    .top-actions-right {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      font-size: 22px;
+      color: #1f2937;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .field label {
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+
+    .field input,
+    .field select {
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 15px;
+      outline: none;
+      background: #fff;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .readonly {
+      background: #f9fafb;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    button,
+    .btn-link {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: 0.2s ease;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-secondary:hover {
+      background: #d1d5db;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .info-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      border-radius: 12px;
+      padding: 14px 16px;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .summary-card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .summary-label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+
+    .summary-value {
+      font-size: 22px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 930px;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f9fafb;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    td {
+      font-size: 14px;
+    }
+
+    .empty-cell {
+      text-align: center;
+      color: #6b7280;
+      font-style: italic;
+      padding: 18px;
+    }
+
+    .table-action-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-delete-ligne {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .btn-delete-ligne:hover {
+      background: #fecaca;
+    }
+
+    .code-box {
+      display: inline-block;
+      background: #f3f4f6;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .detail-block {
+      background: #0f172a;
+      color: #e5e7eb;
+      border-radius: 14px;
+      padding: 16px;
+      min-height: 160px;
+      white-space: pre-wrap;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      overflow-x: auto;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #111827;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+      opacity: 0;
+      transform: translateY(16px);
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Abattement fiscal</h1>
+    <p>Calcul de l’abattement forfaitaire des assistants familiaux</p>
+  </div>
+
+  <div class="container">
+    <div class="top-actions">
+      <div class="top-actions-left">
+        <a href="index.html" class="btn-link btn-secondary">Retour accueil</a>
+      </div>
+
+      <div class="top-actions-right">
+        <button type="button" class="btn-success" id="btnPdfAbattement">
+          Générer PDF
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Informations générales</h2>
+
+      <div class="grid">
+        <div class="field">
+          <label for="assistantNomAbattement">Nom / prénom assistant(e) familial(e)</label>
+          <input type="text" id="assistantNomAbattement" placeholder="Nom et prénom" />
+        </div>
+
+        <div class="field">
+          <label for="anneeFiscale">Année fiscale</label>
+          <select id="anneeFiscale">
+            <option value="2024">2024</option>
+            <option value="2025" selected>2025</option>
+            <option value="2026">2026</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="typeEmployeur">Type d’employeur</label>
+          <select id="typeEmployeur">
+            <option value="personne_morale" selected>Personne morale</option>
+            <option value="particulier">Particulier</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="totalSommesRecues">Total des sommes reçues (€)</label>
+          <input type="number" id="totalSommesRecues" step="0.01" min="0" placeholder="0.00" />
+        </div>
+
+        <div class="field">
+          <label for="smicAvantNov">SMIC horaire janvier → octobre</label>
+          <input type="number" id="smicAvantNov" class="readonly" step="0.01" readonly />
+        </div>
+
+        <div class="field">
+          <label for="smicApresNov">SMIC horaire novembre → décembre</label>
+          <input type="number" id="smicApresNov" class="readonly" step="0.01" readonly />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-primary" id="btnCalculerAbattement">
+          Calculer
+        </button>
+        <button type="button" class="btn-secondary" onclick="resetAbattement()">
+          Réinitialiser les résultats
+        </button>
+      </div>
+
+      <div class="info-box" style="margin-top: 18px;">
+        Revenu imposable à reporter :
+        <span class="code-box" id="caseImposable">1AJ à 1DJ</span>
+        &nbsp;&nbsp;•&nbsp;&nbsp;
+        Case abattement :
+        <span class="code-box" id="caseAbattement">1GA à 1JA</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Ajouter une ligne enfant</h2>
+
+      <div class="grid">
+        <div class="field">
+          <label for="nomEnfantLigne">Nom de l’enfant</label>
+          <input type="text" id="nomEnfantLigne" list="listeEnfantsAbattement" placeholder="Nom de l’enfant" />
+          <datalist id="listeEnfantsAbattement"></datalist>
+        </div>
+
+        <div class="field">
+          <label for="periodeLigne">Période</label>
+          <select id="periodeLigne">
+            <option value="avant" selected>Janvier → octobre</option>
+            <option value="apres">Novembre → décembre</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="typeAccueilLigne">Type d’accueil</label>
+          <select id="typeAccueilLigne">
+            <option value="non_permanent" selected>Non permanent</option>
+            <option value="non_permanent_majore">Non permanent majoré</option>
+            <option value="permanent">Permanent 24h</option>
+            <option value="permanent_majore">Permanent 24h majoré</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="joursLigne">Nombre de jours</label>
+          <input type="number" id="joursLigne" step="0.01" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-primary" id="btnAjouterLigneAbattement">
+          Ajouter la ligne
+        </button>
+        <button type="button" class="btn-secondary" id="btnResetLigneAbattement">
+          Vider la ligne
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tableau des lignes</h2>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Enfant</th>
+              <th>Période</th>
+              <th>Type d’accueil</th>
+              <th>Jours</th>
+              <th>Coeff.</th>
+              <th>SMIC</th>
+              <th>Montant</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="abattementBody">
+            <tr>
+              <td colspan="8" class="empty-cell">Aucune ligne enregistrée</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-danger" id="btnViderLignesAbattement">
+          Tout supprimer
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Résultats</h2>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">Nombre de lignes</div>
+          <div class="summary-value" id="nbLignesAbattement">0</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Total jours</div>
+          <div class="summary-value" id="totalJoursAbattement">0</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Abattement calculé</div>
+          <div class="summary-value" id="abattementCalcule">0,00 €</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Abattement retenu</div>
+          <div class="summary-value" id="abattementRetenu">0,00 €</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Montant imposable</div>
+          <div class="summary-value" id="montantImposable">0,00 €</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Détail du calcul</h2>
+      <div id="detailCalculAbattement" class="detail-block">Aucun calcul effectué.</div>
+    </div>
+  </div>
+
+  <div id="toastAbattement" class="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="history-manager.js"></script>
+  <script type="module" src="abattement.js"></script>
+</body>
+</html>

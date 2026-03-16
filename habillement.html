@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Habillement</title>
+  <link rel="stylesheet" href="habillement.css" />
+</head>
+<body>
+  <div class="page-container">
+    <header class="page-header">
+      <div>
+        <h1>Module Habillement</h1>
+        <p>Suivi du budget habillement avec calcul dégressif annuel</p>
+      </div>
+      <a href="index.html" class="btn-home">⬅ Retour à l'accueil</a>
+    </header>
+
+    <main class="grid-layout">
+      <section class="card">
+        <h2>Paramètres du dossier</h2>
+
+        <div class="form-group">
+          <label for="childName">Nom / prénom de l’enfant</label>
+          <input type="text" id="childName" placeholder="Ex : Juan" />
+        </div>
+
+        <div class="form-group">
+          <label for="yearSelect">Année</label>
+          <input type="number" id="yearSelect" min="2020" max="2100" />
+        </div>
+
+        <div class="form-group">
+          <label for="ageBracket">Tranche d’âge</label>
+          <select id="ageBracket">
+            <option value="0-11">0 à 11 ans</option>
+            <option value="12-21">12 à 21 ans</option>
+          </select>
+        </div>
+
+        <h3 class="sub-title">Barèmes modifiables</h3>
+
+        <div class="form-group">
+          <label for="rate0_11">Montant mensuel 0 à 11 ans (€)</label>
+          <input type="number" id="rate0_11" step="0.01" min="0" />
+        </div>
+
+        <div class="form-group">
+          <label for="rate12_21">Montant mensuel 12 à 21 ans (€)</label>
+          <input type="number" id="rate12_21" step="0.01" min="0" />
+        </div>
+
+        <button class="btn btn-secondary" id="saveRatesBtn">Enregistrer les barèmes</button>
+
+        <div class="info-box">
+          Le budget annuel se calcule automatiquement selon la tranche d’âge choisie.<br />
+          Exemple : 47,33 € × 12 = 567,96 € par an.<br />
+          Chaque dépense vient se déduire du budget restant.
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Résumé</h2>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <span class="summary-label">Mensuel</span>
+            <strong class="orange" id="monthlyBudget">0,00 €</strong>
+          </div>
+
+          <div class="summary-box">
+            <span class="summary-label">Budget annuel</span>
+            <strong class="blue" id="annualBudget">0,00 €</strong>
+          </div>
+
+          <div class="summary-box">
+            <span class="summary-label">Total dépensé</span>
+            <strong class="red" id="totalSpent">0,00 €</strong>
+          </div>
+
+          <div class="summary-box">
+            <span class="summary-label">Reste disponible</span>
+            <strong class="green" id="remainingBudget">0,00 €</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Ajouter une dépense</h2>
+
+        <div class="form-group">
+          <label for="expenseDate">Date</label>
+          <input type="date" id="expenseDate" />
+        </div>
+
+        <div class="form-group">
+          <label for="expenseMonth">Mois concerné</label>
+          <select id="expenseMonth">
+            <option value="">-- Sélectionner --</option>
+            <option>Janvier</option>
+            <option>Février</option>
+            <option>Mars</option>
+            <option>Avril</option>
+            <option>Mai</option>
+            <option>Juin</option>
+            <option>Juillet</option>
+            <option>Août</option>
+            <option>Septembre</option>
+            <option>Octobre</option>
+            <option>Novembre</option>
+            <option>Décembre</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="expenseLabel">Libellé</label>
+          <input type="text" id="expenseLabel" placeholder="Ex : manteau, chaussures, pyjama..." />
+        </div>
+
+        <div class="form-group">
+          <label for="expenseAmount">Montant (€)</label>
+          <input type="number" id="expenseAmount" step="0.01" min="0" placeholder="Ex : 50" />
+        </div>
+
+        <div class="form-group">
+          <label for="expenseNotes">Commentaire</label>
+          <textarea id="expenseNotes" placeholder="Détail de l’achat..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="expenseFiles">Justificatifs</label>
+          <input type="file" id="expenseFiles" multiple />
+        </div>
+
+        <button class="btn btn-primary" id="addExpenseBtn">Enregistrer la dépense</button>
+      </section>
+
+      <section class="card full-width">
+        <h2>Historique des dépenses</h2>
+        <div id="historyContainer"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="habillement.js"></script>
+</body>
+</html>
