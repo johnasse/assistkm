@@ -1,3 +1,6 @@
+import { auth } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
 let map;
 let directionsService;
 let directionsRenderer;
@@ -6,25 +9,84 @@ let totalDistanceKm = 0;
 let totalDurationSeconds = 0;
 let totalAmount = 0;
 
-let deplacements = JSON.parse(localStorage.getItem("deplacementsMensuels") || "[]");
+let deplacements = [];
+let currentUid = null;
+let mapReady = false;
+let eventsBound = false;
+
+function getUid() {
+  return currentUid || auth.currentUser?.uid || "guest";
+}
+
+function getDeplacementsKey() {
+  return `deplacementsMensuels_${getUid()}`;
+}
+
+function getDomicileKey() {
+  return `adresseDomicile_${getUid()}`;
+}
+
+function getAssistantNomKey() {
+  return `assistantNom_${getUid()}`;
+}
+
+function getMoisEtatKey() {
+  return `moisEtat_${getUid()}`;
+}
+
+function getHistoriquePdfKey() {
+  return `historiquePDF_${getUid()}`;
+}
 
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 49.7579, lng: 0.3746 },
-    zoom: 10,
+    zoom: 10
   });
 
   directionsService = new google.maps.DirectionsService();
   directionsRenderer = new google.maps.DirectionsRenderer({
     map,
-    suppressMarkers: false,
+    suppressMarkers: false
   });
 
-  loadSavedInfos();
-  addDestination();
+  mapReady = true;
+
   bindAutocomplete(document.getElementById("domicile"));
   bindAutocomplete(document.getElementById("depart"));
 
+  if (document.querySelectorAll(".destination-input").length === 0) {
+    addDestination();
+  }
+
+  if (!eventsBound) {
+    bindEvents();
+    eventsBound = true;
+  }
+
+  loadUserDataIfReady();
+}
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  currentUid = user.uid;
+  loadUserDataIfReady();
+});
+
+function loadUserDataIfReady() {
+  if (!mapReady || !currentUid) return;
+
+  deplacements = JSON.parse(localStorage.getItem(getDeplacementsKey()) || "[]");
+  loadSavedInfos();
+  renderDeplacements();
+  updateTotals();
+}
+
+function bindEvents() {
   document.getElementById("btnAddDestination").addEventListener("click", () => addDestination());
   document.getElementById("btnSaveDomicile").addEventListener("click", saveDomicile);
   document.getElementById("btnCalculer").addEventListener("click", calculerTrajet);
@@ -36,30 +98,31 @@ function initMap() {
   document.getElementById("domicile").addEventListener("input", syncDepartIfNeeded);
   document.getElementById("assistantNom").addEventListener("input", saveAssistantNom);
   document.getElementById("moisEtat").addEventListener("change", saveMoisEtat);
-
-  renderDeplacements();
 }
 
 function bindAutocomplete(input) {
+  if (!input || !window.google?.maps?.places) return;
+
   new google.maps.places.Autocomplete(input, {
     types: ["geocode"],
-    componentRestrictions: { country: "fr" },
+    componentRestrictions: { country: "fr" }
   });
 }
 
 function loadSavedInfos() {
-  const domicile = localStorage.getItem("adresseDomicile");
-  const assistantNom = localStorage.getItem("assistantNom");
-  const moisEtat = localStorage.getItem("moisEtat");
+  const domicile = localStorage.getItem(getDomicileKey());
+  const assistantNom = localStorage.getItem(getAssistantNomKey());
+  const moisEtat = localStorage.getItem(getMoisEtatKey());
 
   if (domicile) {
     document.getElementById("domicile").value = domicile;
     document.getElementById("domicileSaved").textContent = "Domicile chargé automatiquement.";
+  } else {
+    document.getElementById("domicile").value = "";
+    document.getElementById("domicileSaved").textContent = "";
   }
 
-  if (assistantNom) {
-    document.getElementById("assistantNom").value = assistantNom;
-  }
+  document.getElementById("assistantNom").value = assistantNom || "";
 
   if (moisEtat) {
     document.getElementById("moisEtat").value = moisEtat;
@@ -69,14 +132,16 @@ function loadSavedInfos() {
     const year = now.getFullYear();
     document.getElementById("moisEtat").value = `${year}-${month}`;
   }
+
+  toggleDepartDomicile();
 }
 
 function saveAssistantNom() {
-  localStorage.setItem("assistantNom", document.getElementById("assistantNom").value.trim());
+  localStorage.setItem(getAssistantNomKey(), document.getElementById("assistantNom").value.trim());
 }
 
 function saveMoisEtat() {
-  localStorage.setItem("moisEtat", document.getElementById("moisEtat").value);
+  localStorage.setItem(getMoisEtatKey(), document.getElementById("moisEtat").value);
 }
 
 function addDestination(value = "") {
@@ -86,7 +151,7 @@ function addDestination(value = "") {
   const row = document.createElement("div");
   row.className = "dest-row";
   row.innerHTML = `
-    <input type="text" class="destination-input" placeholder="Destination ${index}" value="${value}">
+    <input type="text" class="destination-input" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
     <button type="button" class="btn btn-danger">Supprimer</button>
   `;
 
@@ -100,6 +165,10 @@ function addDestination(value = "") {
   btnDelete.addEventListener("click", () => {
     row.remove();
     refreshDestinationPlaceholders();
+
+    if (container.querySelectorAll(".dest-row").length === 0) {
+      addDestination();
+    }
   });
 }
 
@@ -112,12 +181,13 @@ function refreshDestinationPlaceholders() {
 
 function saveDomicile() {
   const domicile = document.getElementById("domicile").value.trim();
+
   if (!domicile) {
     alert("Merci de saisir l'adresse du domicile.");
     return;
   }
 
-  localStorage.setItem("adresseDomicile", domicile);
+  localStorage.setItem(getDomicileKey(), domicile);
   document.getElementById("domicileSaved").textContent = "Domicile enregistré avec succès.";
   syncDepartIfNeeded();
   showToast("Domicile enregistré");
@@ -203,10 +273,10 @@ function buildRouteRequest(depart, destinations, retourDomicile, domicile) {
       destination: domicile,
       waypoints: destinations.map((dest) => ({
         location: dest,
-        stopover: true,
+        stopover: true
       })),
       travelMode: google.maps.TravelMode.DRIVING,
-      optimizeWaypoints: false,
+      optimizeWaypoints: false
     };
   }
 
@@ -215,7 +285,7 @@ function buildRouteRequest(depart, destinations, retourDomicile, domicile) {
       origin: depart,
       destination: destinations[0],
       travelMode: google.maps.TravelMode.DRIVING,
-      optimizeWaypoints: false,
+      optimizeWaypoints: false
     };
   }
 
@@ -224,10 +294,10 @@ function buildRouteRequest(depart, destinations, retourDomicile, domicile) {
     destination: destinations[destinations.length - 1],
     waypoints: destinations.slice(0, -1).map((dest) => ({
       location: dest,
-      stopover: true,
+      stopover: true
     })),
     travelMode: google.maps.TravelMode.DRIVING,
-    optimizeWaypoints: false,
+    optimizeWaypoints: false
   };
 }
 
@@ -243,6 +313,7 @@ function ajouterDeplacement() {
   const heureDebut = document.getElementById("heureDebut").value;
   const heureFin = document.getElementById("heureFin").value;
   const depart = document.getElementById("depart").value.trim();
+  const professionnel = document.getElementById("professionnel").value.trim();
 
   const destinations = [...document.querySelectorAll(".destination-input")]
     .map((input) => input.value.trim())
@@ -263,9 +334,10 @@ function ajouterDeplacement() {
     heureDebut,
     heureFin,
     depart,
+    professionnel,
     lieuRdv,
     km: Number(totalDistanceKm.toFixed(1)),
-    montant: Number(totalAmount.toFixed(2)),
+    montant: Number(totalAmount.toFixed(2))
   });
 
   saveDeplacements();
@@ -294,8 +366,8 @@ function renderDeplacements() {
       <td>${escapeHtml(item.enfant)}</td>
       <td>${escapeHtml(item.motif)}</td>
       <td>${formatDateFr(item.dateTrajet)}</td>
-      <td>${item.heureDebut || "-"}</td>
-      <td>${item.heureFin || "-"}</td>
+      <td>${escapeHtml(item.heureDebut || "-")}</td>
+      <td>${escapeHtml(item.heureFin || "-")}</td>
       <td>${escapeHtml(item.depart)}</td>
       <td>${escapeHtml(item.lieuRdv)}</td>
       <td>${item.km.toFixed(1).replace(".", ",")}</td>
@@ -333,7 +405,7 @@ function viderListe() {
 }
 
 function saveDeplacements() {
-  localStorage.setItem("deplacementsMensuels", JSON.stringify(deplacements));
+  localStorage.setItem(getDeplacementsKey(), JSON.stringify(deplacements));
 }
 
 function updateTotals() {
@@ -353,6 +425,11 @@ function genererPDFMensuel() {
     return;
   }
 
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert("La librairie PDF n'est pas chargée.");
+    return;
+  }
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF("landscape", "mm", "a4");
 
@@ -360,9 +437,7 @@ function genererPDFMensuel() {
   const assistantNom = document.getElementById("assistantNom").value.trim() || "-";
   const totalKm = deplacements.reduce((sum, item) => sum + item.km, 0);
 
-  const pageWidth = 297;
   const margin = 10;
-
   let y = 14;
 
   doc.setFont("helvetica", "bold");
@@ -388,7 +463,7 @@ function genererPDFMensuel() {
     { key: "heureFin", title: "H. fin", width: 18, align: "center" },
     { key: "depart", title: "Lieu départ", width: 60, align: "left" },
     { key: "lieuRdv", title: "Lieu RDV", width: 60, align: "left" },
-    { key: "km", title: "KM A/R", width: 18, align: "right" },
+    { key: "km", title: "KM A/R", width: 18, align: "right" }
   ];
 
   const headerHeight = 9;
@@ -422,7 +497,7 @@ function genererPDFMensuel() {
       item.heureFin || "-",
       safeText(item.depart),
       safeText(item.lieuRdv),
-      item.km.toFixed(1).replace(".", ","),
+      item.km.toFixed(1).replace(".", ",")
     ];
 
     const rowLines = rowValues.map((value, i) => {
@@ -516,25 +591,24 @@ function genererPDFMensuel() {
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
 
-  // Téléchargement du PDF
   doc.save(fileName);
 
-  // Enregistrement dans l'historique
   const pdfBlob = doc.output("blob");
   const reader = new FileReader();
 
   reader.onloadend = function () {
-    let historique = JSON.parse(localStorage.getItem("historiquePDF") || "[]");
+    let historique = JSON.parse(localStorage.getItem(getHistoriquePdfKey()) || "[]");
 
     historique.push({
       id: Date.now(),
+      type: "Frais kilométriques",
       mois: formatMonthFr(moisEtat),
       nom: fileName,
       data: reader.result,
-      dateGeneration: new Date().toLocaleString("fr-FR"),
+      dateGeneration: new Date().toLocaleString("fr-FR")
     });
 
-    localStorage.setItem("historiquePDF", JSON.stringify(historique));
+    localStorage.setItem(getHistoriquePdfKey(), JSON.stringify(historique));
     showToast("PDF mensuel généré et enregistré");
   };
 
@@ -693,6 +767,22 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}function ouvrirCamera() {
-  document.getElementById("justificatif").click();
 }
+
+function escapeHtmlAttr(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function ouvrirCamera() {
+  const justificatif = document.getElementById("justificatif");
+  if (justificatif) {
+    justificatif.click();
+  }
+}
+
+window.initMap = initMap;
+window.ouvrirCamera = ouvrirCamera;

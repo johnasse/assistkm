@@ -1,73 +1,85 @@
 import { requirePdfAccess } from "./premium.js";
-import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
+import { savePdfToHistory } from "./pdf-history.js";
+import { auth } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-let fraisAutres = JSON.parse(localStorage.getItem("fraisAutres") || "[]");
-
+let fraisAutres = [];
 let autresDb = null;
+let uid = null;
 
-document.addEventListener("DOMContentLoaded", async () => {
+function getStorageKey(){
+return `fraisAutres_${uid}`
+}
 
-await initDB()
+onAuthStateChanged(auth,(user)=>{
+
+if(!user){
+window.location.href="login.html"
+return
+}
+
+uid=user.uid
+
+fraisAutres=JSON.parse(localStorage.getItem(getStorageKey())||"[]")
 
 bindEvents()
-
 render()
 
 })
 
+document.addEventListener("DOMContentLoaded",async()=>{
 
+await initDB()
+
+})
 
 function bindEvents(){
 
 document.getElementById("btnAjouterAutres")
-.addEventListener("click", ajouter)
+.addEventListener("click",ajouter)
 
 document.getElementById("btnResetAutres")
-.addEventListener("click", resetForm)
+.addEventListener("click",resetForm)
 
 document.getElementById("btnPdfAutres")
-.addEventListener("click", genererPDF)
+.addEventListener("click",genererPDF)
 
 document.getElementById("btnViderAutres")
-.addEventListener("click", vider)
+.addEventListener("click",vider)
 
 document.getElementById("btnPhotoAutres")
-.addEventListener("click", () => {
+.addEventListener("click",()=>{
 
 document.getElementById("justificatifAutres").click()
 
 })
 
 document.getElementById("justificatifAutres")
-.addEventListener("change", updateNom)
+.addEventListener("change",updateNom)
 
 }
-
-
 
 function updateNom(){
 
-const file = document.getElementById("justificatifAutres").files[0]
+const file=document.getElementById("justificatifAutres").files[0]
 
-document.getElementById("nomJustificatifAutres").textContent =
-file ? file.name : ""
+document.getElementById("nomJustificatifAutres").textContent=
+file?file.name:""
 
 }
 
-
-
 async function ajouter(){
 
-const date = document.getElementById("dateAutres").value
-const enfant = document.getElementById("enfantAutres").value
-const type = document.getElementById("typeAutres").value
-const lieu = document.getElementById("lieuAutres").value
-const objet = document.getElementById("objetAutres").value
-const montant = parseFloat(document.getElementById("montantAutres").value)
+const date=document.getElementById("dateAutres").value
+const enfant=document.getElementById("enfantAutres").value
+const type=document.getElementById("typeAutres").value
+const lieu=document.getElementById("lieuAutres").value
+const objet=document.getElementById("objetAutres").value
+const montant=parseFloat(document.getElementById("montantAutres").value)
 
-const file = document.getElementById("justificatifAutres").files[0] || null
+const file=document.getElementById("justificatifAutres").files[0]||null
 
-if(!date || !objet || !montant){
+if(!date||!objet||!montant){
 alert("Champs manquants")
 return
 }
@@ -106,14 +118,10 @@ justificatifNom
 })
 
 save()
-
 render()
-
 resetForm()
 
 }
-
-
 
 function render(){
 
@@ -130,7 +138,6 @@ body.innerHTML=`
 `
 
 updateTotals()
-
 return
 
 }
@@ -193,19 +200,14 @@ updateTotals()
 
 }
 
-
-
 function supprimer(id){
 
 fraisAutres=fraisAutres.filter(f=>f.id!=id)
 
 save()
-
 render()
 
 }
-
-
 
 function updateTotals(){
 
@@ -218,15 +220,11 @@ total.toFixed(2)+" €"
 
 }
 
-
-
 function save(){
 
-localStorage.setItem("fraisAutres",JSON.stringify(fraisAutres))
+localStorage.setItem(getStorageKey(),JSON.stringify(fraisAutres))
 
 }
-
-
 
 function resetForm(){
 
@@ -234,13 +232,11 @@ document.querySelectorAll("input").forEach(i=>i.value="")
 
 }
 
-
-
 async function genererPDF(){
 
 const allowed=await requirePdfAccess()
 
-if(!allowed) return
+if(!allowed)return
 
 const {jsPDF}=window.jspdf
 
@@ -269,8 +265,6 @@ doc.save("autres-frais.pdf")
 
 }
 
-
-
 function vider(){
 
 if(confirm("Tout supprimer ?")){
@@ -278,14 +272,11 @@ if(confirm("Tout supprimer ?")){
 fraisAutres=[]
 
 save()
-
 render()
 
 }
 
 }
-
-
 
 function initDB(){
 
@@ -306,8 +297,6 @@ request.onerror=()=>reject()
 
 }
 
-
-
 function saveFile(file){
 
 return new Promise((resolve)=>{
@@ -321,8 +310,6 @@ resolve()
 })
 
 }
-
-
 
 function getFile(id){
 
@@ -338,8 +325,6 @@ req.onsuccess=()=>resolve(req.result)
 
 }
 
-
-
 async function voir(id){
 
 const record=await getFile(id)
@@ -349,8 +334,6 @@ const url=URL.createObjectURL(record.file)
 window.open(url)
 
 }
-
-
 
 async function download(id){
 

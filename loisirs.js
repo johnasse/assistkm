@@ -1,13 +1,53 @@
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
+import { auth } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-let fraisLoisirs = JSON.parse(localStorage.getItem("fraisLoisirsMensuels") || "[]");
+let fraisLoisirs = [];
 let loisirsDb = null;
+let currentUid = null;
+let eventsBound = false;
+
+function getUid() {
+  return currentUid || auth.currentUser?.uid || "guest";
+}
+
+function getStorageKey() {
+  return `fraisLoisirsMensuels_${getUid()}`;
+}
+
+function getAssistantNameKey() {
+  return `assistantNomLoisirs_${getUid()}`;
+}
+
+function getFallbackAssistantNameKey() {
+  return `assistantNom_${getUid()}`;
+}
+
+function getMonthKey() {
+  return `moisLoisirs_${getUid()}`;
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   await initLoisirsDB();
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  currentUid = user.uid;
+  fraisLoisirs = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+
   chargerInfosLoisirs();
-  bindLoisirsEvents();
+
+  if (!eventsBound) {
+    bindLoisirsEvents();
+    eventsBound = true;
+  }
+
   renderLoisirs();
 });
 
@@ -28,10 +68,11 @@ function bindLoisirsEvents() {
 
 function chargerInfosLoisirs() {
   const assistantNom =
-    localStorage.getItem("assistantNomLoisirs") ||
-    localStorage.getItem("assistantNom") ||
+    localStorage.getItem(getAssistantNameKey()) ||
+    localStorage.getItem(getFallbackAssistantNameKey()) ||
     "";
-  const moisLoisirs = localStorage.getItem("moisLoisirs");
+
+  const moisLoisirs = localStorage.getItem(getMonthKey());
 
   document.getElementById("assistantNomLoisirs").value = assistantNom;
 
@@ -47,13 +88,13 @@ function chargerInfosLoisirs() {
 
 function saveAssistantNomLoisirs() {
   localStorage.setItem(
-    "assistantNomLoisirs",
+    getAssistantNameKey(),
     document.getElementById("assistantNomLoisirs").value.trim()
   );
 }
 
 function saveMoisLoisirs() {
-  localStorage.setItem("moisLoisirs", document.getElementById("moisLoisirs").value);
+  localStorage.setItem(getMonthKey(), document.getElementById("moisLoisirs").value);
 }
 
 function updateNomJustificatifLoisirs() {
@@ -82,16 +123,17 @@ async function ajouterFraisLoisirs() {
   let justificatifType = "";
 
   if (justificatifFile) {
-    justificatifId = `justif-loisirs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    justificatifId = `justif-loisirs-${getUid()}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     justificatifNom = justificatifFile.name;
     justificatifType = justificatifFile.type || "";
 
     await saveFileToLoisirsDB({
       id: justificatifId,
+      ownerUid: getUid(),
       name: justificatifNom,
       type: justificatifType,
       file: justificatifFile,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     });
   }
 
@@ -105,7 +147,7 @@ async function ajouterFraisLoisirs() {
     montant: Number(montant.toFixed(2)),
     justificatifId,
     justificatifNom,
-    justificatifType,
+    justificatifType
   });
 
   saveFraisLoisirs();
@@ -175,6 +217,7 @@ function renderLoisirs() {
 
 async function supprimerFraisLoisirs(id) {
   const item = fraisLoisirs.find((row) => row.id === id);
+
   if (item?.justificatifId) {
     await deleteFileFromLoisirsDB(item.justificatifId);
   }
@@ -212,7 +255,7 @@ function updateTotalsLoisirs() {
 }
 
 function saveFraisLoisirs() {
-  localStorage.setItem("fraisLoisirsMensuels", JSON.stringify(fraisLoisirs));
+  localStorage.setItem(getStorageKey(), JSON.stringify(fraisLoisirs));
 }
 
 function resetFormLoisirs() {
@@ -263,7 +306,7 @@ async function genererPDFLoisirs() {
     { title: "Magasin / lieu", width: 42, align: "left" },
     { title: "Objet", width: 82, align: "left" },
     { title: "Montant", width: 22, align: "right" },
-    { title: "Justificatif", width: 45, align: "left" },
+    { title: "Justificatif", width: 45, align: "left" }
   ];
 
   const headerHeight = 9;
@@ -296,7 +339,7 @@ async function genererPDFLoisirs() {
       safeText(item.lieu),
       safeText(item.objet),
       item.montant.toFixed(2).replace(".", ",") + " €",
-      item.justificatifNom ? safeText(item.justificatifNom) : "Aucun",
+      item.justificatifNom ? safeText(item.justificatifNom) : "Aucun"
     ];
 
     const rowLines = rowValues.map((value, i) => {
@@ -360,7 +403,7 @@ async function genererPDFLoisirs() {
   savePdfToHistory(doc, {
     type: "Sports et loisirs",
     nom: fileName,
-    mois: formatMonthLabel(mois),
+    mois: formatMonthLabel(mois)
   });
 
   doc.save(fileName);
@@ -496,6 +539,11 @@ async function voirJustificatifLoisirs(justificatifId) {
     return;
   }
 
+  if (record.ownerUid && record.ownerUid !== getUid()) {
+    alert("Accès refusé à ce justificatif.");
+    return;
+  }
+
   const url = URL.createObjectURL(record.file);
   window.open(url, "_blank");
 
@@ -509,6 +557,11 @@ async function telechargerJustificatifLoisirs(justificatifId) {
 
   if (!record || !record.file) {
     alert("Justificatif introuvable.");
+    return;
+  }
+
+  if (record.ownerUid && record.ownerUid !== getUid()) {
+    alert("Accès refusé à ce justificatif.");
     return;
   }
 

@@ -1,4 +1,8 @@
-let historique = JSON.parse(localStorage.getItem("historiquePDF") || "[]");
+import { auth } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+let historique = [];
+let storageKey = "historiquePDF_guest";
 
 const body = document.getElementById("historiqueBody");
 const filtreType = document.getElementById("filtreType");
@@ -8,24 +12,45 @@ const nbResultats = document.getElementById("nbResultatsHistorique");
 const btnResetFiltres = document.getElementById("btnResetFiltres");
 
 bindHistoriqueEvents();
-renderHistorique();
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  storageKey = `historiquePDF_${user.uid}`;
+  historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+  renderHistorique();
+});
 
 function bindHistoriqueEvents() {
-  filtreType.addEventListener("change", renderHistorique);
-  filtreMois.addEventListener("input", renderHistorique);
-  filtreRecherche.addEventListener("input", renderHistorique);
-  btnResetFiltres.addEventListener("click", resetFiltres);
+  if (filtreType) {
+    filtreType.addEventListener("change", renderHistorique);
+  }
+
+  if (filtreMois) {
+    filtreMois.addEventListener("input", renderHistorique);
+  }
+
+  if (filtreRecherche) {
+    filtreRecherche.addEventListener("input", renderHistorique);
+  }
+
+  if (btnResetFiltres) {
+    btnResetFiltres.addEventListener("click", resetFiltres);
+  }
 }
 
 function resetFiltres() {
-  filtreType.value = "";
-  filtreMois.value = "";
-  filtreRecherche.value = "";
+  if (filtreType) filtreType.value = "";
+  if (filtreMois) filtreMois.value = "";
+  if (filtreRecherche) filtreRecherche.value = "";
   renderHistorique();
 }
 
 function getDocumentType(item) {
-  if (item.type && item.type.trim() !== "") {
+  if (item.type && String(item.type).trim() !== "") {
     return item.type;
   }
 
@@ -33,6 +58,22 @@ function getDocumentType(item) {
 
   if (nom.includes("kilometrique") || nom.includes("deplacements")) {
     return "Frais kilométriques";
+  }
+
+  if (nom.includes("parking")) {
+    return "Frais de parking";
+  }
+
+  if (nom.includes("habillement")) {
+    return "Habillement";
+  }
+
+  if (nom.includes("abattement")) {
+    return "Abattement";
+  }
+
+  if (nom.includes("formation")) {
+    return "Formation";
   }
 
   if (nom.includes("noel")) {
@@ -51,13 +92,17 @@ function getDocumentType(item) {
     return "Autres frais";
   }
 
+  if (nom.includes("note")) {
+    return "Note de frais";
+  }
+
   return "Non classé";
 }
 
 function getHistoriqueFiltre() {
-  const typeValue = filtreType.value.trim().toLowerCase();
-  const moisValue = filtreMois.value.trim().toLowerCase();
-  const rechercheValue = filtreRecherche.value.trim().toLowerCase();
+  const typeValue = (filtreType?.value || "").trim().toLowerCase();
+  const moisValue = (filtreMois?.value || "").trim().toLowerCase();
+  const rechercheValue = (filtreRecherche?.value || "").trim().toLowerCase();
 
   return historique
     .slice()
@@ -82,6 +127,8 @@ function getHistoriqueFiltre() {
 }
 
 function renderHistorique() {
+  if (!body || !nbResultats) return;
+
   const liste = getHistoriqueFiltre();
 
   body.innerHTML = "";
@@ -98,7 +145,6 @@ function renderHistorique() {
 
   liste.forEach((item) => {
     const typeAffiche = getDocumentType(item);
-
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
@@ -107,10 +153,10 @@ function renderHistorique() {
       <td>${escapeHtml(item.nom || "-")}</td>
       <td>${escapeHtml(item.dateGeneration || "-")}</td>
       <td>
-        <button class="table-action-btn btn-download" data-id="${item.id}" style="background:#16a34a;">
+        <button class="table-action-btn btn-download" data-id="${escapeHtml(String(item.id))}" style="background:#16a34a;">
           Télécharger
         </button>
-        <button class="table-action-btn btn-delete" data-id="${item.id}" style="margin-left:8px;">
+        <button class="table-action-btn btn-delete" data-id="${escapeHtml(String(item.id))}" style="margin-left:8px;">
           Supprimer
         </button>
       </td>
@@ -120,17 +166,17 @@ function renderHistorique() {
   });
 
   document.querySelectorAll(".btn-download").forEach((btn) => {
-    btn.addEventListener("click", () => telechargerPdf(Number(btn.dataset.id)));
+    btn.addEventListener("click", () => telechargerPdf(btn.dataset.id));
   });
 
   document.querySelectorAll(".btn-delete").forEach((btn) => {
-    btn.addEventListener("click", () => supprimerPdf(Number(btn.dataset.id)));
+    btn.addEventListener("click", () => supprimerPdf(btn.dataset.id));
   });
 }
 
 function telechargerPdf(id) {
-  const item = historique.find((pdf) => pdf.id === id);
-  if (!item) return;
+  const item = historique.find((pdf) => String(pdf.id) === String(id));
+  if (!item || !item.data) return;
 
   const link = document.createElement("a");
   link.href = item.data;
@@ -144,8 +190,8 @@ function supprimerPdf(id) {
   const ok = confirm("Voulez-vous vraiment supprimer ce PDF de l’historique ?");
   if (!ok) return;
 
-  historique = historique.filter((pdf) => pdf.id !== id);
-  localStorage.setItem("historiquePDF", JSON.stringify(historique));
+  historique = historique.filter((pdf) => String(pdf.id) !== String(id));
+  localStorage.setItem(storageKey, JSON.stringify(historique));
   renderHistorique();
 }
 
