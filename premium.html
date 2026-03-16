@@ -1,184 +1,232 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AssistKM Premium</title>
-  <style>
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 0;
-      text-align: center;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    .container {
-      max-width: 700px;
-      margin: 50px auto;
-      background: #ffffff;
-      padding: 40px 30px;
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-    }
+<title>AssistKM Premium</title>
 
-    h1 {
-      margin-top: 0;
-      margin-bottom: 10px;
-      color: #111827;
-    }
+<style>
 
-    .subtitle {
-      color: #4b5563;
-      margin-bottom: 25px;
-    }
+body{
+font-family:Arial,Helvetica,sans-serif;
+background:#f5f5f5;
+margin:0;
+padding:0;
+text-align:center;
+}
 
-    .price {
-      font-size: 42px;
-      font-weight: 700;
-      color: #111827;
-      margin: 10px 0;
-    }
+.container{
+max-width:700px;
+margin:60px auto;
+background:#ffffff;
+padding:40px 30px;
+border-radius:14px;
+box-shadow:0 10px 30px rgba(0,0,0,0.08);
+}
 
-    .trial {
-      color: #15803d;
-      font-weight: 700;
-      margin-bottom: 25px;
-    }
+h1{
+margin-top:0;
+color:#111827;
+}
 
-    .features {
-      text-align: left;
-      margin: 30px auto;
-      max-width: 420px;
-      padding-left: 20px;
-      color: #111827;
-      line-height: 1.8;
-    }
+.subtitle{
+color:#4b5563;
+margin-bottom:25px;
+}
 
-    .btn {
-      display: inline-block;
-      background: #22c55e;
-      border: none;
-      color: #ffffff;
-      font-size: 18px;
-      padding: 14px 28px;
-      border-radius: 10px;
-      cursor: pointer;
-      text-decoration: none;
-      margin-top: 20px;
-    }
+.price{
+font-size:42px;
+font-weight:700;
+margin:10px 0;
+}
 
-    .btn:hover {
-      background: #16a34a;
-    }
+.trial{
+color:#15803d;
+font-weight:700;
+margin-bottom:25px;
+}
 
-    .btn-secondary {
-      display: inline-block;
-      margin-top: 16px;
-      margin-left: 10px;
-      background: #2563eb;
-      border: none;
-      color: #ffffff;
-      font-size: 16px;
-      padding: 12px 22px;
-      border-radius: 10px;
-      cursor: pointer;
-      text-decoration: none;
-    }
+.features{
+text-align:left;
+margin:30px auto;
+max-width:420px;
+padding-left:20px;
+line-height:1.8;
+}
 
-    .btn-secondary:hover {
-      background: #1d4ed8;
-    }
+.btn{
+background:#22c55e;
+border:none;
+color:white;
+font-size:18px;
+padding:14px 28px;
+border-radius:10px;
+cursor:pointer;
+margin-top:20px;
+}
 
-    .status {
-      margin-top: 18px;
-      font-weight: 700;
-    }
+.btn:hover{
+background:#16a34a;
+}
 
-    .note {
-      margin-top: 18px;
-      color: #6b7280;
-      font-size: 14px;
-    }
+.btn-secondary{
+background:#2563eb;
+border:none;
+color:white;
+font-size:16px;
+padding:12px 22px;
+border-radius:10px;
+cursor:pointer;
+margin-left:10px;
+}
 
-    .actions {
-      margin-top: 12px;
-    }
-  </style>
+.btn-secondary:hover{
+background:#1d4ed8;
+}
+
+.status{
+margin-top:18px;
+font-weight:700;
+}
+
+.note{
+margin-top:18px;
+color:#6b7280;
+font-size:14px;
+}
+
+.alert-success{
+background:#dcfce7;
+color:#15803d;
+padding:12px;
+border-radius:8px;
+margin-bottom:15px;
+}
+
+.alert-cancel{
+background:#fee2e2;
+color:#b91c1c;
+padding:12px;
+border-radius:8px;
+margin-bottom:15px;
+}
+
+</style>
 </head>
+
 <body>
-  <div class="container">
-    <h1>AssistKM Premium</h1>
-    <p class="subtitle">
-      Débloquez les fonctions avancées de l’application.
-    </p>
 
-    <div class="price">2 € / mois</div>
-    <div class="trial">7 jours gratuits • Annulable à tout moment</div>
+<div class="container">
 
-    <ul class="features">
-      <li>Export PDF illimité</li>
-      <li>Module Abattement fiscal</li>
-      <li>Fonctions premium avancées</li>
-      <li>Accès complet pendant l’essai gratuit</li>
-    </ul>
+<h1>AssistKM Premium</h1>
 
-    <div class="actions">
-      <button id="btnSubscribe" class="btn" type="button">
-        S’abonner maintenant
-      </button>
+<p class="subtitle">
+Débloquez les fonctions avancées de l’application.
+</p>
 
-      <button id="btnPortal" class="btn-secondary" type="button">
-        Gérer mon abonnement
-      </button>
-    </div>
+<div id="alert"></div>
 
-    <div id="premiumStatus" class="status">Vérification du compte...</div>
-    <div id="pdfQuotaStatus" class="status"></div>
+<div class="price">2 € / mois</div>
 
-    <p class="note">
-      Les comptes gratuits sont limités à 2 PDF par mois.
-    </p>
-  </div>
+<div class="trial">
+7 jours gratuits • Annulable à tout moment
+</div>
 
-  <script type="module">
-    import { requireAuth } from "./auth.js";
-    import {
-      startStripeSubscriptionCheckout,
-      updatePremiumBadge,
-      updatePdfQuotaBadge,
-      openCustomerPortal
-    } from "./premium.js";
+<ul class="features">
 
-    await requireAuth();
+<li>Export PDF illimité</li>
+<li>Module Abattement fiscal</li>
+<li>Fonctions premium avancées</li>
+<li>Accès complet pendant l’essai gratuit</li>
 
-    const btnSubscribe = document.getElementById("btnSubscribe");
-    const btnPortal = document.getElementById("btnPortal");
+</ul>
 
-    if (btnSubscribe) {
-      btnSubscribe.addEventListener("click", async () => {
-        btnSubscribe.disabled = true;
-        try {
-          await startStripeSubscriptionCheckout();
-        } finally {
-          btnSubscribe.disabled = false;
-        }
-      });
-    }
+<button id="btnSubscribe" class="btn">
+S’abonner maintenant
+</button>
 
-    if (btnPortal) {
-      btnPortal.addEventListener("click", async () => {
-        btnPortal.disabled = true;
-        try {
-          await openCustomerPortal();
-        } finally {
-          btnPortal.disabled = false;
-        }
-      });
-    }
+<button id="btnPortal" class="btn-secondary">
+Gérer mon abonnement
+</button>
 
-    await updatePremiumBadge();
-    await updatePdfQuotaBadge();
-  </script>
+<div id="premiumStatus" class="status"></div>
+<div id="pdfQuotaStatus" class="status"></div>
+
+<p class="note">
+Les comptes gratuits sont limités à 2 PDF par mois.
+</p>
+
+</div>
+
+<script type="module">
+
+import { requireAuth } from "./auth.js";
+
+import {
+startStripeSubscriptionCheckout,
+updatePremiumBadge,
+updatePdfQuotaBadge,
+openCustomerPortal
+} from "./premium.js";
+
+await requireAuth();
+
+const params = new URLSearchParams(window.location.search);
+const alertBox = document.getElementById("alert");
+
+if(params.get("checkout")==="success"){
+
+alertBox.innerHTML = `
+<div class="alert-success">
+Paiement réussi 🎉 Votre abonnement Premium est actif.
+</div>
+`;
+
+}
+
+if(params.get("checkout")==="cancel"){
+
+alertBox.innerHTML = `
+<div class="alert-cancel">
+Paiement annulé.
+</div>
+`;
+
+}
+
+document.getElementById("btnSubscribe").onclick = async () => {
+
+const btn=document.getElementById("btnSubscribe");
+btn.disabled=true;
+
+try{
+await startStripeSubscriptionCheckout();
+}
+finally{
+btn.disabled=false;
+}
+
+};
+
+document.getElementById("btnPortal").onclick = async () => {
+
+const btn=document.getElementById("btnPortal");
+btn.disabled=true;
+
+try{
+await openCustomerPortal();
+}
+finally{
+btn.disabled=false;
+}
+
+};
+
+await updatePremiumBadge();
+await updatePdfQuotaBadge();
+
+</script>
+
 </body>
 </html>
