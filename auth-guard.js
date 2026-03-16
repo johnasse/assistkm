@@ -4,8 +4,7 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-document.addEventListener("DOMContentLoaded", () => {
-
+window.addEventListener("DOMContentLoaded", () => {
   const userEmailEl = document.getElementById("userEmail");
   const logoutBtn = document.getElementById("logoutBtn");
 
@@ -16,15 +15,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (userEmailEl) {
-      userEmailEl.textContent = user.email;
+      userEmailEl.textContent = user.email || "Utilisateur connecté";
     }
   });
 
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-      await signOut(auth);
-      window.location.href = "login.html";
-    });
+  if (!logoutBtn) {
+    console.warn("Bouton logoutBtn introuvable dans la page.");
+    return;
   }
 
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "login.html";
+    } catch (error) {
+      console.error("Erreur déconnexion :", error);
+      alert("Impossible de se déconnecter.");
+    }
+  });
 });
