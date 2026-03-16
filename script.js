@@ -13,6 +13,15 @@ let deplacements = [];
 let currentUid = null;
 let mapReady = false;
 let eventsBound = false;
+let baremesUnlocked = false;
+
+const DEFAULT_BAREMES = {
+  3: 0.529,
+  4: 0.606,
+  5: 0.636,
+  6: 0.665,
+  7: 0.697
+};
 
 function getUid() {
   return currentUid || auth.currentUser?.uid || "guest";
@@ -36,6 +45,10 @@ function getMoisEtatKey() {
 
 function getHistoriquePdfKey() {
   return `historiquePDF_${getUid()}`;
+}
+
+function getBaremesKey() {
+  return `baremesKilometriques_${getUid()}`;
 }
 
 function initMap() {
@@ -82,8 +95,12 @@ function loadUserDataIfReady() {
 
   deplacements = JSON.parse(localStorage.getItem(getDeplacementsKey()) || "[]");
   loadSavedInfos();
+  loadBaremes();
   renderDeplacements();
   updateTotals();
+
+  baremesUnlocked = false;
+  updateBaremesLockUI();
 }
 
 function bindEvents() {
@@ -98,6 +115,31 @@ function bindEvents() {
   document.getElementById("domicile").addEventListener("input", syncDepartIfNeeded);
   document.getElementById("assistantNom").addEventListener("input", saveAssistantNom);
   document.getElementById("moisEtat").addEventListener("change", saveMoisEtat);
+  document.getElementById("btnSaveBaremes").addEventListener("click", saveBaremes);
+  document.getElementById("btnResetBaremes").addEventListener("click", resetBaremes);
+  document.getElementById("btnToggleBaremes").addEventListener("click", toggleBaremesLock);
+}
+
+function updateBaremesLockUI() {
+  const wrapper = document.getElementById("baremesWrapper");
+  const btnToggle = document.getElementById("btnToggleBaremes");
+
+  if (!wrapper || !btnToggle) return;
+
+  if (baremesUnlocked) {
+    wrapper.classList.remove("baremes-locked");
+    wrapper.classList.add("baremes-unlocked");
+    btnToggle.textContent = "🔒 Verrouiller";
+  } else {
+    wrapper.classList.remove("baremes-unlocked");
+    wrapper.classList.add("baremes-locked");
+    btnToggle.textContent = "✏️ Modifier";
+  }
+}
+
+function toggleBaremesLock() {
+  baremesUnlocked = !baremesUnlocked;
+  updateBaremesLockUI();
 }
 
 function bindAutocomplete(input) {
@@ -134,6 +176,57 @@ function loadSavedInfos() {
   }
 
   toggleDepartDomicile();
+}
+
+function loadBaremes() {
+  const saved = JSON.parse(localStorage.getItem(getBaremesKey()) || "null");
+  const baremes = {
+    3: Number(saved?.[3] ?? DEFAULT_BAREMES[3]),
+    4: Number(saved?.[4] ?? DEFAULT_BAREMES[4]),
+    5: Number(saved?.[5] ?? DEFAULT_BAREMES[5]),
+    6: Number(saved?.[6] ?? DEFAULT_BAREMES[6]),
+    7: Number(saved?.[7] ?? DEFAULT_BAREMES[7])
+  };
+
+  document.getElementById("bareme3cv").value = baremes[3].toFixed(3);
+  document.getElementById("bareme4cv").value = baremes[4].toFixed(3);
+  document.getElementById("bareme5cv").value = baremes[5].toFixed(3);
+  document.getElementById("bareme6cv").value = baremes[6].toFixed(3);
+  document.getElementById("bareme7cv").value = baremes[7].toFixed(3);
+}
+
+function getBaremesFromInputs() {
+  return {
+    3: parseFloat(document.getElementById("bareme3cv").value || DEFAULT_BAREMES[3]),
+    4: parseFloat(document.getElementById("bareme4cv").value || DEFAULT_BAREMES[4]),
+    5: parseFloat(document.getElementById("bareme5cv").value || DEFAULT_BAREMES[5]),
+    6: parseFloat(document.getElementById("bareme6cv").value || DEFAULT_BAREMES[6]),
+    7: parseFloat(document.getElementById("bareme7cv").value || DEFAULT_BAREMES[7])
+  };
+}
+
+function saveBaremes() {
+  const baremes = getBaremesFromInputs();
+  const values = [baremes[3], baremes[4], baremes[5], baremes[6], baremes[7]];
+  const invalid = values.some((value) => Number.isNaN(value) || value <= 0);
+
+  if (invalid) {
+    alert("Merci de renseigner des barèmes valides.");
+    return;
+  }
+
+  localStorage.setItem(getBaremesKey(), JSON.stringify(baremes));
+  showToast("Barèmes enregistrés");
+  baremesUnlocked = false;
+  updateBaremesLockUI();
+}
+
+function resetBaremes() {
+  localStorage.setItem(getBaremesKey(), JSON.stringify(DEFAULT_BAREMES));
+  loadBaremes();
+  showToast("Barèmes par défaut rétablis");
+  baremesUnlocked = false;
+  updateBaremesLockUI();
 }
 
 function saveAssistantNom() {
@@ -436,6 +529,7 @@ function genererPDFMensuel() {
   const moisEtat = document.getElementById("moisEtat").value;
   const assistantNom = document.getElementById("assistantNom").value.trim() || "-";
   const totalKm = deplacements.reduce((sum, item) => sum + item.km, 0);
+  const baremes = getBaremesFromInputs();
 
   const margin = 10;
   let y = 14;
@@ -575,19 +669,19 @@ function genererPDFMensuel() {
 
   y += 14;
   doc.setFont("helvetica", "bold");
-  doc.text("Barème kilométrique", margin, y);
+  doc.text("Barèmes kilométriques utilisés", margin, y);
 
   y += 7;
   doc.setFont("helvetica", "normal");
-  doc.text("3 CV : d x 0,529 €", margin, y);
+  doc.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text("4 CV : d x 0,606 €", margin, y);
+  doc.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text("5 CV : d x 0,636 €", margin, y);
+  doc.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text("6 CV : d x 0,665 €", margin, y);
+  doc.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text("7 CV et plus : d x 0,697 €", margin, y);
+  doc.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, y);
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
 
@@ -640,31 +734,10 @@ function drawCellText(doc, textOrLines, x, y, width, height, align = "left") {
 }
 
 function calculBareme(distanceKm, cv) {
-  const d = distanceKm;
+  const baremes = getBaremesFromInputs();
   const puissance = Math.min(cv, 7);
-
-  switch (puissance) {
-    case 3:
-      if (d <= 5000) return d * 0.529;
-      if (d <= 20000) return d * 0.316 + 1065;
-      return d * 0.370;
-    case 4:
-      if (d <= 5000) return d * 0.606;
-      if (d <= 20000) return d * 0.340 + 1330;
-      return d * 0.407;
-    case 5:
-      if (d <= 5000) return d * 0.636;
-      if (d <= 20000) return d * 0.357 + 1395;
-      return d * 0.427;
-    case 6:
-      if (d <= 5000) return d * 0.665;
-      if (d <= 20000) return d * 0.374 + 1457;
-      return d * 0.447;
-    default:
-      if (d <= 5000) return d * 0.697;
-      if (d <= 20000) return d * 0.394 + 1515;
-      return d * 0.470;
-  }
+  const bareme = baremes[puissance] || baremes[7] || DEFAULT_BAREMES[7];
+  return distanceKm * bareme;
 }
 
 function formatDuration(totalSeconds) {

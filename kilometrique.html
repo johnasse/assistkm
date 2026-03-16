@@ -5,6 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Frais kilométriques</title>
   <link rel="stylesheet" href="style.css" />
+
+  <style>
+    .baremes-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .baremes-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .baremes-badge {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-weight: 600;
+    }
+
+    .baremes-wrapper {
+      margin-top: 16px;
+      border-radius: 16px;
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      transition: 0.2s ease;
+    }
+
+    .baremes-locked {
+      opacity: 0.55;
+      pointer-events: none;
+      filter: grayscale(0.12);
+    }
+
+    .baremes-unlocked {
+      opacity: 1;
+      pointer-events: auto;
+      filter: none;
+    }
+
+    .baremes-helper {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .btn-inline-lock {
+      white-space: nowrap;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -69,6 +126,61 @@
             <option value="7" selected>7 CV et plus</option>
           </select>
         </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="baremes-header">
+        <div class="baremes-title-wrap">
+          <h2 style="margin:0;">Barèmes de remboursement</h2>
+          <span class="baremes-badge">Modifiables si besoin</span>
+        </div>
+
+        <button class="btn btn-secondary btn-inline-lock" type="button" id="btnToggleBaremes">
+          ✏️ Modifier
+        </button>
+      </div>
+
+      <div id="baremesWrapper" class="baremes-wrapper baremes-locked">
+        <div class="grid grid-3">
+          <div class="field">
+            <label for="bareme3cv">3 CV et moins</label>
+            <input type="number" id="bareme3cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme4cv">4 CV</label>
+            <input type="number" id="bareme4cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme5cv">5 CV</label>
+            <input type="number" id="bareme5cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme6cv">6 CV</label>
+            <input type="number" id="bareme6cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme7cv">7 CV et plus</label>
+            <input type="number" id="bareme7cv" step="0.001" min="0" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" type="button" id="btnSaveBaremes">
+            Enregistrer les barèmes
+          </button>
+          <button class="btn btn-danger" type="button" id="btnResetBaremes">
+            Remettre les barèmes par défaut
+          </button>
+        </div>
+      </div>
+
+      <div class="baremes-helper">
+        Les valeurs par défaut sont déjà remplies. Clique sur “Modifier” pour les déverrouiller.
       </div>
     </section>
 
