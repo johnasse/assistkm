@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestion des frais</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="home-body">
+  <div class="home-wrapper">
+    <div class="home-card">
+      <div class="home-header">
+        <h1>Gestion des frais</h1>
+        <p>Choisissez le type de remboursement</p>
+      </div>
+
+      <div class="home-grid">
+        <a class="menu-card" href="kilometrique.html">
+          <div class="menu-icon">🚗</div>
+          <div class="menu-title">Frais kilométriques</div>
+          <div class="menu-desc">Calcul automatique, liste mensuelle et PDF</div>
+        </a>
+
+        <a class="menu-card" href="frais-parking.html">
+          <div class="menu-icon">🅿️</div>
+          <div class="menu-title">Frais de parking</div>
+          <div class="menu-desc">Saisie, total, justificatifs et PDF</div>
+        </a>
+
+        <a class="menu-card" href="formation.html">
+          <div class="menu-icon">🎓</div>
+          <div class="menu-title">Frais formation</div>
+          <div class="menu-desc">Déplacement, repas, hébergement et justificatifs</div>
+        </a>
+
+        <a class="menu-card" href="noel.html">
+          <div class="menu-icon">🎄</div>
+          <div class="menu-title">Frais de Noël</div>
+          <div class="menu-desc">Saisie, total et PDF mensuel</div>
+        </a>
+
+        <a class="menu-card" href="scolaire.html">
+          <div class="menu-icon">🎒</div>
+          <div class="menu-title">Frais scolaires</div>
+          <div class="menu-desc">Saisie, total et PDF mensuel</div>
+        </a>
+
+        <a class="menu-card" href="loisirs.html">
+          <div class="menu-icon">⚽</div>
+          <div class="menu-title">Sports et loisirs</div>
+          <div class="menu-desc">Saisie, total et PDF de remboursement</div>
+        </a>
+
+        <a class="menu-card" href="autres.html">
+          <div class="menu-icon">🧾</div>
+          <div class="menu-title">Autres frais</div>
+          <div class="menu-desc">Saisie libre, justificatifs et PDF</div>
+        </a>
+
+        <a class="menu-card" href="abattement.html">
+          <div class="menu-icon">🧮</div>
+          <div class="menu-title">Abattement fiscal</div>
+          <div class="menu-desc">Calcul forfaitaire assistants familiaux</div>
+        </a>
+
+        <a class="menu-card" href="historique.html">
+          <div class="menu-icon">📂</div>
+          <div class="menu-title">Historique</div>
+          <div class="menu-desc">Voir les PDF enregistrés</div>
+        </a>
+        <a href="habillement.html" class="menu-card">
+  <div class="menu-icon">👕</div>
+  <h3>Habillement</h3>
+  <p>Suivi du budget habillement avec calcul annuel dégressif</p>
+</a>
+      </div>
+
+      <div style="text-align:center; margin-top:20px;">
+        <button id="btnLogout" class="btn btn-secondary" type="button">
+          Déconnexion
+        </button>
+      </div>
+
+      <section class="card" style="margin-top:30px; text-align:center;">
+        <h2>Abonnement AssistKM</h2>
+        <p id="premiumStatus">Vérification du compte...</p>
+
+        <ul style="list-style:none; padding:0; margin:18px 0;">
+          <li>✔ Gestion complète des frais</li>
+          <li>✔ Historique illimité</li>
+          <li>✔ Export PDF automatique</li>
+          <li>✔ Sauvegarde cloud</li>
+        </ul>
+
+        <div class="actions" style="justify-content:center;">
+          <a href="premium.html">
+            <button class="btn btn-success" type="button">
+              Voir l’offre premium
+            </button>
+          </a>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireAuth, initLogoutButton } from "./auth.js";
+    import { updatePremiumBadge } from "./premium.js";
+
+    requireAuth();
+    initLogoutButton("btnLogout");
+    updatePremiumBadge("premiumStatus");
+  </script>
+</body>
+</html>

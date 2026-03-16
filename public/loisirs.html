@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sports et loisirs</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <div class="top-bar">
+      <a href="index.html" class="back-link">← Accueil</a>
+      <h1 class="page-title center-title">Sports et loisirs</h1>
+    </div>
+
+    <section class="card">
+      <h2>Informations générales</h2>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="moisLoisirs">Mois de l'état de frais</label>
+          <input type="month" id="moisLoisirs" />
+        </div>
+
+        <div class="field">
+          <label for="assistantNomLoisirs">Nom et prénom de l'assistant familial</label>
+          <input type="text" id="assistantNomLoisirs" placeholder="Ex. David Martin" />
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Ajouter une dépense loisirs</h2>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="dateLoisirs">Date</label>
+          <input type="date" id="dateLoisirs" />
+        </div>
+
+        <div class="field">
+          <label for="enfantLoisirs">Nom de l’enfant</label>
+          <input type="text" id="enfantLoisirs" placeholder="Ex. Rudy" />
+        </div>
+
+        <div class="field">
+          <label for="typeLoisirs">Type de frais</label>
+          <select id="typeLoisirs">
+            <option value="">Choisir</option>
+            <option value="Sport">Sport</option>
+            <option value="Loisir">Loisir</option>
+            <option value="Cinéma">Cinéma</option>
+            <option value="Jeux">Jeux</option>
+            <option value="Sortie">Sortie</option>
+            <option value="Restaurant / goûter">Restaurant / goûter</option>
+            <option value="Activité créative">Activité créative</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="lieuLoisirs">Magasin / lieu</label>
+          <input type="text" id="lieuLoisirs" placeholder="Ex. Decathlon, cinéma, bowling..." />
+        </div>
+
+        <div class="field">
+          <label for="objetLoisirs">Objet / description</label>
+          <input type="text" id="objetLoisirs" placeholder="Ex. Ballon, entrée cinéma, laser game..." />
+        </div>
+
+        <div class="field">
+          <label for="montantLoisirs">Montant (€)</label>
+          <input type="number" id="montantLoisirs" step="0.01" min="0" placeholder="Ex. 18.50" />
+        </div>
+
+        <div class="field">
+          <label for="justificatifLoisirs">Justificatif (PDF ou photo)</label>
+
+          <input
+            type="file"
+            id="justificatifLoisirs"
+            accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+            capture="environment"
+            hidden
+          />
+
+          <button type="button" class="btn btn-secondary" id="btnPhotoLoisirs">
+            📷 Ajouter photo ou facture
+          </button>
+
+          <small id="nomJustificatifLoisirs" class="saved-msg"></small>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-success" type="button" id="btnAjouterLoisirs">Ajouter la dépense</button>
+        <button class="btn btn-secondary" type="button" id="btnResetLoisirs">Réinitialiser</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Liste des frais loisirs</h2>
+
+      <div class="table-wrap">
+        <table class="deplacements-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Enfant</th>
+              <th>Type</th>
+              <th>Magasin / lieu</th>
+              <th>Objet</th>
+              <th>Montant</th>
+              <th>Justificatif</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="loisirsBody">
+            <tr>
+              <td colspan="8" class="empty-cell">Aucune dépense enregistrée</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="monthly-summary">
+        <div class="summary-box">
+          <span>Nombre de dépenses</span>
+          <strong id="totalLignesLoisirs">0</strong>
+        </div>
+        <div class="summary-box">
+          <span>Total du mois</span>
+          <strong id="totalMontantLoisirs">0,00 €</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-success" type="button" id="btnPdfLoisirs">Générer PDF mensuel</button>
+        <button class="btn btn-danger" type="button" id="btnViderLoisirs">Vider la liste</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="toastLoisirs" class="toast">Action effectuée avec succès</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="loisirs.js"></script>
+</body>
+</html>
