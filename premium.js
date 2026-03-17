@@ -1,3 +1,4 @@
+console.log("PREMIUM VERSION 999");
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, getIdToken } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
