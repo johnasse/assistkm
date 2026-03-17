@@ -1,3 +1,4 @@
+console.log("LOISIRS VERSION 999");
 import { requirePdfAccess } from "./premium.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
