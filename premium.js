@@ -26,9 +26,9 @@ const firebaseConfig = {
   measurementId: "G-PF0T2NEVZM"
 };
 
-export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 /* STRIPE */
 const STRIPE_PRICE_ID = "price_1TBX8WCA2m5OcqFbTHBH4bHa";
@@ -57,6 +57,34 @@ function getAppUrl(page = "") {
   return `${base}/${page}`;
 }
 
+/* OUTILS DOM SÉCURISÉS */
+function getEl(id) {
+  return document.getElementById(id);
+}
+
+function safeBind(id, eventName, handler) {
+  const element = getEl(id);
+  if (element) {
+    element.addEventListener(eventName, handler);
+  }
+  return element;
+}
+
+function setTextIfExists(id, text) {
+  const el = getEl(id);
+  if (el) el.textContent = text;
+}
+
+function setHtmlIfExists(id, html) {
+  const el = getEl(id);
+  if (el) el.innerHTML = html;
+}
+
+function setDisplayIfExists(id, displayValue) {
+  const el = getEl(id);
+  if (el) el.style.display = displayValue;
+}
+
 /* UTILISATEUR ACTUEL */
 function getCurrentUserPromise() {
   return new Promise((resolve) => {
@@ -75,7 +103,7 @@ function getCurrentMonthKey() {
   return `${year}-${month}`;
 }
 
-/* SAVOIR SI C'EST LE PREMIER MOIS */
+/* SAVOIR SI C'EST LE PREMIER MOIS DU COMPTE */
 function isSameYearMonth(dateA, dateB) {
   return (
     dateA.getFullYear() === dateB.getFullYear() &&
@@ -88,7 +116,7 @@ function getAccountCreationDate(user) {
   if (!creationTime) return null;
 
   const date = new Date(creationTime);
-  if (Number.isNaN(date.getTime())) return null;
+  if (isNaN(date.getTime())) return null;
 
   return date;
 }
@@ -104,14 +132,14 @@ function getFreePdfLimitForUser(user) {
   return NORMAL_MONTH_FREE_PDF_LIMIT;
 }
 
-/* CHECKOUT STRIPE */
+/* STRIPE CHECKOUT */
 export async function startStripeSubscriptionCheckout() {
   const user = await getCurrentUserPromise();
 
   if (!user) {
     alert("Aucun utilisateur connecté.");
     window.location.href = getAppUrl("login.html");
-    return false;
+    return;
   }
 
   try {
@@ -143,16 +171,13 @@ export async function startStripeSubscriptionCheckout() {
         window.location.assign(data.url);
       }
     });
-
-    return true;
   } catch (error) {
     console.error("Erreur Firestore checkout :", error);
     alert("Erreur Firestore : " + (error.message || error));
-    return false;
   }
 }
 
-/* ACCES PREMIUM */
+/* PREMIUM */
 export async function hasPremiumAccess() {
   const user = await getCurrentUserPromise();
   if (!user) return false;
@@ -188,9 +213,8 @@ export async function requirePremium() {
   return true;
 }
 
-/* BADGE PREMIUM */
 export async function updatePremiumBadge(elementId = "premiumStatus") {
-  const el = document.getElementById(elementId);
+  const el = getEl(elementId);
   if (!el) return;
 
   const premium = await hasPremiumAccess();
@@ -230,44 +254,28 @@ export async function getPdfUsageInfo() {
     };
   }
 
-  try {
-    const monthKey = getCurrentMonthKey();
-    const usageRef = doc(db, "customers", user.uid, "usage", `pdf_${monthKey}`);
-    const usageSnap = await getDoc(usageRef);
+  const monthKey = getCurrentMonthKey();
+  const usageRef = doc(db, "customers", user.uid, "usage", `pdf_${monthKey}`);
+  const usageSnap = await getDoc(usageRef);
 
-    let used = 0;
+  let used = 0;
 
-    if (usageSnap.exists()) {
-      const data = usageSnap.data();
-      used = Number(data.count || 0);
-    }
-
-    const limit = getFreePdfLimitForUser(user);
-    const createdAt = getAccountCreationDate(user);
-    const isFirstMonth = createdAt ? isSameYearMonth(createdAt, new Date()) : false;
-
-    return {
-      premium: false,
-      used,
-      remaining: Math.max(0, limit - used),
-      limit,
-      isFirstMonth
-    };
-  } catch (error) {
-    console.error("Erreur lecture quota PDF :", error);
-
-    const limit = getFreePdfLimitForUser(user);
-    const createdAt = getAccountCreationDate(user);
-    const isFirstMonth = createdAt ? isSameYearMonth(createdAt, new Date()) : false;
-
-    return {
-      premium: false,
-      used: 0,
-      remaining: limit,
-      limit,
-      isFirstMonth
-    };
+  if (usageSnap.exists()) {
+    const data = usageSnap.data();
+    used = Number(data.count || 0);
   }
+
+  const limit = getFreePdfLimitForUser(user);
+  const createdAt = getAccountCreationDate(user);
+  const isFirstMonth = createdAt ? isSameYearMonth(createdAt, new Date()) : false;
+
+  return {
+    premium: false,
+    used,
+    remaining: Math.max(0, limit - used),
+    limit,
+    isFirstMonth
+  };
 }
 
 export async function canDownloadPdf() {
@@ -275,7 +283,7 @@ export async function canDownloadPdf() {
   return info.premium || info.used < info.limit;
 }
 
-/* ENREGISTRER UN PDF */
+/* ENREGISTRER TELECHARGEMENT PDF */
 export async function registerPdfDownload() {
   const user = await getCurrentUserPromise();
   if (!user) return false;
@@ -283,45 +291,40 @@ export async function registerPdfDownload() {
   const premium = await hasPremiumAccess();
   if (premium) return true;
 
-  try {
-    const monthKey = getCurrentMonthKey();
-    const usageRef = doc(db, "customers", user.uid, "usage", `pdf_${monthKey}`);
-    const usageSnap = await getDoc(usageRef);
+  const monthKey = getCurrentMonthKey();
+  const usageRef = doc(db, "customers", user.uid, "usage", `pdf_${monthKey}`);
+  const usageSnap = await getDoc(usageRef);
 
-    const limit = getFreePdfLimitForUser(user);
+  const limit = getFreePdfLimitForUser(user);
 
-    if (!usageSnap.exists()) {
-      await setDoc(usageRef, {
-        type: "pdf_download",
-        month: monthKey,
-        count: 1,
-        limit,
-        updatedAt: new Date().toISOString()
-      });
-      return true;
-    }
-
-    const data = usageSnap.data();
-    const count = Number(data.count || 0);
-
-    if (count >= limit) {
-      return false;
-    }
-
-    await updateDoc(usageRef, {
-      count: increment(1),
+  if (!usageSnap.exists()) {
+    await setDoc(usageRef, {
+      type: "pdf_download",
+      month: monthKey,
+      count: 1,
       limit,
       updatedAt: new Date().toISOString()
     });
-
     return true;
-  } catch (error) {
-    console.error("Erreur enregistrement quota PDF :", error);
+  }
+
+  const data = usageSnap.data();
+  const count = Number(data.count || 0);
+
+  if (count >= limit) {
     return false;
   }
+
+  await updateDoc(usageRef, {
+    count: increment(1),
+    limit,
+    updatedAt: new Date().toISOString()
+  });
+
+  return true;
 }
 
-/* ACCES PDF */
+/* VERIFIER ACCES PDF */
 export async function requirePdfAccess() {
   const user = await getCurrentUserPromise();
 
@@ -361,9 +364,9 @@ export async function requirePdfAccess() {
   return true;
 }
 
-/* BADGE QUOTA PDF */
+/* AFFICHER QUOTA PDF */
 export async function updatePdfQuotaBadge(elementId = "pdfQuotaStatus") {
-  const el = document.getElementById(elementId);
+  const el = getEl(elementId);
   if (!el) return;
 
   const info = await getPdfUsageInfo();
@@ -390,7 +393,7 @@ export async function openCustomerPortal() {
   if (!user) {
     alert("Vous devez être connecté.");
     window.location.href = getAppUrl("login.html");
-    return false;
+    return;
   }
 
   try {
@@ -419,11 +422,84 @@ export async function openCustomerPortal() {
         window.location.assign(data.url);
       }
     });
-
-    return true;
   } catch (error) {
     console.error("Erreur Firestore portail :", error);
     alert("Erreur : " + (error.message || error));
-    return false;
   }
 }
+
+/* UI PREMIUM SECURISEE */
+async function refreshPremiumUi() {
+  try {
+    await updatePremiumBadge("premiumStatus");
+    await updatePdfQuotaBadge("pdfQuotaStatus");
+
+    const premium = await hasPremiumAccess();
+
+    setTextIfExists("premiumStateText", premium ? "Premium actif" : "Compte gratuit");
+    setTextIfExists(
+      "premiumActionHint",
+      premium
+        ? "Vous pouvez gérer votre abonnement."
+        : "Passez en premium pour débloquer toutes les fonctionnalités."
+    );
+
+    setDisplayIfExists("premiumManageWrapper", premium ? "block" : "none");
+    setDisplayIfExists("premiumSubscribeWrapper", premium ? "none" : "block");
+  } catch (error) {
+    console.error("Erreur refresh UI premium :", error);
+  }
+}
+
+function bindPremiumUi() {
+  safeBind("btnSubscribe", "click", async (e) => {
+    e.preventDefault();
+    await startStripeSubscriptionCheckout();
+  });
+
+  safeBind("btnPremium", "click", async (e) => {
+    e.preventDefault();
+    await startStripeSubscriptionCheckout();
+  });
+
+  safeBind("btnStartPremium", "click", async (e) => {
+    e.preventDefault();
+    await startStripeSubscriptionCheckout();
+  });
+
+  safeBind("btnUpgradePremium", "click", async (e) => {
+    e.preventDefault();
+    await startStripeSubscriptionCheckout();
+  });
+
+  safeBind("btnManageSubscription", "click", async (e) => {
+    e.preventDefault();
+    await openCustomerPortal();
+  });
+
+  safeBind("btnCustomerPortal", "click", async (e) => {
+    e.preventDefault();
+    await openCustomerPortal();
+  });
+
+  safeBind("btnOpenPortal", "click", async (e) => {
+    e.preventDefault();
+    await openCustomerPortal();
+  });
+
+  safeBind("btnRefreshPremiumStatus", "click", async (e) => {
+    e.preventDefault();
+    await refreshPremiumUi();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  bindPremiumUi();
+
+  onAuthStateChanged(auth, async () => {
+    await refreshPremiumUi();
+  });
+});
+
+/* EXPORTS UTILES */
+export { auth, db, app };
