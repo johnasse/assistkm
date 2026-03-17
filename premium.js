@@ -1,401 +1,395 @@
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, getIdToken } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  where,
-  getDocs,
   doc,
   getDoc,
   setDoc,
   updateDoc,
-  increment
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+  runTransaction,
+  serverTimestamp,
+  Timestamp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-/* CONFIG FIREBASE */
-const firebaseConfig = {
-  apiKey: "AIzaSyCc9uGltdHfmKmnVOcqIYAY7nD6qHnykeo",
-  authDomain: "assistkm-24d0a.firebaseapp.com",
-  projectId: "assistkm-24d0a",
-  storageBucket: "assistkm-24d0a.firebasestorage.app",
-  messagingSenderId: "172856206943",
-  appId: "1:172856206943:web:b3db987c7f353679721dea",
-  measurementId: "G-PF0T2NEVZM"
+/*
+  IMPORTANT
+  Remplace si besoin par ton vrai projet Firebase Functions.
+*/
+const FUNCTIONS_BASE_URL = "https://us-central1-assistkm.cloudfunctions.net";
+
+const els = {
+  loginAlert: document.getElementById("loginAlert"),
+  subscriptionStatus: document.getElementById("subscriptionStatus"),
+  subscriptionNote: document.getElementById("subscriptionNote"),
+  remainingPdfs: document.getElementById("remainingPdfs"),
+  remainingNote: document.getElementById("remainingNote"),
+  periodLabel: document.getElementById("periodLabel"),
+  periodNote: document.getElementById("periodNote"),
+  activeAlert: document.getElementById("activeAlert"),
+  quotaAlert: document.getElementById("quotaAlert"),
+  subscribeBtn: document.getElementById("subscribeBtn"),
+  manageBtn: document.getElementById("manageBtn"),
+  refreshBtn: document.getElementById("refreshBtn")
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+let currentUser = null;
+let currentProfile = null;
 
-/* STRIPE */
-const STRIPE_PRICE_ID = "price_1TBX8WCA2m5OcqFbTHBH4bHa";
-
-/* LIMITES PDF */
-const FIRST_MONTH_FREE_PDF_LIMIT = 3;
-const NORMAL_MONTH_FREE_PDF_LIMIT = 1;
-
-/* URLS */
-function getBaseSiteUrl() {
-  const origin = window.location.origin;
-  const path = window.location.pathname;
-
-  if (origin.includes("github.io")) {
-    const parts = path.split("/").filter(Boolean);
-    const repoName = parts.length > 0 ? parts[0] : "assistkm";
-    return `${origin}/${repoName}`;
-  }
-
-  return origin;
+function monthKeyFromDate(date) {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
 }
 
-function getAppUrl(page = "") {
-  const base = getBaseSiteUrl();
-  if (!page) return `${base}/`;
-  return `${base}/${page}`;
+function formatMonthLabel(date) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    year: "numeric"
+  }).format(new Date(date));
 }
 
-/* UTILISATEUR ACTUEL */
-function getCurrentUserPromise() {
-  return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      unsubscribe();
-      resolve(user);
-    });
-  });
+function formatDateFR(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return d.toLocaleDateString("fr-FR");
 }
 
-/* CLE DU MOIS */
+function toDate(value) {
+  if (!value) return new Date();
+  if (value instanceof Timestamp) return value.toDate();
+  if (typeof value?.toDate === "function") return value.toDate();
+  return new Date(value);
+}
+
 function getCurrentMonthKey() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
+  return monthKeyFromDate(new Date());
 }
 
-/* SAVOIR SI C'EST LE PREMIER MOIS DU COMPTE */
-function isSameYearMonth(dateA, dateB) {
-  return (
-    dateA.getFullYear() === dateB.getFullYear() &&
-    dateA.getMonth() === dateB.getMonth()
-  );
+function getAllowanceForMonth(accountCreatedAt, targetMonthKey) {
+  const firstMonthKey = monthKeyFromDate(accountCreatedAt);
+  return firstMonthKey === targetMonthKey ? 3 : 1;
 }
 
-function getAccountCreationDate(user) {
-  const creationTime = user?.metadata?.creationTime;
-  if (!creationTime) return null;
-
-  const date = new Date(creationTime);
-  if (isNaN(date.getTime())) return null;
-
-  return date;
+function setLoadingState(isLoading, btn, loadingText, normalText) {
+  if (!btn) return;
+  btn.disabled = isLoading;
+  btn.innerHTML = isLoading
+    ? `<span class="loader"></span>${loadingText}`
+    : normalText;
 }
 
-function getFreePdfLimitForUser(user) {
-  const createdAt = getAccountCreationDate(user);
-  const now = new Date();
+async function ensureUserProfile(user) {
+  const userRef = doc(db, "users", user.uid);
+  const snap = await getDoc(userRef);
 
-  if (createdAt && isSameYearMonth(createdAt, now)) {
-    return FIRST_MONTH_FREE_PDF_LIMIT;
+  if (!snap.exists()) {
+    const now = new Date();
+    const data = {
+      uid: user.uid,
+      email: user.email || "",
+      createdAt: Timestamp.fromDate(now),
+      subscriptionStatus: "inactive",
+      plan: "free",
+      stripeCustomerId: "",
+      currentPeriodEnd: null,
+      pdfUsage: {},
+      updatedAt: serverTimestamp()
+    };
+
+    await setDoc(userRef, data);
+    return data;
   }
 
-  return NORMAL_MONTH_FREE_PDF_LIMIT;
+  return snap.data();
 }
 
-/* STRIPE CHECKOUT */
-export async function startStripeSubscriptionCheckout() {
-  const user = await getCurrentUserPromise();
+function renderProfile(profile) {
+  const now = new Date();
+  const currentMonthKey = getCurrentMonthKey();
+  const accountCreatedAt = toDate(profile.createdAt);
+  const pdfUsage = profile.pdfUsage || {};
+  const usedThisMonth = Number(pdfUsage[currentMonthKey] || 0);
+  const allowance = getAllowanceForMonth(accountCreatedAt, currentMonthKey);
 
-  if (!user) {
-    alert("Aucun utilisateur connecté.");
-    window.location.href = getAppUrl("login.html");
+  const isPremium = profile.subscriptionStatus === "active";
+  const remaining = isPremium ? "Illimité" : Math.max(allowance - usedThisMonth, 0);
+
+  els.periodLabel.textContent = formatMonthLabel(now);
+  els.periodNote.textContent = `Compte créé le ${formatDateFR(accountCreatedAt)}.`;
+
+  if (isPremium) {
+    els.subscriptionStatus.textContent = "Premium actif";
+    els.subscriptionStatus.className = "big status-active";
+    els.subscriptionNote.textContent = profile.currentPeriodEnd
+      ? `Renouvellement jusqu'au ${formatDateFR(toDate(profile.currentPeriodEnd))}.`
+      : "Votre abonnement Premium est bien actif.";
+    els.remainingPdfs.textContent = "∞";
+    els.remainingPdfs.className = "big status-active";
+    els.remainingNote.textContent = "Aucune limite de PDF pendant l'abonnement.";
+    els.activeAlert.classList.remove("hidden");
+    els.quotaAlert.classList.add("hidden");
+    els.subscribeBtn.disabled = true;
+    els.subscribeBtn.textContent = "✅ Abonnement actif";
+    els.manageBtn.disabled = false;
+  } else {
+    els.subscriptionStatus.textContent = "Compte gratuit";
+    els.subscriptionStatus.className = "big status-free";
+    els.subscriptionNote.textContent = "3 PDF le premier mois, puis 1 PDF par mois.";
+    els.remainingPdfs.textContent = String(remaining);
+    els.remainingPdfs.className = remaining > 0 ? "big status-free" : "big status-blocked";
+    els.remainingNote.textContent = `Utilisés ce mois-ci : ${usedThisMonth} / ${allowance}`;
+    els.activeAlert.classList.add("hidden");
+    els.subscribeBtn.disabled = false;
+    els.subscribeBtn.textContent = "💳 S'abonner maintenant";
+    els.manageBtn.disabled = !profile.stripeCustomerId;
+
+    if (remaining <= 0) {
+      els.quotaAlert.classList.remove("hidden");
+    } else {
+      els.quotaAlert.classList.add("hidden");
+    }
+  }
+}
+
+async function loadProfileAndRender() {
+  if (!currentUser) {
+    els.loginAlert.classList.remove("hidden");
+    els.subscriptionStatus.textContent = "Connexion requise";
+    els.subscriptionStatus.className = "big status-blocked";
+    els.subscriptionNote.textContent = "Connectez-vous pour voir votre quota.";
+    els.remainingPdfs.textContent = "--";
+    els.remainingNote.textContent = "Aucune donnée sans connexion.";
+    els.periodLabel.textContent = "--";
+    els.periodNote.textContent = "Connectez-vous pour continuer.";
+    els.subscribeBtn.disabled = true;
+    els.manageBtn.disabled = true;
+    return;
+  }
+
+  els.loginAlert.classList.add("hidden");
+  currentProfile = await ensureUserProfile(currentUser);
+  renderProfile(currentProfile);
+}
+
+async function callProtectedFunction(endpoint, body = {}) {
+  if (!currentUser) {
+    alert("Vous devez être connecté.");
+    window.location.href = "auth.html";
+    return null;
+  }
+
+  const token = await getIdToken(currentUser, true);
+
+  const response = await fetch(`${FUNCTIONS_BASE_URL}/${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || `Erreur ${response.status}`);
+  }
+
+  return data;
+}
+
+els.subscribeBtn.addEventListener("click", async () => {
+  if (!currentUser) {
+    alert("Connectez-vous d'abord.");
+    window.location.href = "auth.html";
     return;
   }
 
   try {
-    const checkoutSessionsRef = collection(
-      db,
-      "customers",
-      user.uid,
-      "checkout_sessions"
-    );
+    setLoadingState(true, els.subscribeBtn, "Création du paiement...", "💳 S'abonner maintenant");
 
-    const docRef = await addDoc(checkoutSessionsRef, {
-      price: STRIPE_PRICE_ID,
-      trial_period_days: 7,
-      success_url: getAppUrl("premium.html?checkout=success"),
-      cancel_url: getAppUrl("premium.html?checkout=cancel")
+    const data = await callProtectedFunction("createCheckoutSession", {
+      successUrl: `${window.location.origin}/success.html`,
+      cancelUrl: `${window.location.origin}/premium.html`
     });
 
-    onSnapshot(docRef, (snap) => {
-      const data = snap.data();
-      if (!data) return;
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
 
-      if (data.error) {
-        console.error("Erreur Stripe :", data.error);
-        alert("Erreur Stripe : " + (data.error.message || "Paiement impossible"));
-        return;
-      }
-
-      if (data.url) {
-        window.location.assign(data.url);
-      }
-    });
+    alert("Impossible de lancer Stripe.");
   } catch (error) {
-    console.error("Erreur Firestore checkout :", error);
-    alert("Erreur Firestore : " + (error.message || error));
+    console.error(error);
+    alert(error.message || "Erreur lors de la création du paiement.");
+  } finally {
+    if (currentProfile?.subscriptionStatus !== "active") {
+      setLoadingState(false, els.subscribeBtn, "", "💳 S'abonner maintenant");
+    }
   }
-}
+});
 
-/* PREMIUM */
-export async function hasPremiumAccess() {
-  const user = await getCurrentUserPromise();
-  if (!user) return false;
+els.manageBtn.addEventListener("click", async () => {
+  if (!currentUser) {
+    alert("Connectez-vous d'abord.");
+    window.location.href = "auth.html";
+    return;
+  }
 
   try {
-    const subsRef = collection(db, "customers", user.uid, "subscriptions");
-    const q = query(subsRef, where("status", "in", ["active", "trialing"]));
-    const snap = await getDocs(q);
+    setLoadingState(true, els.manageBtn, "Ouverture...", "⚙️ Gérer mon abonnement");
 
-    return !snap.empty;
-  } catch (error) {
-    console.error("Erreur vérification premium :", error);
-    return false;
-  }
-}
-
-export async function requirePremium() {
-  const user = await getCurrentUserPromise();
-
-  if (!user) {
-    window.location.href = getAppUrl("login.html");
-    return false;
-  }
-
-  const premium = await hasPremiumAccess();
-
-  if (!premium) {
-    alert("Cette fonctionnalité est réservée aux comptes premium.");
-    window.location.href = getAppUrl("premium.html");
-    return false;
-  }
-
-  return true;
-}
-
-export async function updatePremiumBadge(elementId = "premiumStatus") {
-  const el = document.getElementById(elementId);
-  if (!el) return;
-
-  const premium = await hasPremiumAccess();
-
-  if (premium) {
-    el.textContent = "Compte Premium actif";
-    el.style.color = "#15803d";
-  } else {
-    el.textContent = "Compte gratuit";
-    el.style.color = "#b91c1c";
-  }
-}
-
-/* INFOS QUOTA PDF */
-export async function getPdfUsageInfo() {
-  const user = await getCurrentUserPromise();
-
-  if (!user) {
-    return {
-      premium: false,
-      used: 0,
-      remaining: 0,
-      limit: NORMAL_MONTH_FREE_PDF_LIMIT,
-      isFirstMonth: false
-    };
-  }
-
-  const premium = await hasPremiumAccess();
-
-  if (premium) {
-    return {
-      premium: true,
-      used: 0,
-      remaining: Infinity,
-      limit: Infinity,
-      isFirstMonth: false
-    };
-  }
-
-  const monthKey = getCurrentMonthKey();
-  const usageRef = doc(db, "customers", user.uid, "usage", `pdf_${monthKey}`);
-  const usageSnap = await getDoc(usageRef);
-
-  let used = 0;
-
-  if (usageSnap.exists()) {
-    const data = usageSnap.data();
-    used = Number(data.count || 0);
-  }
-
-  const limit = getFreePdfLimitForUser(user);
-  const createdAt = getAccountCreationDate(user);
-  const isFirstMonth = createdAt ? isSameYearMonth(createdAt, new Date()) : false;
-
-  return {
-    premium: false,
-    used,
-    remaining: Math.max(0, limit - used),
-    limit,
-    isFirstMonth
-  };
-}
-
-export async function canDownloadPdf() {
-  const info = await getPdfUsageInfo();
-  return info.premium || info.used < info.limit;
-}
-
-/* ENREGISTRER TELECHARGEMENT PDF */
-export async function registerPdfDownload() {
-  const user = await getCurrentUserPromise();
-  if (!user) return false;
-
-  const premium = await hasPremiumAccess();
-  if (premium) return true;
-
-  const monthKey = getCurrentMonthKey();
-  const usageRef = doc(db, "customers", user.uid, "usage", `pdf_${monthKey}`);
-  const usageSnap = await getDoc(usageRef);
-
-  const limit = getFreePdfLimitForUser(user);
-
-  if (!usageSnap.exists()) {
-    await setDoc(usageRef, {
-      type: "pdf_download",
-      month: monthKey,
-      count: 1,
-      limit,
-      updatedAt: new Date().toISOString()
+    const data = await callProtectedFunction("createPortalSession", {
+      returnUrl: `${window.location.origin}/premium.html`
     });
+
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+
+    alert("Impossible d'ouvrir le portail d'abonnement.");
+  } catch (error) {
+    console.error(error);
+    alert(error.message || "Erreur portail Stripe.");
+  } finally {
+    setLoadingState(false, els.manageBtn, "", "⚙️ Gérer mon abonnement");
+  }
+});
+
+els.refreshBtn.addEventListener("click", async () => {
+  try {
+    setLoadingState(true, els.refreshBtn, "Actualisation...", "🔄 Actualiser le statut");
+    await loadProfileAndRender();
+  } catch (error) {
+    console.error(error);
+    alert("Erreur de rafraîchissement.");
+  } finally {
+    setLoadingState(false, els.refreshBtn, "", "🔄 Actualiser le statut");
+  }
+});
+
+/*
+  ==========================
+  AIDE GLOBALE POUR LES PDF
+  ==========================
+  Tu pourras appeler ça depuis les autres modules.
+
+  Exemple dans un autre fichier :
+  const check = await window.EasyFraisPremium.canGeneratePdf();
+  if (!check.allowed) {
+    alert(check.message);
+    window.location.href = "premium.html";
+    return;
+  }
+
+  // puis juste après la vraie génération :
+  await window.EasyFraisPremium.registerPdfGeneration({ module: "autres" });
+*/
+
+window.EasyFraisPremium = {
+  async canGeneratePdf() {
+    if (!auth.currentUser) {
+      return {
+        allowed: false,
+        reason: "not_authenticated",
+        message: "Vous devez être connecté."
+      };
+    }
+
+    const profile = await ensureUserProfile(auth.currentUser);
+    const currentMonthKey = getCurrentMonthKey();
+    const accountCreatedAt = toDate(profile.createdAt);
+    const allowance = getAllowanceForMonth(accountCreatedAt, currentMonthKey);
+    const usedThisMonth = Number((profile.pdfUsage || {})[currentMonthKey] || 0);
+
+    if (profile.subscriptionStatus === "active") {
+      return {
+        allowed: true,
+        premium: true,
+        remaining: Infinity,
+        used: usedThisMonth,
+        allowance: Infinity
+      };
+    }
+
+    const remaining = Math.max(allowance - usedThisMonth, 0);
+
+    if (remaining <= 0) {
+      return {
+        allowed: false,
+        premium: false,
+        remaining,
+        used: usedThisMonth,
+        allowance,
+        message: "Votre quota gratuit est épuisé. Passez en Premium pour continuer."
+      };
+    }
+
+    return {
+      allowed: true,
+      premium: false,
+      remaining,
+      used: usedThisMonth,
+      allowance
+    };
+  },
+
+  async registerPdfGeneration({ module = "inconnu" } = {}) {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("Utilisateur non connecté.");
+    }
+
+    const userRef = doc(db, "users", user.uid);
+
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(userRef);
+
+      if (!snap.exists()) {
+        throw new Error("Profil utilisateur introuvable.");
+      }
+
+      const data = snap.data();
+      const currentMonthKey = getCurrentMonthKey();
+      const profileCreatedAt = toDate(data.createdAt);
+      const allowance = getAllowanceForMonth(profileCreatedAt, currentMonthKey);
+
+      const pdfUsage = data.pdfUsage || {};
+      const usedThisMonth = Number(pdfUsage[currentMonthKey] || 0);
+
+      if (data.subscriptionStatus !== "active" && usedThisMonth >= allowance) {
+        throw new Error("Quota gratuit atteint.");
+      }
+
+      const nextUsage = {
+        ...pdfUsage,
+        [currentMonthKey]: usedThisMonth + 1
+      };
+
+      transaction.update(userRef, {
+        pdfUsage: nextUsage,
+        updatedAt: serverTimestamp(),
+        lastPdfModule: module,
+        lastPdfAt: serverTimestamp()
+      });
+    });
+
+    currentProfile = await ensureUserProfile(user);
+    renderProfile(currentProfile);
     return true;
   }
+};
 
-  const data = usageSnap.data();
-  const count = Number(data.count || 0);
-
-  if (count >= limit) {
-    return false;
-  }
-
-  await updateDoc(usageRef, {
-    count: increment(1),
-    limit,
-    updatedAt: new Date().toISOString()
-  });
-
-  return true;
-}
-
-/* VERIFIER ACCES PDF */
-export async function requirePdfAccess() {
-  const user = await getCurrentUserPromise();
-
-  if (!user) {
-    alert("Vous devez être connecté.");
-    window.location.href = getAppUrl("login.html");
-    return false;
-  }
-
-  const premium = await hasPremiumAccess();
-  if (premium) return true;
-
-  const info = await getPdfUsageInfo();
-
-  if (info.used >= info.limit) {
-    if (info.isFirstMonth) {
-      alert("Vous avez utilisé vos 3 PDF gratuits du premier mois. Passez en premium pour un accès illimité.");
-    } else {
-      alert("Vous avez utilisé votre PDF gratuit du mois. Passez en premium pour un accès illimité.");
-    }
-    window.location.href = getAppUrl("premium.html");
-    return false;
-  }
-
-  const recorded = await registerPdfDownload();
-
-  if (!recorded) {
-    if (info.isFirstMonth) {
-      alert("Vous avez utilisé vos 3 PDF gratuits du premier mois. Passez en premium pour un accès illimité.");
-    } else {
-      alert("Vous avez utilisé votre PDF gratuit du mois. Passez en premium pour un accès illimité.");
-    }
-    window.location.href = getAppUrl("premium.html");
-    return false;
-  }
-
-  return true;
-}
-
-/* AFFICHER QUOTA PDF */
-export async function updatePdfQuotaBadge(elementId = "pdfQuotaStatus") {
-  const el = document.getElementById(elementId);
-  if (!el) return;
-
-  const info = await getPdfUsageInfo();
-
-  if (info.premium) {
-    el.textContent = "PDF illimités avec votre compte premium";
-    el.style.color = "#15803d";
-    return;
-  }
-
-  if (info.isFirstMonth) {
-    el.textContent = `Offre découverte : ${info.remaining} / ${info.limit} PDF gratuits restants ce mois-ci`;
-  } else {
-    el.textContent = `Version gratuite : ${info.remaining} / ${info.limit} PDF gratuit restant ce mois-ci`;
-  }
-
-  el.style.color = info.remaining > 0 ? "#b45309" : "#b91c1c";
-}
-
-/* PORTAIL CLIENT STRIPE */
-export async function openCustomerPortal() {
-  const user = await getCurrentUserPromise();
-
-  if (!user) {
-    alert("Vous devez être connecté.");
-    window.location.href = getAppUrl("login.html");
-    return;
-  }
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
 
   try {
-    const portalSessionsRef = collection(
-      db,
-      "customers",
-      user.uid,
-      "portal_sessions"
-    );
-
-    const docRef = await addDoc(portalSessionsRef, {
-      return_url: getAppUrl("premium.html")
-    });
-
-    onSnapshot(docRef, (snap) => {
-      const data = snap.data();
-      if (!data) return;
-
-      if (data.error) {
-        console.error("Erreur portail Stripe :", data.error);
-        alert("Erreur Stripe : " + (data.error.message || "Impossible d'ouvrir le portail client"));
-        return;
-      }
-
-      if (data.url) {
-        window.location.assign(data.url);
-      }
-    });
+    await loadProfileAndRender();
   } catch (error) {
-    console.error("Erreur Firestore portail :", error);
-    alert("Erreur : " + (error.message || error));
+    console.error(error);
+    els.subscriptionStatus.textContent = "Erreur";
+    els.subscriptionStatus.className = "big status-blocked";
+    els.subscriptionNote.textContent = "Impossible de charger le statut Premium.";
   }
-}
+});
