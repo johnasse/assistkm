@@ -205,19 +205,20 @@ async function callProtectedFunction(endpoint, body = {}) {
   return data;
 }
 
-els.subscribeBtn.addEventListener("click", async () => {
-  if (!currentUser) {
-    alert("Vous devez être connecté.");
-    return;
-  }
+if (els.subscribeBtn) {
+  els.subscribeBtn.addEventListener("click", async () => {
+    if (!currentUser) {
+      alert("Vous devez être connecté.");
+      return;
+    }
 
-  try {
-    setButtonLoading(
-      els.subscribeBtn,
-      true,
-      "Création du paiement...",
-      "💳 S'abonner maintenant"
-    );
+    try {
+      setButtonLoading(
+        els.subscribeBtn,
+        true,
+        "Création du paiement...",
+        "💳 S'abonner maintenant"
+      );
 
     const data = await callProtectedFunction("createCheckoutSession", {
       successUrl: `${window.location.origin}/success.html`,
