@@ -1,4 +1,13 @@
+import { auth } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
 (function () {
+  let currentUid = "guest";
+
+  onAuthStateChanged(auth, (user) => {
+    currentUid = user?.uid || "guest";
+  });
+
   function waitForJsPDF() {
     if (!window.jspdf || !window.jspdf.jsPDF || !window.jspdf.jsPDF.API) {
       setTimeout(waitForJsPDF, 150);
@@ -6,6 +15,14 @@
     }
 
     patchJsPDFSave();
+  }
+
+  function getCurrentUid() {
+    return currentUid || auth.currentUser?.uid || "guest";
+  }
+
+  function getHistoryKey() {
+    return `historiquePDF_${getCurrentUid()}`;
   }
 
   function getCurrentMonthLabel() {
@@ -16,7 +33,8 @@
       "moisScolaire",
       "moisNoel",
       "moisFormation",
-      "moisKilometrique"
+      "moisKilometrique",
+      "moisEtat"
     ];
 
     for (const id of monthInputIds) {
@@ -41,9 +59,7 @@
   function formatMonthFr(value) {
     if (!value) return "-";
 
-    if (/^\d{4}$/.test(value)) {
-      return value;
-    }
+    if (/^\d{4}$/.test(value)) return value;
 
     const match = String(value).match(/^(\d{4})-(\d{2})$/);
     if (!match) return value;
@@ -65,16 +81,19 @@
     if (nom.includes("loisir") || nom.includes("sports")) return "Sports et loisirs";
     if (nom.includes("scolaire")) return "Frais scolaires";
     if (nom.includes("noel")) return "Frais de Noël";
-    if (nom.includes("formation")) return "Frais formation";
+    if (nom.includes("formation")) return "Formation";
     if (nom.includes("autres")) return "Autres frais";
     if (nom.includes("kilomet") || nom.includes("deplacement")) return "Frais kilométriques";
+    if (nom.includes("note")) return "Note de frais";
+    if (nom.includes("habillement")) return "Habillement";
 
     return "Non classé";
   }
 
   function savePdfToHistory(doc, filename) {
     try {
-      const historique = JSON.parse(localStorage.getItem("historiquePDF") || "[]");
+      const key = getHistoryKey();
+      const historique = JSON.parse(localStorage.getItem(key) || "[]");
 
       const item = {
         id: Date.now() + Math.floor(Math.random() * 1000),
@@ -86,7 +105,7 @@
       };
 
       historique.push(item);
-      localStorage.setItem("historiquePDF", JSON.stringify(historique));
+      localStorage.setItem(key, JSON.stringify(historique));
     } catch (error) {
       console.error("Erreur lors de l'enregistrement dans l'historique :", error);
     }
@@ -95,9 +114,7 @@
   function patchJsPDFSave() {
     const jsPDF = window.jspdf.jsPDF;
 
-    if (jsPDF.API.__historyPatched) {
-      return;
-    }
+    if (jsPDF.API.__historyPatched) return;
 
     const originalSave = jsPDF.API.save;
 
