@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc9uGltdHfmKmnVOcqIYAY7nD6qHnykeo",
@@ -13,12 +14,16 @@ const firebaseConfig = {
   measurementId: "G-PJ582TYYFG"
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-
+export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const db = getFirestore(app);
 
 try {
-  getAnalytics(app);
-} catch (e) {
-  console.warn("Analytics désactivé (normal en local)");
+  isSupported().then((ok) => {
+    if (ok) {
+      getAnalytics(app);
+    }
+  });
+} catch (error) {
+  console.warn("Analytics non initialisé :", error);
 }
