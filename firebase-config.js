@@ -1,6 +1,6 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc9uGltdHfmKmnVOcqIYAY7nD6qHnykeo",
@@ -9,10 +9,16 @@ const firebaseConfig = {
   projectId: "assistkm-24d0a",
   storageBucket: "assistkm-24d0a.firebasestorage.app",
   messagingSenderId: "172856206943",
-  appId: "1:172856206943:web:ebdaa4a9a97130b7721dea"
+  appId: "1:172856206943:web:ebdaa4a9a97130b7721dea",
+  measurementId: "G-PJ582TYYFG"
 };
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+try {
+  getAnalytics(app);
+} catch (e) {
+  console.warn("Analytics désactivé (normal en local)");
+}
