@@ -1,232 +1,244 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EasyFrais Premium</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
 
-<title>AssistKM Premium</title>
+    body {
+      background: #f4f7fb;
+      color: #1f2937;
+      min-height: 100vh;
+      padding: 20px 16px 30px;
+    }
 
-<style>
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
 
-body{
-font-family:Arial,Helvetica,sans-serif;
-background:#f5f5f5;
-margin:0;
-padding:0;
-text-align:center;
-}
+    .top-actions button {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      color: white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
 
-.container{
-max-width:700px;
-margin:60px auto;
-background:#ffffff;
-padding:40px 30px;
-border-radius:14px;
-box-shadow:0 10px 30px rgba(0,0,0,0.08);
-}
+    .btn-back {
+      background: #2563eb;
+    }
 
-h1{
-margin-top:0;
-color:#111827;
-}
+    .btn-home {
+      background: #16a34a;
+    }
 
-.subtitle{
-color:#4b5563;
-margin-bottom:25px;
-}
+    .premium-card {
+      background: linear-gradient(135deg, #0f172a, #1e3a8a);
+      color: white;
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+      margin-bottom: 20px;
+    }
 
-.price{
-font-size:42px;
-font-weight:700;
-margin:10px 0;
-}
+    .premium-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 14px;
+    }
 
-.trial{
-color:#15803d;
-font-weight:700;
-margin-bottom:25px;
-}
+    .premium-card h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
 
-.features{
-text-align:left;
-margin:30px auto;
-max-width:420px;
-padding-left:20px;
-line-height:1.8;
-}
+    .premium-card p {
+      font-size: 15px;
+      line-height: 1.5;
+      opacity: 0.95;
+    }
 
-.btn{
-background:#22c55e;
-border:none;
-color:white;
-font-size:18px;
-padding:14px 28px;
-border-radius:10px;
-cursor:pointer;
-margin-top:20px;
-}
+    .features {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+      margin-bottom: 20px;
+    }
 
-.btn:hover{
-background:#16a34a;
-}
+    .features h2 {
+      font-size: 22px;
+      margin-bottom: 16px;
+      color: #111827;
+    }
 
-.btn-secondary{
-background:#2563eb;
-border:none;
-color:white;
-font-size:16px;
-padding:12px 22px;
-border-radius:10px;
-cursor:pointer;
-margin-left:10px;
-}
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
 
-.btn-secondary:hover{
-background:#1d4ed8;
-}
+    .feature-item:last-child {
+      border-bottom: none;
+    }
 
-.status{
-margin-top:18px;
-font-weight:700;
-}
+    .feature-icon {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      border-radius: 10px;
+      background: #dbeafe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
 
-.note{
-margin-top:18px;
-color:#6b7280;
-font-size:14px;
-}
+    .feature-text h3 {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
 
-.alert-success{
-background:#dcfce7;
-color:#15803d;
-padding:12px;
-border-radius:8px;
-margin-bottom:15px;
-}
+    .feature-text p {
+      font-size: 14px;
+      color: #4b5563;
+      line-height: 1.45;
+    }
 
-.alert-cancel{
-background:#fee2e2;
-color:#b91c1c;
-padding:12px;
-border-radius:8px;
-margin-bottom:15px;
-}
+    .pricing {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+      margin-bottom: 20px;
+      text-align: center;
+    }
 
-</style>
+    .pricing .price {
+      font-size: 36px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 6px;
+    }
+
+    .pricing .small {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+
+    .subscribe-btn {
+      width: 100%;
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(245, 158, 11, 0.35);
+    }
+
+    .subscribe-btn:hover {
+      opacity: 0.95;
+    }
+
+    .info-note {
+      text-align: center;
+      color: #6b7280;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-top: 14px;
+    }
+
+    @media (min-width: 768px) {
+      body {
+        max-width: 700px;
+        margin: 0 auto;
+        padding-top: 30px;
+      }
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="container">
+  <div class="top-actions">
+    <button class="btn-back" onclick="history.back()">← Retour</button>
+    <button class="btn-home" onclick="window.location.href='index.html'">🏠 Accueil</button>
+  </div>
 
-<h1>AssistKM Premium</h1>
+  <section class="premium-card">
+    <div class="premium-badge">EASYFRAIS PREMIUM</div>
+    <h1>Passez en Premium</h1>
+    <p>
+      Débloquez toutes les fonctionnalités pour générer vos documents sans limite
+      et gérer vos frais encore plus facilement.
+    </p>
+  </section>
 
-<p class="subtitle">
-Débloquez les fonctions avancées de l’application.
-</p>
+  <section class="features">
+    <h2>Ce que vous obtenez</h2>
 
-<div id="alert"></div>
+    <div class="feature-item">
+      <div class="feature-icon">📄</div>
+      <div class="feature-text">
+        <h3>PDF illimités</h3>
+        <p>Créez autant de PDF que vous voulez, sans blocage.</p>
+      </div>
+    </div>
 
-<div class="price">2 € / mois</div>
+    <div class="feature-item">
+      <div class="feature-icon">🕘</div>
+      <div class="feature-text">
+        <h3>Historique complet</h3>
+        <p>Retrouvez vos documents et vos anciens calculs rapidement.</p>
+      </div>
+    </div>
 
-<div class="trial">
-7 jours gratuits • Annulable à tout moment
-</div>
+    <div class="feature-item">
+      <div class="feature-icon">⭐</div>
+      <div class="feature-text">
+        <h3>Expérience plus simple</h3>
+        <p>Accédez à une version plus fluide pour gérer vos frais au quotidien.</p>
+      </div>
+    </div>
+  </section>
 
-<ul class="features">
+  <section class="pricing">
+    <div class="price">Premium</div>
+    <div class="small">Abonnement EasyFrais</div>
+    <button class="subscribe-btn" id="subscribeBtn">S’abonner maintenant</button>
+    <div class="info-note">
+      Paiement sécurisé.<br />
+      L’abonnement sera activé après validation.
+    </div>
+  </section>
 
-<li>Export PDF illimité</li>
-<li>Module Abattement fiscal</li>
-<li>Fonctions premium avancées</li>
-<li>Accès complet pendant l’essai gratuit</li>
-
-</ul>
-
-<button id="btnSubscribe" class="btn">
-S’abonner maintenant
-</button>
-
-<button id="btnPortal" class="btn-secondary">
-Gérer mon abonnement
-</button>
-
-<div id="premiumStatus" class="status"></div>
-<div id="pdfQuotaStatus" class="status"></div>
-
-<p class="note">
-Les comptes gratuits sont limités à 2 PDF par mois.
-</p>
-
-</div>
-
-<script type="module">
-
-import { requireAuth } from "./auth.js";
-
-import {
-startStripeSubscriptionCheckout,
-updatePremiumBadge,
-updatePdfQuotaBadge,
-openCustomerPortal
-} from "./premium.js";
-
-await requireAuth();
-
-const params = new URLSearchParams(window.location.search);
-const alertBox = document.getElementById("alert");
-
-if(params.get("checkout")==="success"){
-
-alertBox.innerHTML = `
-<div class="alert-success">
-Paiement réussi 🎉 Votre abonnement Premium est actif.
-</div>
-`;
-
-}
-
-if(params.get("checkout")==="cancel"){
-
-alertBox.innerHTML = `
-<div class="alert-cancel">
-Paiement annulé.
-</div>
-`;
-
-}
-
-document.getElementById("btnSubscribe").onclick = async () => {
-
-const btn=document.getElementById("btnSubscribe");
-btn.disabled=true;
-
-try{
-await startStripeSubscriptionCheckout();
-}
-finally{
-btn.disabled=false;
-}
-
-};
-
-document.getElementById("btnPortal").onclick = async () => {
-
-const btn=document.getElementById("btnPortal");
-btn.disabled=true;
-
-try{
-await openCustomerPortal();
-}
-finally{
-btn.disabled=false;
-}
-
-};
-
-await updatePremiumBadge();
-await updatePdfQuotaBadge();
-
-</script>
-
+  <script>
+    document.getElementById("subscribeBtn").addEventListener("click", function () {
+      alert("Ici tu branches ton système Stripe / abonnement premium.");
+    });
+  </script>
 </body>
 </html>
