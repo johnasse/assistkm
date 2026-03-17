@@ -2,8 +2,6 @@ import * as Premium from "./premium.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-console.log("LOISIRS V2 CHARGE");
-
 let fraisLoisirs = [];
 let currentUid = null;
 let eventsBound = false;
@@ -486,7 +484,6 @@ async function genererPDFLoisirs() {
   doc.text("Signature assistant familial : ____________________", margin, y);
 
   const fileName = `etat-frais-loisirs-${mois || "sans-mois"}.pdf`;
-  doc.save(fileName);
 
   const pdfBlob = doc.output("blob");
   const reader = new FileReader();
@@ -505,7 +502,14 @@ async function genererPDFLoisirs() {
     });
 
     localStorage.setItem(historiqueKey, JSON.stringify(historique));
+
+    doc.save(fileName);
     showToastLoisirs("PDF mensuel généré et enregistré");
+  };
+
+  reader.onerror = function (error) {
+    console.error("Erreur lecture PDF loisirs :", error);
+    alert("Impossible d'enregistrer le PDF dans l'historique.");
   };
 
   reader.readAsDataURL(pdfBlob);
