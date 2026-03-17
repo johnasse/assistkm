@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang=" fr">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AssistKM</title>
+  <title>EasyFrais</title>
   <meta name="theme-color" content="#2563eb" />
   <link rel="manifest" href="manifest.json" />
+
   <style>
     * {
       box-sizing: border-box;
@@ -235,8 +236,8 @@
   <div class="page">
     <header class="topbar">
       <div class="brand">
-        <h1>AssistKM</h1>
-        <p>Gestion des frais kilométriques, parking, habillement et autres remboursements.</p>
+        <h1>EasyFrais</h1>
+        <p>Gestion simple de vos frais, remboursements et justificatifs.</p>
       </div>
 
       <div class="user-bar">
@@ -252,14 +253,14 @@
         <div class="hero-title">
           <h2>Bienvenue sur votre espace de gestion</h2>
           <p>
-            Accédez rapidement à vos modules, suivez vos dépenses, générez vos documents
-            et centralisez vos données utilisateur dans une interface claire.
+            Accédez rapidement à vos modules, suivez vos dépenses,
+            ajoutez vos justificatifs et générez vos PDF facilement.
           </p>
         </div>
 
         <div class="hero-badge">
           <small>Espace utilisateur</small>
-          <strong>Suivi simple et rapide</strong>
+          <strong>Rapide • Clair • Efficace</strong>
         </div>
       </div>
     </section>
@@ -283,19 +284,19 @@
         <a class="menu-card" href="habillement.html">
           <div class="menu-icon">👕</div>
           <div class="menu-title">Habillement</div>
-          <div class="menu-desc">Budget annuel, dépenses dégressives, justificatifs et suivi par enfant.</div>
+          <div class="menu-desc">Budget annuel, dépenses, justificatifs et suivi par enfant.</div>
         </a>
 
         <a class="menu-card" href="abattement.html">
           <div class="menu-icon">📉</div>
           <div class="menu-title">Abattement</div>
-          <div class="menu-desc">Calcul de l’abattement fiscal avec répartition et synthèse.</div>
+          <div class="menu-desc">Calcul de l’abattement fiscal avec synthèse et répartition.</div>
         </a>
 
         <a class="menu-card" href="autres.html">
-          <div class="menu-icon">📁</div>
+          <div class="menu-icon">🧾</div>
           <div class="menu-title">Autres frais</div>
-          <div class="menu-desc">Toutes les dépenses diverses avec suivi simple et justificatifs.</div>
+          <div class="menu-desc">Dépenses diverses, tableau complet, justificatifs et PDF mensuel.</div>
         </a>
 
         <a class="menu-card" href="formation.html">
@@ -310,10 +311,10 @@
           <div class="menu-desc">Suivi des activités, sorties, achats et frais associés.</div>
         </a>
 
-        <a class="menu-card" href="note-de-frais.html">
-          <div class="menu-icon">🧾</div>
-          <div class="menu-title">Note de frais</div>
-          <div class="menu-desc">Vision globale et préparation de documents de remboursement.</div>
+        <a class="menu-card" href="scolaire.html">
+          <div class="menu-icon">📚</div>
+          <div class="menu-title">Frais scolaires</div>
+          <div class="menu-desc">Gestion des dépenses scolaires avec justificatifs et suivi clair.</div>
         </a>
 
         <a class="menu-card" href="noel.html">
@@ -325,7 +326,7 @@
         <a class="menu-card" href="historique.html">
           <div class="menu-icon">🕘</div>
           <div class="menu-title">Historique</div>
-          <div class="menu-desc">Retrouvez les actions, exports PDF et données enregistrées.</div>
+          <div class="menu-desc">Retrouvez vos actions, exports PDF et données enregistrées.</div>
         </a>
 
         <a class="menu-card" href="premium.html">
@@ -333,13 +334,39 @@
           <div class="menu-title">Premium</div>
           <div class="menu-desc">Gérez l’abonnement, les accès avancés et les options premium.</div>
         </a>
+
+        <a class="menu-card" href="admin.html" id="adminCard" style="display:none;">
+          <div class="menu-icon">🛠️</div>
+          <div class="menu-title">Administration</div>
+          <div class="menu-desc">Suivi global, abonnés, utilisateurs et statistiques de l’application.</div>
+        </a>
       </div>
     </section>
 
     <div class="footer-note">
-      AssistKM • espace de gestion des frais
+      EasyFrais • espace de gestion des frais
     </div>
   </div>
+
+  <script type="module">
+    import { auth } from "./firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const ADMIN_EMAIL = "john.rombert.76@gmail.com";
+
+    onAuthStateChanged(auth, (user) => {
+      const adminCard = document.getElementById("adminCard");
+      const userEmail = document.getElementById("userEmail");
+
+      if (userEmail) {
+        userEmail.textContent = user?.email || "...";
+      }
+
+      if (adminCard && user && user.email === ADMIN_EMAIL) {
+        adminCard.style.display = "flex";
+      }
+    });
+  </script>
 
   <script type="module" src="auth-guard.js"></script>
 </body>
