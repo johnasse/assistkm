@@ -1,256 +1,395 @@
 import { requirePremium } from "./premium.js";
-import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 let lignesAbattement = [];
 let listeEnfantsAbattementMemo = [];
 let uid = null;
+let eventsBound = false;
 
-function getLignesKey(){
+const SMIC_DATA = {
+  2024: { avant: 11.65, apres: 11.88 },
+  2025: { avant: 11.88, apres: 11.88 },
+  2026: { avant: 11.88, apres: 11.88 }
+};
+
+function getLignesKey() {
   return `lignesAbattement_${uid}`;
 }
 
-function getEnfantsKey(){
+function getEnfantsKey() {
   return `listeEnfantsAbattementMemo_${uid}`;
 }
 
+function getField(id) {
+  return document.getElementById(id);
+}
+
+function getYearField() {
+  return (
+    getField("anneeFiscale") ||
+    getField("anneeAbattement") ||
+    getField("yearSelectAbattement")
+  );
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
-
-const allowed = await requirePremium();
-if(!allowed) return;
-
+  const allowed = await requirePremium();
+  if (!allowed) return;
 });
 
-onAuthStateChanged(auth,(user)=>{
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
 
-if(!user){
-window.location.href="login.html";
-return;
-}
+  uid = user.uid;
 
-uid=user.uid;
+  lignesAbattement = JSON.parse(localStorage.getItem(getLignesKey()) || "[]");
+  listeEnfantsAbattementMemo = JSON.parse(localStorage.getItem(getEnfantsKey()) || "[]");
 
-lignesAbattement =
-JSON.parse(localStorage.getItem(getLignesKey())||"[]");
+  chargerInfosAbattement();
 
-listeEnfantsAbattementMemo =
-JSON.parse(localStorage.getItem(getEnfantsKey())||"[]");
+  if (!eventsBound) {
+    bindAbattementEvents();
+    eventsBound = true;
+  }
 
-chargerInfosAbattement();
-bindAbattementEvents();
-renderListeEnfantsAbattement();
-renderLignesAbattement();
-calculerAbattement();
-
+  renderListeEnfantsAbattement();
+  renderLignesAbattement();
+  calculerAbattement();
 });
 
-function saveLignesAbattement(){
-
-localStorage.setItem(
-getLignesKey(),
-JSON.stringify(lignesAbattement)
-);
-
+function saveLignesAbattement() {
+  localStorage.setItem(getLignesKey(), JSON.stringify(lignesAbattement));
 }
 
-function saveListeEnfants(){
-
-localStorage.setItem(
-getEnfantsKey(),
-JSON.stringify(listeEnfantsAbattementMemo)
-);
-
+function saveListeEnfants() {
+  localStorage.setItem(getEnfantsKey(), JSON.stringify(listeEnfantsAbattementMemo));
 }
 
-function chargerInfosAbattement(){
+function chargerInfosAbattement() {
+  const assistantNom =
+    localStorage.getItem(`assistantNomAbattement_${uid}`) ||
+    localStorage.getItem(`assistantNom_${uid}`) ||
+    "";
 
-const assistantNom =
-localStorage.getItem(`assistantNomAbattement_${uid}`) ||
-localStorage.getItem(`assistantNom_${uid}`) ||
-"";
+  const champ = getField("assistantNomAbattement");
+  if (champ) champ.value = assistantNom;
 
-const champ = document.getElementById("assistantNomAbattement");
-
-if(champ) champ.value = assistantNom;
-
-updateSmicParAnnee();
-updateCasesFiscales();
-
+  updateSmicParAnnee();
+  updateCasesFiscales();
 }
 
-function saveAssistantNomAbattement(){
+function saveAssistantNomAbattement() {
+  const el = getField("assistantNomAbattement");
+  if (!el) return;
 
-const el=document.getElementById("assistantNomAbattement");
-
-localStorage.setItem(
-`assistantNomAbattement_${uid}`,
-el.value.trim()
-);
-
+  localStorage.setItem(`assistantNomAbattement_${uid}`, el.value.trim());
 }
 
-function ajouterEnfantMemo(nom){
+function ajouterEnfantMemo(nom) {
+  const clean = String(nom || "").trim();
+  if (!clean) return;
 
-const clean = String(nom || "").trim();
-if(!clean) return;
+  const exists = listeEnfantsAbattementMemo.some(
+    (e) => e.toLowerCase() === clean.toLowerCase()
+  );
 
-const exists = listeEnfantsAbattementMemo.some(
-e => e.toLowerCase() === clean.toLowerCase()
-);
-
-if(!exists){
-
-listeEnfantsAbattementMemo.push(clean);
-
-listeEnfantsAbattementMemo.sort((a,b)=>
-a.localeCompare(b,"fr",{sensitivity:"base"})
-);
-
-saveListeEnfants();
-
+  if (!exists) {
+    listeEnfantsAbattementMemo.push(clean);
+    listeEnfantsAbattementMemo.sort((a, b) =>
+      a.localeCompare(b, "fr", { sensitivity: "base" })
+    );
+    saveListeEnfants();
+  }
 }
 
+function renderListeEnfantsAbattement() {
+  const datalist = getField("listeEnfantsAbattement");
+  if (!datalist) return;
+
+  datalist.innerHTML = "";
+
+  listeEnfantsAbattementMemo.forEach((nom) => {
+    const option = document.createElement("option");
+    option.value = nom;
+    datalist.appendChild(option);
+  });
 }
 
-function renderListeEnfantsAbattement(){
+function ajouterLigneAbattement() {
+  const enfant = getField("nomEnfantLigne")?.value.trim() || "";
+  const periode = getField("periodeLigne")?.value || "";
+  const typeAccueil = getField("typeAccueilLigne")?.value || "";
+  const jours = parseFloat(getField("joursLigne")?.value || "0");
 
-const datalist = document.getElementById("listeEnfantsAbattement");
-if(!datalist) return;
+  if (!enfant || !periode || !typeAccueil || jours <= 0) {
+    alert("Merci de remplir correctement la ligne enfant.");
+    return;
+  }
 
-datalist.innerHTML="";
+  ajouterEnfantMemo(enfant);
+  renderListeEnfantsAbattement();
 
-listeEnfantsAbattementMemo.forEach(nom=>{
+  lignesAbattement.push({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    enfant,
+    periode,
+    typeAccueil,
+    jours: Number(jours)
+  });
 
-const option=document.createElement("option");
-option.value=nom;
-datalist.appendChild(option);
-
-});
-
+  saveLignesAbattement();
+  renderLignesAbattement();
+  calculerAbattement();
+  resetLigneAbattement();
 }
 
-function ajouterLigneAbattement(){
-
-const enfant=document.getElementById("nomEnfantLigne").value.trim();
-const periode=document.getElementById("periodeLigne").value;
-const typeAccueil=document.getElementById("typeAccueilLigne").value;
-const jours=parseFloat(document.getElementById("joursLigne").value||"0");
-
-if(!enfant || !periode || !typeAccueil || jours<=0){
-
-alert("Merci de remplir correctement la ligne enfant.");
-return;
-
+function supprimerLigneAbattement(id) {
+  lignesAbattement = lignesAbattement.filter((ligne) => String(ligne.id) !== String(id));
+  saveLignesAbattement();
+  renderLignesAbattement();
+  calculerAbattement();
 }
 
-ajouterEnfantMemo(enfant);
-renderListeEnfantsAbattement();
+function viderLignesAbattement() {
+  if (lignesAbattement.length === 0) return;
 
-lignesAbattement.push({
+  if (!confirm("Voulez-vous vraiment vider toutes les lignes ?")) return;
 
-id:Date.now(),
-enfant,
-periode,
-typeAccueil,
-jours
-
-});
-
-saveLignesAbattement();
-renderLignesAbattement();
-calculerAbattement();
-resetLigneAbattement();
-
+  lignesAbattement = [];
+  saveLignesAbattement();
+  renderLignesAbattement();
+  calculerAbattement();
 }
 
-function supprimerLigneAbattement(id){
-
-lignesAbattement=lignesAbattement.filter(
-ligne=>ligne.id!==id
-);
-
-saveLignesAbattement();
-renderLignesAbattement();
-calculerAbattement();
-
+function resetLigneAbattement() {
+  if (getField("nomEnfantLigne")) getField("nomEnfantLigne").value = "";
+  if (getField("periodeLigne")) getField("periodeLigne").value = "avant";
+  if (getField("typeAccueilLigne")) getField("typeAccueilLigne").value = "non_permanent";
+  if (getField("joursLigne")) getField("joursLigne").value = "0";
 }
 
-function viderLignesAbattement(){
-
-if(lignesAbattement.length===0) return;
-
-if(!confirm("Voulez-vous vraiment vider toutes les lignes ?"))
-return;
-
-lignesAbattement=[];
-saveLignesAbattement();
-renderLignesAbattement();
-calculerAbattement();
-
+function formatEuro(v) {
+  return Number(v || 0).toFixed(2).replace(".", ",") + " €";
 }
 
-function resetLigneAbattement(){
+function lireNombre(id) {
+  const el = getField(id);
+  if (!el) return 0;
 
-document.getElementById("nomEnfantLigne").value="";
-document.getElementById("periodeLigne").value="avant";
-document.getElementById("typeAccueilLigne").value="non_permanent";
-document.getElementById("joursLigne").value="0";
-
+  const parsed = parseFloat(el.value || "0");
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function formatEuro(v){
-
-return Number(v||0).toFixed(2).replace(".",",")+" €";
-
+function getCoefficient(type) {
+  switch (type) {
+    case "non_permanent":
+      return 3;
+    case "non_permanent_majore":
+      return 4;
+    case "permanent":
+      return 4;
+    case "permanent_majore":
+      return 5;
+    default:
+      return 0;
+  }
 }
 
-function lireNombre(id){
+function calculerAbattement() {
+  const totalSommesRecues = lireNombre("totalSommesRecues");
+  const smicAvant = lireNombre("smicAvantNov");
+  const smicApres = lireNombre("smicApresNov");
 
-const el=document.getElementById(id);
-if(!el) return 0;
+  let abattement = 0;
 
-return Number(parseFloat(el.value||"0"));
+  lignesAbattement.forEach((ligne) => {
+    const coef = getCoefficient(ligne.typeAccueil);
+    const smic = ligne.periode === "avant" ? smicAvant : smicApres;
+    abattement += Number(ligne.jours || 0) * coef * smic;
+  });
 
+  const retenu = Math.min(abattement, totalSommesRecues);
+  const imposable = Math.max(0, totalSommesRecues - retenu);
+
+  const abattementCalcule = getField("abattementCalcule");
+  const abattementRetenu = getField("abattementRetenu");
+  const montantImposable = getField("montantImposable");
+
+  if (abattementCalcule) abattementCalcule.textContent = formatEuro(abattement);
+  if (abattementRetenu) abattementRetenu.textContent = formatEuro(retenu);
+  if (montantImposable) montantImposable.textContent = formatEuro(imposable);
+
+  updateCasesFiscales();
 }
 
-function getCoefficient(type){
+function updateSmicParAnnee() {
+  const yearField = getYearField();
+  const yearValue = Number(yearField?.value || new Date().getFullYear());
+  const config = SMIC_DATA[yearValue] || SMIC_DATA[2026];
 
-switch(type){
+  const smicAvant = getField("smicAvantNov");
+  const smicApres = getField("smicApresNov");
 
-case "non_permanent": return 3;
-case "non_permanent_majore": return 4;
-case "permanent": return 4;
-case "permanent_majore": return 5;
+  if (smicAvant && !smicAvant.dataset.manualEdited) {
+    smicAvant.value = Number(config.avant).toFixed(2);
+  }
 
-default: return 0;
-
+  if (smicApres && !smicApres.dataset.manualEdited) {
+    smicApres.value = Number(config.apres).toFixed(2);
+  }
 }
 
+function updateCasesFiscales() {
+  const retenu = lireTexteMontant("abattementRetenu");
+  const imposable = lireTexteMontant("montantImposable");
+
+  const caseAbattement = getField("caseAbattement");
+  const caseImposable = getField("caseImposable");
+
+  if (caseAbattement) caseAbattement.value = retenu.toFixed(2);
+  if (caseImposable) caseImposable.value = imposable.toFixed(2);
 }
 
-function calculerAbattement(){
+function lireTexteMontant(id) {
+  const el = getField(id);
+  if (!el) return 0;
 
-const totalSommesRecues=lireNombre("totalSommesRecues");
-const smicAvant=lireNombre("smicAvantNov");
-const smicApres=lireNombre("smicApresNov");
+  const text = String(el.textContent || "0").replace(/[^\d,.-]/g, "").replace(",", ".");
+  const parsed = parseFloat(text);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
 
-let abattement=0;
+function renderLignesAbattement() {
+  const body =
+    getField("lignesAbattementBody") ||
+    getField("abattementBody") ||
+    getField("tableAbattementBody");
 
-lignesAbattement.forEach(ligne=>{
+  if (!body) return;
 
-const coef=getCoefficient(ligne.typeAccueil);
-const smic=ligne.periode==="avant"?smicAvant:smicApres;
+  body.innerHTML = "";
 
-abattement += ligne.jours * coef * smic;
+  if (lignesAbattement.length === 0) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="5" class="empty-cell">Aucune ligne enregistrée</td>
+      </tr>
+    `;
+    return;
+  }
 
-});
+  lignesAbattement.forEach((ligne) => {
+    const tr = document.createElement("tr");
 
-const retenu=Math.min(abattement,totalSommesRecues);
-const imposable=Math.max(0,totalSommesRecues-retenu);
+    tr.innerHTML = `
+      <td>${escapeHtml(ligne.enfant)}</td>
+      <td>${escapeHtml(getPeriodeLabel(ligne.periode))}</td>
+      <td>${escapeHtml(getTypeAccueilLabel(ligne.typeAccueil))}</td>
+      <td>${Number(ligne.jours || 0).toFixed(2).replace(".", ",")}</td>
+      <td>
+        <button type="button" class="table-action-btn" data-id="${escapeHtml(String(ligne.id))}">
+          Supprimer
+        </button>
+      </td>
+    `;
 
-document.getElementById("abattementCalcule").textContent=formatEuro(abattement);
-document.getElementById("abattementRetenu").textContent=formatEuro(retenu);
-document.getElementById("montantImposable").textContent=formatEuro(imposable);
+    body.appendChild(tr);
+  });
 
+  body.querySelectorAll(".table-action-btn").forEach((btn) => {
+    btn.addEventListener("click", () => supprimerLigneAbattement(btn.dataset.id));
+  });
+}
+
+function getPeriodeLabel(value) {
+  return value === "apres" ? "Après nov." : "Avant nov.";
+}
+
+function getTypeAccueilLabel(value) {
+  switch (value) {
+    case "non_permanent":
+      return "Non permanent";
+    case "non_permanent_majore":
+      return "Non permanent majoré";
+    case "permanent":
+      return "Permanent";
+    case "permanent_majore":
+      return "Permanent majoré";
+    default:
+      return value || "-";
+  }
+}
+
+function bindAbattementEvents() {
+  const btnAjouter = getField("btnAjouterLigne");
+  const btnReset = getField("btnResetLigne");
+  const btnVider = getField("btnViderLignes");
+  const inputNom = getField("assistantNomAbattement");
+  const smicAvant = getField("smicAvantNov");
+  const smicApres = getField("smicApresNov");
+  const totalSommesRecues = getField("totalSommesRecues");
+  const yearField = getYearField();
+
+  if (btnAjouter) {
+    btnAjouter.addEventListener("click", (e) => {
+      e.preventDefault();
+      ajouterLigneAbattement();
+    });
+  }
+
+  if (btnReset) {
+    btnReset.addEventListener("click", (e) => {
+      e.preventDefault();
+      resetLigneAbattement();
+    });
+  }
+
+  if (btnVider) {
+    btnVider.addEventListener("click", (e) => {
+      e.preventDefault();
+      viderLignesAbattement();
+    });
+  }
+
+  if (inputNom) {
+    inputNom.addEventListener("input", saveAssistantNomAbattement);
+  }
+
+  if (smicAvant) {
+    smicAvant.addEventListener("input", () => {
+      smicAvant.dataset.manualEdited = "1";
+      calculerAbattement();
+    });
+  }
+
+  if (smicApres) {
+    smicApres.addEventListener("input", () => {
+      smicApres.dataset.manualEdited = "1";
+      calculerAbattement();
+    });
+  }
+
+  if (totalSommesRecues) {
+    totalSommesRecues.addEventListener("input", calculerAbattement);
+  }
+
+  if (yearField) {
+    yearField.addEventListener("change", () => {
+      updateSmicParAnnee();
+      calculerAbattement();
+    });
+  }
+}
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
