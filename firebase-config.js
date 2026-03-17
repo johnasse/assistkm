@@ -1,3 +1,4 @@
+console.log("FIREBASE VERSION 999");
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
