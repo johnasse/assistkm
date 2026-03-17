@@ -1,7 +1,7 @@
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 let fraisLoisirs = [];
 let loisirsDb = null;
@@ -39,12 +39,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await initLoisirsDB();
   } catch (error) {
-    console.error("Erreur IndexedDB loisirs :", error);
+    console.error("Erreur initialisation IndexedDB loisirs :", error);
   }
 
   if (auth.currentUser) {
     currentUid = auth.currentUser.uid;
-    loadLoisirsModule();
+    initModule();
   }
 });
 
@@ -57,11 +57,11 @@ onAuthStateChanged(auth, (user) => {
   currentUid = user.uid;
 
   if (domReady) {
-    loadLoisirsModule();
+    initModule();
   }
 });
 
-function loadLoisirsModule() {
+function initModule() {
   fraisLoisirs = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
 
   chargerInfosLoisirs();
@@ -158,17 +158,15 @@ function chargerInfosLoisirs() {
 }
 
 function saveAssistantNomLoisirs() {
-  const assistantInput = el("assistantNomLoisirs");
-  if (!assistantInput) return;
-
-  localStorage.setItem(getAssistantNameKey(), assistantInput.value.trim());
+  const input = el("assistantNomLoisirs");
+  if (!input) return;
+  localStorage.setItem(getAssistantNameKey(), input.value.trim());
 }
 
 function saveMoisLoisirs() {
-  const moisInput = el("moisLoisirs");
-  if (!moisInput) return;
-
-  localStorage.setItem(getMonthKey(), moisInput.value);
+  const input = el("moisLoisirs");
+  if (!input) return;
+  localStorage.setItem(getMonthKey(), input.value);
 }
 
 function updateNomJustificatifLoisirs() {
@@ -198,48 +196,47 @@ async function ajouterFraisLoisirs() {
   let justificatifNom = "";
   let justificatifType = "";
 
-  if (justificatifFile) {
-    if (!loisirsDb) {
-      try {
+  try {
+    if (justificatifFile) {
+      if (!loisirsDb) {
         await initLoisirsDB();
-      } catch (error) {
-        console.error("Impossible d'initialiser la base justificatifs loisirs :", error);
-        alert("Impossible d’enregistrer le justificatif pour le moment.");
-        return;
       }
+
+      justificatifId = `justif-loisirs-${getUid()}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      justificatifNom = justificatifFile.name;
+      justificatifType = justificatifFile.type || "";
+
+      await saveFileToLoisirsDB({
+        id: justificatifId,
+        ownerUid: getUid(),
+        name: justificatifNom,
+        type: justificatifType,
+        file: justificatifFile,
+        createdAt: new Date().toISOString()
+      });
     }
 
-    justificatifId = `justif-loisirs-${getUid()}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    justificatifNom = justificatifFile.name;
-    justificatifType = justificatifFile.type || "";
-
-    await saveFileToLoisirsDB({
-      id: justificatifId,
-      ownerUid: getUid(),
-      name: justificatifNom,
-      type: justificatifType,
-      file: justificatifFile,
-      createdAt: new Date().toISOString()
+    fraisLoisirs.push({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      date,
+      enfant,
+      type,
+      lieu,
+      objet,
+      montant: Number(montant.toFixed(2)),
+      justificatifId,
+      justificatifNom,
+      justificatifType
     });
+
+    saveFraisLoisirs();
+    renderLoisirs();
+    resetFormLoisirs();
+    showToastLoisirs("Dépense ajoutée");
+  } catch (error) {
+    console.error("Erreur ajout loisirs :", error);
+    alert("Impossible d'ajouter la dépense.");
   }
-
-  fraisLoisirs.push({
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    date,
-    enfant,
-    type,
-    lieu,
-    objet,
-    montant: Number(montant.toFixed(2)),
-    justificatifId,
-    justificatifNom,
-    justificatifType
-  });
-
-  saveFraisLoisirs();
-  renderLoisirs();
-  resetFormLoisirs();
-  showToastLoisirs("Dépense ajoutée");
 }
 
 function renderLoisirs() {
@@ -281,6 +278,7 @@ function renderLoisirs() {
       <td>${justificatifHtml}</td>
       <td><button type="button" class="table-action-btn btn-delete-loisirs" data-id="${item.id}">Supprimer</button></td>
     `;
+
     body.appendChild(tr);
   });
 
@@ -306,16 +304,21 @@ function renderLoisirs() {
 }
 
 async function supprimerFraisLoisirs(id) {
-  const item = fraisLoisirs.find((row) => row.id === id);
+  try {
+    const item = fraisLoisirs.find((row) => row.id === id);
 
-  if (item?.justificatifId && loisirsDb) {
-    await deleteFileFromLoisirsDB(item.justificatifId);
+    if (item?.justificatifId && loisirsDb) {
+      await deleteFileFromLoisirsDB(item.justificatifId);
+    }
+
+    fraisLoisirs = fraisLoisirs.filter((row) => row.id !== id);
+    saveFraisLoisirs();
+    renderLoisirs();
+    showToastLoisirs("Dépense supprimée");
+  } catch (error) {
+    console.error("Erreur suppression loisirs :", error);
+    alert("Impossible de supprimer la dépense.");
   }
-
-  fraisLoisirs = fraisLoisirs.filter((row) => row.id !== id);
-  saveFraisLoisirs();
-  renderLoisirs();
-  showToastLoisirs("Dépense supprimée");
 }
 
 async function viderListeLoisirs() {
@@ -324,33 +327,32 @@ async function viderListeLoisirs() {
   const ok = confirm("Voulez-vous vraiment vider toute la liste ?");
   if (!ok) return;
 
-  if (loisirsDb) {
-    for (const item of fraisLoisirs) {
-      if (item.justificatifId) {
-        await deleteFileFromLoisirsDB(item.justificatifId);
+  try {
+    if (loisirsDb) {
+      for (const item of fraisLoisirs) {
+        if (item.justificatifId) {
+          await deleteFileFromLoisirsDB(item.justificatifId);
+        }
       }
     }
-  }
 
-  fraisLoisirs = [];
-  saveFraisLoisirs();
-  renderLoisirs();
-  showToastLoisirs("Liste vidée");
+    fraisLoisirs = [];
+    saveFraisLoisirs();
+    renderLoisirs();
+    showToastLoisirs("Liste vidée");
+  } catch (error) {
+    console.error("Erreur vidage loisirs :", error);
+    alert("Impossible de vider la liste.");
+  }
 }
 
 function updateTotalsLoisirs() {
   const totalLignes = el("totalLignesLoisirs");
   const totalMontantEl = el("totalMontantLoisirs");
-
   const totalMontant = fraisLoisirs.reduce((sum, item) => sum + item.montant, 0);
 
-  if (totalLignes) {
-    totalLignes.textContent = String(fraisLoisirs.length);
-  }
-
-  if (totalMontantEl) {
-    totalMontantEl.textContent = totalMontant.toFixed(2).replace(".", ",") + " €";
-  }
+  if (totalLignes) totalLignes.textContent = String(fraisLoisirs.length);
+  if (totalMontantEl) totalMontantEl.textContent = totalMontant.toFixed(2).replace(".", ",") + " €";
 }
 
 function saveFraisLoisirs() {
@@ -389,118 +391,20 @@ async function genererPDFLoisirs() {
   const assistantNom = el("assistantNomLoisirs")?.value.trim() || "-";
   const totalMontant = fraisLoisirs.reduce((sum, item) => sum + item.montant, 0);
 
-  const margin = 10;
-  let y = 14;
+  doc.text(`ETAT DE FRAIS SPORTS ET LOISIRS DU MOIS DE : ${formatMonthFr(mois)}`, 10, 14);
+  doc.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, 10, 22);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text(`ETAT DE FRAIS SPORTS ET LOISIRS DU MOIS DE : ${formatMonthFr(mois)}`, margin, y);
-
-  y += 8;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10.5);
-  doc.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
-
-  y += 8;
-
-  const cols = [
-    { title: "Date", width: 20, align: "center" },
-    { title: "Enfant", width: 28, align: "left" },
-    { title: "Type", width: 26, align: "left" },
-    { title: "Magasin / lieu", width: 42, align: "left" },
-    { title: "Objet", width: 82, align: "left" },
-    { title: "Montant", width: 22, align: "right" },
-    { title: "Justificatif", width: 45, align: "left" }
-  ];
-
-  const headerHeight = 9;
-  const lineHeight = 4.5;
-
-  function drawHeader() {
-    let x = margin;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-
-    cols.forEach((col) => {
-      doc.rect(x, y, col.width, headerHeight);
-      drawCellText(doc, col.title, x, y, col.width, headerHeight, "center");
-      x += col.width;
-    });
-
-    y += headerHeight;
-  }
-
-  drawHeader();
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-
+  let y = 35;
   fraisLoisirs.forEach((item) => {
-    const rowValues = [
-      formatDateFr(item.date),
-      safeText(item.enfant),
-      safeText(item.type),
-      safeText(item.lieu),
-      safeText(item.objet),
-      item.montant.toFixed(2).replace(".", ",") + " €",
-      item.justificatifNom ? safeText(item.justificatifNom) : "Aucun"
-    ];
-
-    const rowLines = rowValues.map((value, i) => {
-      if (i === 0 || i === 5) return [String(value)];
-      return doc.splitTextToSize(String(value), cols[i].width - 3);
-    });
-
-    const maxLines = Math.max(...rowLines.map((lines) => lines.length));
-    const rowHeight = Math.max(8, maxLines * lineHeight + 2);
-
-    if (y + rowHeight > 175) {
-      doc.addPage("landscape", "a4");
-      y = 14;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.text(`ETAT DE FRAIS SPORTS ET LOISIRS DU MOIS DE : ${formatMonthFr(mois)}`, margin, y);
-
-      y += 8;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10.5);
-      doc.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
-
-      y += 8;
-      drawHeader();
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-    }
-
-    let x = margin;
-    rowValues.forEach((value, i) => {
-      doc.rect(x, y, cols[i].width, rowHeight);
-      drawCellText(doc, rowLines[i], x, y, cols[i].width, rowHeight, cols[i].align);
-      x += cols[i].width;
-    });
-
-    y += rowHeight;
+    doc.text(
+      `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`,
+      10,
+      y
+    );
+    y += 8;
   });
 
-  y += 10;
-
-  if (y > 178) {
-    doc.addPage("landscape", "a4");
-    y = 20;
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10.5);
-  doc.text(`Total du mois : ${totalMontant.toFixed(2).replace(".", ",")} €`, margin, y);
-
-  y += 12;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text("Certifié exact le : ____________________", margin, y);
-
-  y += 10;
-  doc.text("Signature assistant familial : ____________________", margin, y);
+  doc.text(`Total du mois : ${totalMontant.toFixed(2).replace(".", ",")} €`, 10, y + 10);
 
   const fileName = `etat-frais-loisirs-${mois || "sans-mois"}.pdf`;
 
@@ -514,30 +418,6 @@ async function genererPDFLoisirs() {
   showToastLoisirs("PDF généré et enregistré");
 }
 
-function drawCellText(doc, textOrLines, x, y, width, height, align = "left") {
-  const lines = Array.isArray(textOrLines) ? textOrLines : [String(textOrLines)];
-  const fontSize = doc.getFontSize();
-  const lineGap = fontSize * 0.35;
-  const totalTextHeight = lines.length * lineGap;
-  let currentY = y + (height - totalTextHeight) / 2 + 2.2;
-
-  lines.forEach((line) => {
-    let textX = x + 1.5;
-
-    if (align === "center") {
-      textX = x + width / 2;
-      doc.text(line, textX, currentY, { align: "center" });
-    } else if (align === "right") {
-      textX = x + width - 1.5;
-      doc.text(line, textX, currentY, { align: "right" });
-    } else {
-      doc.text(line, textX, currentY);
-    }
-
-    currentY += lineGap;
-  });
-}
-
 function formatDateFr(dateStr) {
   if (!dateStr) return "-";
   const [y, m, d] = dateStr.split("-");
@@ -547,30 +427,17 @@ function formatDateFr(dateStr) {
 function formatMonthFr(monthStr) {
   if (!monthStr) return "-";
   const [year, month] = monthStr.split("-");
-  const months = [
-    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
-  ];
+  const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
   return `${months[Number(month) - 1]} ${year}`;
-}
-
-function safeText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function showToastLoisirs(message) {
   const toast = el("toastLoisirs");
-  if (!toast) {
-    console.log(message);
-    return;
-  }
+  if (!toast) return;
 
   toast.textContent = message;
   toast.classList.add("show");
-
-  setTimeout(() => {
-    toast.classList.remove("show");
-  }, 2500);
+  setTimeout(() => toast.classList.remove("show"), 2500);
 }
 
 function escapeHtml(str) {
@@ -582,15 +449,12 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-/* INDEXEDDB */
-
 function initLoisirsDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("gestionFraisDB", 1);
 
     request.onupgradeneeded = function (event) {
       const db = event.target.result;
-
       if (!db.objectStoreNames.contains("justificatifs")) {
         db.createObjectStore("justificatifs", { keyPath: "id" });
       }
@@ -658,40 +522,25 @@ function deleteFileFromLoisirsDB(id) {
 async function voirJustificatifLoisirs(justificatifId) {
   try {
     const record = await getFileFromLoisirsDB(justificatifId);
-
     if (!record || !record.file) {
       alert("Justificatif introuvable.");
       return;
     }
 
-    if (record.ownerUid && record.ownerUid !== getUid()) {
-      alert("Accès refusé à ce justificatif.");
-      return;
-    }
-
     const url = URL.createObjectURL(record.file);
     window.open(url, "_blank");
-
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 60000);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (error) {
     console.error(error);
-    alert("Impossible d’ouvrir le justificatif.");
+    alert("Impossible d'ouvrir le justificatif.");
   }
 }
 
 async function telechargerJustificatifLoisirs(justificatifId) {
   try {
     const record = await getFileFromLoisirsDB(justificatifId);
-
     if (!record || !record.file) {
       alert("Justificatif introuvable.");
-      return;
-    }
-
-    if (record.ownerUid && record.ownerUid !== getUid()) {
-      alert("Accès refusé à ce justificatif.");
       return;
     }
 
@@ -702,10 +551,7 @@ async function telechargerJustificatifLoisirs(justificatifId) {
     document.body.appendChild(link);
     link.click();
     link.remove();
-
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 60000);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (error) {
     console.error(error);
     alert("Impossible de télécharger le justificatif.");
