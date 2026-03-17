@@ -1,8 +1,8 @@
-console.log("JS LOISIRS CHARGE 999");
-alert("JS loisirs chargé");
-import { requirePdfAccess } from "./premium.js";
+import * as Premium from "./premium.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+
+console.log("LOISIRS V2 CHARGE");
 
 let fraisLoisirs = [];
 let currentUid = null;
@@ -26,6 +26,18 @@ function getFallbackAssistantNomKey() {
 
 function getMoisKey() {
   return `moisLoisirs_${getUid()}`;
+}
+
+async function checkPdfAccess() {
+  if (typeof Premium.requirePdfAccess === "function") {
+    return await Premium.requirePdfAccess();
+  }
+
+  if (typeof Premium.requirePremium === "function") {
+    return await Premium.requirePremium();
+  }
+
+  return true;
 }
 
 onAuthStateChanged(auth, (user) => {
@@ -339,7 +351,7 @@ function resetFormLoisirs() {
 }
 
 async function genererPDFLoisirs() {
-  const allowed = await requirePdfAccess();
+  const allowed = await checkPdfAccess();
   if (!allowed) return;
 
   if (fraisLoisirs.length === 0) {
