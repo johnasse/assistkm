@@ -3,443 +3,368 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EasyFrais Premium</title>
+  <title>AssistKM Premium</title>
+
   <style>
     * {
       box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, Helvetica, sans-serif;
     }
 
     body {
-      background: linear-gradient(135deg, #edf4ff, #f8fbff);
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #eef3fb;
       color: #0f172a;
-      min-height: 100vh;
-      padding: 20px;
     }
 
-    .container {
-      max-width: 1100px;
+    .page {
+      max-width: 1200px;
       margin: 0 auto;
+      padding: 18px;
     }
 
     .topbar {
       display: flex;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
-    }
-
-    .topbar-group {
-      display: flex;
-      gap: 10px;
+      margin-bottom: 18px;
       flex-wrap: wrap;
     }
 
-    .btn {
-      border: none;
-      border-radius: 14px;
-      padding: 12px 18px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: 0.2s ease;
-      text-decoration: none;
+    .back-link {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-    }
-
-    .btn:hover {
-      transform: translateY(-1px);
-      opacity: 0.96;
-    }
-
-    .btn-primary {
-      background: #2563eb;
-      color: white;
-    }
-
-    .btn-secondary {
-      background: white;
+      text-decoration: none;
+      background: #ffffff;
       color: #0f172a;
-      border: 1px solid #dbe4f0;
-    }
-
-    .btn-success {
-      background: #16a34a;
-      color: white;
-    }
-
-    .btn-warning {
-      background: #f59e0b;
-      color: white;
-    }
-
-    .btn:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-      transform: none;
+      padding: 12px 18px;
+      border-radius: 14px;
+      font-weight: 700;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
     }
 
     .hero {
-      background: linear-gradient(135deg, #152a73, #233f9d);
+      background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
       color: white;
       border-radius: 28px;
-      padding: 32px;
-      box-shadow: 0 18px 45px rgba(21, 42, 115, 0.18);
-      margin-bottom: 24px;
-    }
-
-    .hero-badge {
-      display: inline-block;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.16);
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 16px;
+      padding: 34px 32px;
+      margin-bottom: 22px;
+      box-shadow: 0 14px 30px rgba(30, 58, 138, 0.20);
     }
 
     .hero h1 {
-      font-size: 50px;
-      line-height: 1.05;
-      margin-bottom: 12px;
+      margin: 0 0 10px 0;
+      font-size: 3rem;
+      line-height: 1;
     }
 
     .hero p {
-      font-size: 18px;
+      margin: 0;
+      font-size: 1rem;
       line-height: 1.5;
-      max-width: 760px;
-      opacity: 0.97;
+      max-width: 820px;
+      opacity: 0.98;
+    }
+
+    .alert-box {
+      margin-bottom: 18px;
+    }
+
+    .alert-success,
+    .alert-cancel {
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .alert-success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .alert-cancel {
+      background: #fee2e2;
+      color: #b91c1c;
     }
 
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 18px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
-    .card {
-      background: white;
+    .stat-card,
+    .main-card {
+      background: #ffffff;
       border-radius: 24px;
       padding: 24px;
-      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
-      border: 1px solid #edf2f7;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
     }
 
-    .card h3 {
-      font-size: 15px;
-      color: #475569;
+    .stat-label {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #334155;
       margin-bottom: 12px;
     }
 
-    .big-number {
-      font-size: 34px;
-      font-weight: 900;
-      line-height: 1.05;
-      color: #0f172a;
-    }
-
-    .small-text {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #64748b;
-      line-height: 1.45;
-    }
-
-    .status-green {
-      color: #15803d;
-    }
-
-    .status-blue {
-      color: #2563eb;
-    }
-
-    .status-red {
-      color: #dc2626;
-    }
-
-    .content-grid {
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 22px;
-    }
-
-    .section-title {
-      font-size: 24px;
-      font-weight: 900;
-      color: #0f172a;
-      margin-bottom: 18px;
-    }
-
-    .feature-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .feature-item {
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-      padding: 16px 0;
-      border-bottom: 1px solid #e8eef6;
-    }
-
-    .feature-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 14px;
-      background: #eef4ff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 19px;
-      flex-shrink: 0;
-    }
-
-    .feature-text h4 {
-      font-size: 18px;
-      margin-bottom: 6px;
-      color: #0f172a;
-    }
-
-    .feature-text p {
-      color: #475569;
-      font-size: 15px;
-      line-height: 1.45;
-    }
-
-    .pricing-card {
-      background: linear-gradient(180deg, #ffffff, #f9fbff);
-    }
-
-    .price-title {
-      font-size: 32px;
-      font-weight: 900;
+    .stat-value {
+      font-size: 1.3rem;
+      font-weight: 800;
       color: #0f172a;
       margin-bottom: 8px;
     }
 
-    .price {
-      font-size: 62px;
-      font-weight: 900;
-      line-height: 1;
-      color: #0f172a;
-    }
-
-    .per-month {
-      font-size: 15px;
+    .stat-sub {
       color: #64748b;
-      margin: 6px 0 18px;
+      font-size: 0.98rem;
     }
 
-    .rule-box {
-      background: #f4f8ff;
-      border: 1px solid #dce9fb;
-      border-radius: 18px;
-      padding: 18px;
-      color: #334155;
-      font-size: 15px;
-      line-height: 1.6;
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 22px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin: 0 0 18px 0;
+    }
+
+    .feature-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .feature-item {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 12px 0;
+      border-bottom: 1px solid #e5edf8;
+    }
+
+    .feature-item:last-child {
+      border-bottom: none;
+    }
+
+    .feature-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: #edf2ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+    }
+
+    .feature-title {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .feature-desc {
+      color: #475569;
+      line-height: 1.45;
+    }
+
+    .price-card .price-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
       margin-bottom: 18px;
     }
 
-    .alert {
+    .price-value {
+      font-size: 4rem;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .price-period {
+      font-size: 1.2rem;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    .rule-box {
+      border: 1px solid #dbe7f6;
+      background: #f8fbff;
+      border-radius: 20px;
+      padding: 18px;
+      line-height: 1.55;
+      margin-bottom: 18px;
+      color: #1e293b;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
       border-radius: 16px;
-      padding: 14px 16px;
-      font-size: 14px;
-      line-height: 1.45;
-      margin-bottom: 14px;
+      padding: 15px 18px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: 0.2s ease;
     }
 
-    .alert-success {
-      background: #ecfdf3;
-      border: 1px solid #bbf7d0;
-      color: #15803d;
+    .btn:hover {
+      transform: translateY(-1px);
+      opacity: 0.98;
     }
 
-    .alert-warning {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      color: #b45309;
+    .btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
     }
 
-    .alert-danger {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #b91c1c;
+    .btn-green {
+      background: #16a34a;
+      color: white;
     }
 
-    .hidden {
-      display: none;
+    .btn-blue {
+      background: #2563eb;
+      color: white;
     }
 
-    .actions {
-      display: grid;
-      gap: 12px;
-      margin-top: 8px;
+    .btn-light {
+      background: #f8fafc;
+      color: #0f172a;
+      border: 1px solid #dbe4f0;
     }
 
-    .footer-note {
+    .secure-note {
       text-align: center;
-      margin-top: 16px;
-      font-size: 13px;
       color: #64748b;
-    }
-
-    .loader {
-      width: 18px;
-      height: 18px;
-      border: 3px solid rgba(255,255,255,0.35);
-      border-top-color: #fff;
-      border-radius: 50%;
-      display: inline-block;
-      animation: spin 0.8s linear infinite;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+      font-size: 0.95rem;
+      margin-top: 8px;
     }
 
     @media (max-width: 900px) {
       .stats-grid,
-      .content-grid {
+      .main-grid {
         grid-template-columns: 1fr;
       }
 
       .hero h1 {
-        font-size: 38px;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .topbar,
-      .topbar-group {
-        flex-direction: column;
+        font-size: 2.3rem;
       }
 
-      .btn {
-        width: 100%;
-      }
-
-      .hero {
-        padding: 24px;
-      }
-
-      .hero h1 {
-        font-size: 30px;
-      }
-
-      .big-number {
-        font-size: 28px;
-      }
-
-      .price {
-        font-size: 52px;
+      .price-value {
+        font-size: 3.2rem;
       }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="page">
+
     <div class="topbar">
-      <div class="topbar-group">
-        <a href="index.html" class="btn btn-secondary">🏠 Accueil</a>
-        <button class="btn btn-secondary" onclick="history.back()">⬅ Retour</button>
-      </div>
-      <div class="topbar-group">
-        <a href="historique.html" class="btn btn-secondary">📁 Historique</a>
-      </div>
+      <a href="index.html" class="back-link">← Accueil</a>
     </div>
 
+    <div id="alert" class="alert-box"></div>
+
     <section class="hero">
-      <div class="hero-badge">EASYFRAIS PREMIUM</div>
       <h1>Passez en Premium</h1>
       <p>
-        Gérez vos frais sans blocage, gardez un suivi propre de vos PDF
-        et passez à l’illimité avec un abonnement simple à 2€/mois.
+        Gérez vos frais sans blocage, gardez un suivi propre de vos PDF et passez à l’illimité
+        avec un abonnement simple à 2€/mois.
       </p>
     </section>
 
-    <div id="loginAlert" class="alert alert-danger hidden">
-      Vous devez être connecté pour utiliser Premium.
-    </div>
-
-    <div class="stats-grid">
-      <div class="card">
-        <h3>Statut du compte</h3>
-        <div class="big-number" id="subscriptionStatus">Chargement...</div>
-        <div class="small-text" id="subscriptionNote">Vérification en cours...</div>
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Statut du compte</div>
+        <div id="premiumStatusMain" class="stat-value">Chargement...</div>
+        <div id="premiumStatusSub" class="stat-sub">Vérification en cours...</div>
       </div>
 
-      <div class="card">
-        <h3>PDF gratuits restants</h3>
-        <div class="big-number" id="remainingPdfs">--</div>
-        <div class="small-text" id="remainingNote">Calcul en cours...</div>
+      <div class="stat-card">
+        <div class="stat-label">PDF gratuits restants</div>
+        <div id="pdfQuotaMain" class="stat-value">--</div>
+        <div id="pdfQuotaSub" class="stat-sub">Calcul en cours...</div>
       </div>
 
-      <div class="card">
-        <h3>Période actuelle</h3>
-        <div class="big-number" id="periodLabel">--</div>
-        <div class="small-text" id="periodNote">Chargement...</div>
+      <div class="stat-card">
+        <div class="stat-label">Période actuelle</div>
+        <div id="premiumPeriodMain" class="stat-value">--</div>
+        <div id="premiumPeriodSub" class="stat-sub">Chargement...</div>
       </div>
-    </div>
+    </section>
 
-    <div class="content-grid">
-      <div class="card">
-        <div class="section-title">Ce que vous obtenez</div>
+    <section class="main-grid">
+      <div class="main-card">
+        <h2 class="section-title">Ce que vous obtenez</h2>
 
         <div class="feature-list">
           <div class="feature-item">
-            <div class="icon">📄</div>
-            <div class="feature-text">
-              <h4>PDF illimités</h4>
-              <p>En Premium, vous ne touchez plus aucune limite de génération.</p>
+            <div class="feature-icon">📄</div>
+            <div>
+              <div class="feature-title">PDF illimités</div>
+              <div class="feature-desc">
+                En Premium, vous ne touchez plus aucune limite de génération.
+              </div>
             </div>
           </div>
 
           <div class="feature-item">
-            <div class="icon">⚡</div>
-            <div class="feature-text">
-              <h4>Suivi clair de votre quota</h4>
-              <p>Vous voyez combien de PDF gratuits il vous reste avant blocage.</p>
+            <div class="feature-icon">⚡</div>
+            <div>
+              <div class="feature-title">Suivi clair de votre quota</div>
+              <div class="feature-desc">
+                Vous voyez combien de PDF gratuits il vous reste avant blocage.
+              </div>
             </div>
           </div>
 
           <div class="feature-item">
-            <div class="icon">🔒</div>
-            <div class="feature-text">
-              <h4>Activation propre</h4>
-              <p>Abonnement géré via Stripe avec synchronisation côté base de données.</p>
+            <div class="feature-icon">🔐</div>
+            <div>
+              <div class="feature-title">Activation propre</div>
+              <div class="feature-desc">
+                Abonnement géré via Stripe avec synchronisation côté base de données.
+              </div>
             </div>
           </div>
 
           <div class="feature-item">
-            <div class="icon">📚</div>
-            <div class="feature-text">
-              <h4>Historique fiable</h4>
-              <p>Un système propre pour suivre vos générations et vos accès.</p>
+            <div class="feature-icon">📚</div>
+            <div>
+              <div class="feature-title">Historique fiable</div>
+              <div class="feature-desc">
+                Un système propre pour suivre vos générations et vos accès.
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="card pricing-card">
+      <div class="main-card price-card">
         <div class="price-title">Premium</div>
-        <div class="price">2€</div>
-        <div class="per-month">/ mois</div>
+
+        <div class="price-row">
+          <div class="price-value">2€</div>
+          <div class="price-period">/ mois</div>
+        </div>
 
         <div class="rule-box">
           <strong>Règle gratuite :</strong><br>
@@ -448,27 +373,199 @@
           <strong>Premium :</strong> PDF illimités.
         </div>
 
-        <div id="activeAlert" class="alert alert-success hidden">
-          Votre abonnement Premium est actif.
-        </div>
+        <button id="btnSubscribe" class="btn btn-green">💳 S'abonner maintenant</button>
+        <button id="btnPortal" class="btn btn-blue">⚙️ Gérer mon abonnement</button>
+        <button id="btnRefreshPremiumStatus" class="btn btn-light">🔄 Actualiser le statut</button>
 
-        <div id="quotaAlert" class="alert alert-warning hidden">
-          Votre quota gratuit est épuisé. Passez en Premium pour continuer.
-        </div>
-
-        <div class="actions">
-          <button id="subscribeBtn" class="btn btn-success">💳 S'abonner maintenant</button>
-          <button id="manageBtn" class="btn btn-primary">⚙️ Gérer mon abonnement</button>
-          <button id="refreshBtn" class="btn btn-secondary">🔄 Actualiser le statut</button>
-        </div>
-
-        <div class="footer-note">
-          Paiement sécurisé avec Stripe.
-        </div>
+        <div class="secure-note">Paiement sécurisé avec Stripe.</div>
       </div>
-    </div>
+    </section>
   </div>
 
-  <script type="module" src="premium.js"></script>
+  <script type="module">
+    import {
+      auth,
+      startStripeSubscriptionCheckout,
+      openCustomerPortal,
+      hasPremiumAccess,
+      getPdfUsageInfo
+    } from "./premium.js";
+
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+
+    console.log("✅ SCRIPT PREMIUM OK");
+
+    const params = new URLSearchParams(window.location.search);
+    const alertBox = document.getElementById("alert");
+    const btnSubscribe = document.getElementById("btnSubscribe");
+    const btnPortal = document.getElementById("btnPortal");
+    const btnRefresh = document.getElementById("btnRefreshPremiumStatus");
+
+    const premiumStatusMain = document.getElementById("premiumStatusMain");
+    const premiumStatusSub = document.getElementById("premiumStatusSub");
+    const pdfQuotaMain = document.getElementById("pdfQuotaMain");
+    const pdfQuotaSub = document.getElementById("pdfQuotaSub");
+    const premiumPeriodMain = document.getElementById("premiumPeriodMain");
+    const premiumPeriodSub = document.getElementById("premiumPeriodSub");
+
+    if (params.get("checkout") === "success") {
+      alertBox.innerHTML = `
+        <div class="alert-success">
+          Paiement réussi 🎉 Votre abonnement Premium est actif.
+        </div>
+      `;
+    }
+
+    if (params.get("checkout") === "cancel") {
+      alertBox.innerHTML = `
+        <div class="alert-cancel">
+          Paiement annulé.
+        </div>
+      `;
+    }
+
+    function setButtonLoading(button, isLoading, loadingText, defaultText) {
+      if (!button) return;
+      button.disabled = isLoading;
+      button.textContent = isLoading ? loadingText : defaultText;
+    }
+
+    function setLoadingUi() {
+      premiumStatusMain.textContent = "Chargement...";
+      premiumStatusSub.textContent = "Vérification en cours...";
+      pdfQuotaMain.textContent = "--";
+      pdfQuotaSub.textContent = "Calcul en cours...";
+      premiumPeriodMain.textContent = "--";
+      premiumPeriodSub.textContent = "Chargement...";
+    }
+
+    function renderPremiumUi(isPremium, info) {
+      premiumStatusMain.textContent = isPremium ? "Premium actif" : "Compte gratuit";
+      premiumStatusSub.textContent = isPremium
+        ? "Abonnement confirmé."
+        : "Version gratuite active.";
+
+      pdfQuotaMain.textContent = isPremium ? "Illimité" : `${info.remaining} / ${info.limit}`;
+      pdfQuotaSub.textContent = isPremium
+        ? "Aucune limite de génération."
+        : info.isFirstMonth
+          ? `Offre découverte : ${info.limit} PDF le premier mois.`
+          : "1 PDF gratuit par mois.";
+
+      premiumPeriodMain.textContent = isPremium
+        ? "Abonnement actif"
+        : info.isFirstMonth
+          ? "Premier mois"
+          : "Mois en cours";
+
+      premiumPeriodSub.textContent = isPremium
+        ? "Accès illimité"
+        : info.isFirstMonth
+          ? "Offre découverte en cours"
+          : "Quota mensuel gratuit";
+
+      premiumStatusMain.style.color = isPremium ? "#15803d" : "#0f172a";
+      pdfQuotaMain.style.color = isPremium ? "#15803d" : "#0f172a";
+    }
+
+    async function refreshPremiumUi() {
+      try {
+        setLoadingUi();
+
+        const isPremium = await hasPremiumAccess();
+        const info = await getPdfUsageInfo();
+
+        renderPremiumUi(isPremium, info);
+      } catch (error) {
+        console.error("Erreur chargement premium :", error);
+
+        premiumStatusMain.textContent = "Erreur";
+        premiumStatusSub.textContent = "Impossible de charger le statut.";
+        pdfQuotaMain.textContent = "--";
+        pdfQuotaSub.textContent = "Impossible de charger le quota.";
+        premiumPeriodMain.textContent = "--";
+        premiumPeriodSub.textContent = "Erreur de chargement.";
+      }
+    }
+
+    if (btnSubscribe) {
+      btnSubscribe.addEventListener("click", async () => {
+        console.log("👉 CLICK ABONNER");
+        try {
+          setButtonLoading(
+            btnSubscribe,
+            true,
+            "Création du paiement...",
+            "💳 S'abonner maintenant"
+          );
+          await startStripeSubscriptionCheckout();
+        } catch (error) {
+          console.error("Erreur abonnement :", error);
+          alert("Impossible de lancer l'abonnement.");
+        } finally {
+          setButtonLoading(
+            btnSubscribe,
+            false,
+            "Création du paiement...",
+            "💳 S'abonner maintenant"
+          );
+        }
+      });
+    }
+
+    if (btnPortal) {
+      btnPortal.addEventListener("click", async () => {
+        try {
+          setButtonLoading(
+            btnPortal,
+            true,
+            "Ouverture du portail...",
+            "⚙️ Gérer mon abonnement"
+          );
+          await openCustomerPortal();
+        } catch (error) {
+          console.error("Erreur portail :", error);
+          alert("Impossible d'ouvrir le portail client.");
+        } finally {
+          setButtonLoading(
+            btnPortal,
+            false,
+            "Ouverture du portail...",
+            "⚙️ Gérer mon abonnement"
+          );
+        }
+      });
+    }
+
+    if (btnRefresh) {
+      btnRefresh.addEventListener("click", async () => {
+        try {
+          setButtonLoading(
+            btnRefresh,
+            true,
+            "Actualisation...",
+            "🔄 Actualiser le statut"
+          );
+          await refreshPremiumUi();
+        } finally {
+          setButtonLoading(
+            btnRefresh,
+            false,
+            "Actualisation...",
+            "🔄 Actualiser le statut"
+          );
+        }
+      });
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      await refreshPremiumUi();
+    });
+  </script>
 </body>
 </html>
