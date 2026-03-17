@@ -6,346 +6,420 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/f
 let fraisAutres = [];
 let autresDb = null;
 let uid = null;
+let eventsBound = false;
 
-function getStorageKey(){
-return `fraisAutres_${uid}`
+function getStorageKey() {
+  return `fraisAutres_${uid}`;
 }
 
-onAuthStateChanged(auth,(user)=>{
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await initDB();
+    bindEvents();
+  } catch (error) {
+    console.error("Erreur initDB :", error);
+    showToast("Erreur lors de l'initialisation des justificatifs.");
+  }
+});
 
-if(!user){
-window.location.href="login.html"
-return
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  uid = user.uid;
+  fraisAutres = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+  render();
+});
+
+function bindEvents() {
+  if (eventsBound) return;
+  eventsBound = true;
+
+  const btnAjouter = document.getElementById("btnAjouterAutres");
+  const btnReset = document.getElementById("btnResetAutres");
+  const btnPdf = document.getElementById("btnPdfAutres");
+  const btnVider = document.getElementById("btnViderAutres");
+  const btnPhoto = document.getElementById("btnPhotoAutres");
+  const inputJustificatif = document.getElementById("justificatifAutres");
+
+  if (btnAjouter) btnAjouter.addEventListener("click", ajouter);
+  if (btnReset) btnReset.addEventListener("click", resetForm);
+  if (btnPdf) btnPdf.addEventListener("click", genererPDF);
+  if (btnVider) btnVider.addEventListener("click", vider);
+
+  if (btnPhoto) {
+    btnPhoto.addEventListener("click", () => {
+      inputJustificatif?.click();
+    });
+  }
+
+  if (inputJustificatif) {
+    inputJustificatif.addEventListener("change", updateNom);
+  }
 }
 
-uid=user.uid
-
-fraisAutres=JSON.parse(localStorage.getItem(getStorageKey())||"[]")
-
-bindEvents()
-render()
-
-})
-
-document.addEventListener("DOMContentLoaded",async()=>{
-
-await initDB()
-
-})
-
-function bindEvents(){
-
-document.getElementById("btnAjouterAutres")
-.addEventListener("click",ajouter)
-
-document.getElementById("btnResetAutres")
-.addEventListener("click",resetForm)
-
-document.getElementById("btnPdfAutres")
-.addEventListener("click",genererPDF)
-
-document.getElementById("btnViderAutres")
-.addEventListener("click",vider)
-
-document.getElementById("btnPhotoAutres")
-.addEventListener("click",()=>{
-
-document.getElementById("justificatifAutres").click()
-
-})
-
-document.getElementById("justificatifAutres")
-.addEventListener("change",updateNom)
-
+function updateNom() {
+  const file = document.getElementById("justificatifAutres")?.files?.[0];
+  document.getElementById("nomJustificatifAutres").textContent = file ? file.name : "";
 }
 
-function updateNom(){
+async function ajouter() {
+  try {
+    const date = document.getElementById("dateAutres").value.trim();
+    const enfant = document.getElementById("enfantAutres").value.trim();
+    const type = document.getElementById("typeAutres").value.trim();
+    const lieu = document.getElementById("lieuAutres").value.trim();
+    const objet = document.getElementById("objetAutres").value.trim();
+    const montantValue = document.getElementById("montantAutres").value;
+    const montant = parseFloat(montantValue);
+    const file = document.getElementById("justificatifAutres").files[0] || null;
 
-const file=document.getElementById("justificatifAutres").files[0]
+    if (!date || !objet || Number.isNaN(montant) || montant <= 0) {
+      alert("Merci de remplir au minimum la date, l'objet et un montant valide.");
+      return;
+    }
 
-document.getElementById("nomJustificatifAutres").textContent=
-file?file.name:""
+    let justificatifId = null;
+    let justificatifNom = "";
 
+    if (file) {
+      if (!autresDb) {
+        alert("Base justificatifs non disponible.");
+        return;
+      }
+
+      justificatifId = `justif-autres-${Date.now()}`;
+      justificatifNom = file.name;
+
+      await saveFile({
+        id: justificatifId,
+        name: file.name,
+        file: file,
+        createdAt: Date.now()
+      });
+    }
+
+    fraisAutres.push({
+      id: Date.now(),
+      date,
+      enfant,
+      type,
+      lieu,
+      objet,
+      montant,
+      justificatifId,
+      justificatifNom
+    });
+
+    save();
+    render();
+    resetForm();
+    showToast("Dépense ajoutée");
+  } catch (error) {
+    console.error("Erreur ajout :", error);
+    alert("Impossible d'ajouter la dépense.");
+  }
 }
 
-async function ajouter(){
+function render() {
+  const body = document.getElementById("autresBody");
+  if (!body) return;
 
-const date=document.getElementById("dateAutres").value
-const enfant=document.getElementById("enfantAutres").value
-const type=document.getElementById("typeAutres").value
-const lieu=document.getElementById("lieuAutres").value
-const objet=document.getElementById("objetAutres").value
-const montant=parseFloat(document.getElementById("montantAutres").value)
+  body.innerHTML = "";
 
-const file=document.getElementById("justificatifAutres").files[0]||null
+  if (!fraisAutres.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="8" class="empty-cell">Aucune dépense enregistrée</td>
+      </tr>
+    `;
+    updateTotals();
+    return;
+  }
 
-if(!date||!objet||!montant){
-alert("Champs manquants")
-return
+  fraisAutres.forEach((item) => {
+    const tr = document.createElement("tr");
+
+    const justif = item.justificatifId
+      ? `
+        <button type="button" class="btnView" data-id="${item.justificatifId}">Voir</button>
+        <button type="button" class="btnDown" data-id="${item.justificatifId}">Télécharger</button>
+      `
+      : "Aucun";
+
+    tr.innerHTML = `
+      <td>${escapeHtml(item.date || "")}</td>
+      <td>${escapeHtml(item.enfant || "")}</td>
+      <td>${escapeHtml(item.type || "")}</td>
+      <td>${escapeHtml(item.lieu || "")}</td>
+      <td>${escapeHtml(item.objet || "")}</td>
+      <td>${formatMoney(item.montant)}</td>
+      <td>${justif}</td>
+      <td>
+        <button type="button" class="btnDel" data-id="${item.id}">Supprimer</button>
+      </td>
+    `;
+
+    body.appendChild(tr);
+  });
+
+  document.querySelectorAll(".btnDel").forEach((btn) => {
+    btn.onclick = () => supprimer(btn.dataset.id);
+  });
+
+  document.querySelectorAll(".btnView").forEach((btn) => {
+    btn.onclick = () => voir(btn.dataset.id);
+  });
+
+  document.querySelectorAll(".btnDown").forEach((btn) => {
+    btn.onclick = () => download(btn.dataset.id);
+  });
+
+  updateTotals();
 }
 
-let justificatifId=null
-let justificatifNom=""
-
-if(file){
-
-justificatifId="justif-autres-"+Date.now()
-
-justificatifNom=file.name
-
-await saveFile({
-
-id:justificatifId,
-name:file.name,
-file:file
-
-})
-
+function supprimer(id) {
+  fraisAutres = fraisAutres.filter((f) => String(f.id) !== String(id));
+  save();
+  render();
+  showToast("Dépense supprimée");
 }
 
-fraisAutres.push({
+function updateTotals() {
+  const total = fraisAutres.reduce((somme, item) => somme + (Number(item.montant) || 0), 0);
 
-id:Date.now(),
-date,
-enfant,
-type,
-lieu,
-objet,
-montant,
-justificatifId,
-justificatifNom
-
-})
-
-save()
-render()
-resetForm()
-
+  document.getElementById("totalLignesAutres").textContent = fraisAutres.length;
+  document.getElementById("totalMontantAutres").textContent = formatMoney(total);
 }
 
-function render(){
-
-const body=document.getElementById("autresBody")
-
-body.innerHTML=""
-
-if(fraisAutres.length===0){
-
-body.innerHTML=`
-<tr>
-<td colspan="8">Aucune dépense</td>
-</tr>
-`
-
-updateTotals()
-return
-
+function save() {
+  if (!uid) return;
+  localStorage.setItem(getStorageKey(), JSON.stringify(fraisAutres));
 }
 
-fraisAutres.forEach(item=>{
-
-const tr=document.createElement("tr")
-
-const justif=item.justificatifId?
-
-`
-<button class="btnView" data-id="${item.justificatifId}">Voir</button>
-<button class="btnDown" data-id="${item.justificatifId}">Télécharger</button>
-`
-
-:"Aucun"
-
-tr.innerHTML=`
-
-<td>${item.date}</td>
-<td>${item.enfant}</td>
-<td>${item.type}</td>
-<td>${item.lieu}</td>
-<td>${item.objet}</td>
-<td>${item.montant} €</td>
-<td>${justif}</td>
-
-<td>
-<button class="btnDel" data-id="${item.id}">Supprimer</button>
-</td>
-
-`
-
-body.appendChild(tr)
-
-})
-
-document.querySelectorAll(".btnDel")
-.forEach(btn=>{
-
-btn.onclick=()=>supprimer(btn.dataset.id)
-
-})
-
-document.querySelectorAll(".btnView")
-.forEach(btn=>{
-
-btn.onclick=()=>voir(btn.dataset.id)
-
-})
-
-document.querySelectorAll(".btnDown")
-.forEach(btn=>{
-
-btn.onclick=()=>download(btn.dataset.id)
-
-})
-
-updateTotals()
-
+function resetForm() {
+  document.getElementById("dateAutres").value = "";
+  document.getElementById("enfantAutres").value = "";
+  document.getElementById("typeAutres").value = "";
+  document.getElementById("lieuAutres").value = "";
+  document.getElementById("objetAutres").value = "";
+  document.getElementById("montantAutres").value = "";
+  document.getElementById("justificatifAutres").value = "";
+  document.getElementById("nomJustificatifAutres").textContent = "";
 }
 
-function supprimer(id){
+async function genererPDF() {
+  try {
+    if (!fraisAutres.length) {
+      alert("Aucune dépense à exporter.");
+      return;
+    }
 
-fraisAutres=fraisAutres.filter(f=>f.id!=id)
+    const allowed = await requirePdfAccess();
+    if (!allowed) return;
 
-save()
-render()
+    const mois = document.getElementById("moisAutres").value || "";
+    const assistantNom = document.getElementById("assistantNomAutres").value.trim() || "";
+    const { jsPDF } = window.jspdf;
 
+    const doc = new jsPDF("landscape");
+    let y = 14;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("État des autres frais", 14, y);
+
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Mois : ${mois || "-"}`, 14, y);
+    doc.text(`Assistant familial : ${assistantNom || "-"}`, 110, y);
+
+    y += 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Date", 14, y);
+    doc.text("Enfant", 40, y);
+    doc.text("Type", 75, y);
+    doc.text("Lieu", 120, y);
+    doc.text("Objet", 175, y);
+    doc.text("Montant", 250, y);
+
+    y += 6;
+    doc.setFont("helvetica", "normal");
+
+    fraisAutres.forEach((f) => {
+      if (y > 185) {
+        doc.addPage("landscape");
+        y = 20;
+      }
+
+      doc.text(String(f.date || ""), 14, y);
+      doc.text(cutText(doc, f.enfant || "", 25), 40, y);
+      doc.text(cutText(doc, f.type || "", 35), 75, y);
+      doc.text(cutText(doc, f.lieu || "", 45), 120, y);
+      doc.text(cutText(doc, f.objet || "", 55), 175, y);
+      doc.text(formatMoney(f.montant), 250, y);
+
+      y += 7;
+    });
+
+    y += 5;
+    doc.setFont("helvetica", "bold");
+    doc.text(`Nombre de dépenses : ${fraisAutres.length}`, 14, y);
+    doc.text(`Total : ${formatMoney(fraisAutres.reduce((s, i) => s + (Number(i.montant) || 0), 0))}`, 120, y);
+
+    savePdfToHistory(doc, {
+      type: "Autres frais",
+      nom: "autres-frais.pdf"
+    });
+
+    doc.save("autres-frais.pdf");
+    showToast("PDF généré");
+  } catch (error) {
+    console.error("Erreur PDF :", error);
+    alert("Impossible de générer le PDF.");
+  }
 }
 
-function updateTotals(){
+function vider() {
+  if (!fraisAutres.length) {
+    alert("La liste est déjà vide.");
+    return;
+  }
 
-const total=fraisAutres.reduce((s,i)=>s+i.montant,0)
-
-document.getElementById("totalLignesAutres").textContent=fraisAutres.length
-
-document.getElementById("totalMontantAutres").textContent=
-total.toFixed(2)+" €"
-
+  if (confirm("Tout supprimer ?")) {
+    fraisAutres = [];
+    save();
+    render();
+    showToast("Liste vidée");
+  }
 }
 
-function save(){
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("gestionFraisDB", 1);
 
-localStorage.setItem(getStorageKey(),JSON.stringify(fraisAutres))
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
 
+      if (!db.objectStoreNames.contains("justificatifs")) {
+        db.createObjectStore("justificatifs", { keyPath: "id" });
+      }
+    };
+
+    request.onsuccess = () => {
+      autresDb = request.result;
+      resolve();
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
 }
 
-function resetForm(){
+function saveFile(fileRecord) {
+  return new Promise((resolve, reject) => {
+    if (!autresDb) {
+      reject(new Error("Base IndexedDB non disponible"));
+      return;
+    }
 
-document.querySelectorAll("input").forEach(i=>i.value="")
+    const tx = autresDb.transaction(["justificatifs"], "readwrite");
+    const store = tx.objectStore("justificatifs");
+    const req = store.put(fileRecord);
 
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }
 
-async function genererPDF(){
+function getFile(id) {
+  return new Promise((resolve, reject) => {
+    if (!autresDb) {
+      reject(new Error("Base IndexedDB non disponible"));
+      return;
+    }
 
-const allowed=await requirePdfAccess()
+    const tx = autresDb.transaction(["justificatifs"], "readonly");
+    const store = tx.objectStore("justificatifs");
+    const req = store.get(id);
 
-if(!allowed)return
-
-const {jsPDF}=window.jspdf
-
-const doc=new jsPDF("landscape")
-
-let y=20
-
-doc.text("Etat des autres frais",10,y)
-
-y+=10
-
-fraisAutres.forEach(f=>{
-
-doc.text(`${f.date} - ${f.objet} - ${f.montant} €`,10,y)
-
-y+=6
-
-})
-
-savePdfToHistory(doc,{
-type:"Autres frais",
-nom:"autres-frais.pdf"
-})
-
-doc.save("autres-frais.pdf")
-
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-function vider(){
+async function voir(id) {
+  try {
+    const record = await getFile(id);
 
-if(confirm("Tout supprimer ?")){
+    if (!record || !record.file) {
+      alert("Justificatif introuvable.");
+      return;
+    }
 
-fraisAutres=[]
-
-save()
-render()
-
+    const url = URL.createObjectURL(record.file);
+    window.open(url, "_blank");
+  } catch (error) {
+    console.error("Erreur voir justificatif :", error);
+    alert("Impossible d'ouvrir le justificatif.");
+  }
 }
 
+async function download(id) {
+  try {
+    const record = await getFile(id);
+
+    if (!record || !record.file) {
+      alert("Justificatif introuvable.");
+      return;
+    }
+
+    const url = URL.createObjectURL(record.file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = record.name || "justificatif";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Erreur téléchargement :", error);
+    alert("Impossible de télécharger le justificatif.");
+  }
 }
 
-function initDB(){
-
-return new Promise((resolve,reject)=>{
-
-const request=indexedDB.open("gestionFraisDB",1)
-
-request.onsuccess=()=>{
-
-autresDb=request.result
-resolve()
-
+function formatMoney(value) {
+  return `${(Number(value) || 0).toFixed(2)} €`;
 }
 
-request.onerror=()=>reject()
-
-})
-
+function cutText(doc, text, maxLength) {
+  const value = String(text || "");
+  if (value.length <= maxLength) return value;
+  return value.slice(0, maxLength - 3) + "...";
 }
 
-function saveFile(file){
-
-return new Promise((resolve)=>{
-
-const tx=autresDb.transaction(["justificatifs"],"readwrite")
-
-tx.objectStore("justificatifs").put(file)
-
-resolve()
-
-})
-
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-function getFile(id){
+function showToast(message) {
+  const toast = document.getElementById("toastAutres");
+  if (!toast) return;
 
-return new Promise((resolve)=>{
+  toast.textContent = message;
+  toast.classList.add("show");
 
-const tx=autresDb.transaction(["justificatifs"],"readonly")
-
-const req=tx.objectStore("justificatifs").get(id)
-
-req.onsuccess=()=>resolve(req.result)
-
-})
-
-}
-
-async function voir(id){
-
-const record=await getFile(id)
-
-const url=URL.createObjectURL(record.file)
-
-window.open(url)
-
-}
-
-async function download(id){
-
-const record=await getFile(id)
-
-const url=URL.createObjectURL(record.file)
-
-const a=document.createElement("a")
-
-a.href=url
-a.download=record.name
-
-a.click()
-
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2000);
 }
