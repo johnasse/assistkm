@@ -6,6 +6,9 @@ const DEFAULT_RATES = {
   "12-21": 56.83
 };
 
+let currentUid = null;
+let eventsBound = false;
+
 const childNameInput = document.getElementById("childName");
 const yearSelect = document.getElementById("yearSelect");
 const ageBracketSelect = document.getElementById("ageBracket");
@@ -28,8 +31,6 @@ const expenseFilesInput = document.getElementById("expenseFiles");
 const addExpenseBtn = document.getElementById("addExpenseBtn");
 
 const historyContainer = document.getElementById("historyContainer");
-
-let currentUid = null;
 
 function formatEuro(value) {
   return new Intl.NumberFormat("fr-FR", {
@@ -96,13 +97,8 @@ function getCurrentRatesFromInputs() {
 function loadRatesIntoInputs() {
   const rates = getSavedRates();
 
-  if (rate0_11Input) {
-    rate0_11Input.value = rates["0-11"].toFixed(2);
-  }
-
-  if (rate12_21Input) {
-    rate12_21Input.value = rates["12-21"].toFixed(2);
-  }
+  if (rate0_11Input) rate0_11Input.value = rates["0-11"].toFixed(2);
+  if (rate12_21Input) rate12_21Input.value = rates["12-21"].toFixed(2);
 }
 
 function saveRates() {
@@ -155,17 +151,9 @@ function loadSettings() {
   try {
     const settings = JSON.parse(raw);
 
-    if (childNameInput && settings.childName) {
-      childNameInput.value = settings.childName;
-    }
-
-    if (yearSelect && settings.year) {
-      yearSelect.value = settings.year;
-    }
-
-    if (ageBracketSelect && settings.ageBracket) {
-      ageBracketSelect.value = settings.ageBracket;
-    }
+    if (childNameInput && settings.childName) childNameInput.value = settings.childName;
+    if (yearSelect && settings.year) yearSelect.value = settings.year;
+    if (ageBracketSelect && settings.ageBracket) ageBracketSelect.value = settings.ageBracket;
   } catch (error) {
     console.error("Erreur chargement paramètres habillement :", error);
   }
@@ -195,10 +183,7 @@ function updateSummary() {
   const annual = getAnnualBudget();
   const expenses = getExpenses();
 
-  const totalSpent = expenses.reduce((sum, item) => {
-    return sum + Number(item.amount || 0);
-  }, 0);
-
+  const totalSpent = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const remaining = Number((annual - totalSpent).toFixed(2));
 
   monthlyBudgetEl.textContent = formatEuro(monthly);
@@ -222,9 +207,7 @@ function escapeHtml(value) {
 function renderHistory() {
   if (!historyContainer) return;
 
-  const expenses = getExpenses().sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
+  const expenses = getExpenses().sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (!expenses.length) {
     historyContainer.innerHTML = `<div class="empty-state">Aucune dépense enregistrée pour le moment.</div>`;
@@ -248,17 +231,22 @@ function renderHistory() {
   `;
 
   expenses.forEach((expense) => {
-    const filesHtml = expense.files && expense.files.length
-      ? `
-        <div class="file-list">
-          ${expense.files.map((file) => `
-            <a class="file-link" href="${file.data}" download="${escapeHtml(file.name)}">
-              📎 ${escapeHtml(file.name)}
-            </a>
-          `).join("")}
-        </div>
-      `
-      : "Aucun";
+    const filesHtml =
+      expense.files && expense.files.length
+        ? `
+          <div class="file-list">
+            ${expense.files
+              .map(
+                (file) => `
+              <a class="file-link" href="${file.data}" download="${escapeHtml(file.name)}">
+                📎 ${escapeHtml(file.name)}
+              </a>
+            `
+              )
+              .join("")}
+          </div>
+        `
+        : "Aucun";
 
     html += `
       <tr>
@@ -269,7 +257,9 @@ function renderHistory() {
         <td>${escapeHtml(expense.notes)}</td>
         <td>${filesHtml}</td>
         <td>
-          <button class="btn btn-danger" onclick="deleteExpense('${escapeHtml(expense.id)}')">Supprimer</button>
+          <button type="button" class="btn btn-danger btn-delete-expense" data-id="${escapeHtml(expense.id)}">
+            Supprimer
+          </button>
         </td>
       </tr>
     `;
@@ -281,6 +271,10 @@ function renderHistory() {
   `;
 
   historyContainer.innerHTML = html;
+
+  historyContainer.querySelectorAll(".btn-delete-expense").forEach((btn) => {
+    btn.addEventListener("click", () => deleteExpense(btn.dataset.id));
+  });
 }
 
 function clearExpenseForm() {
@@ -313,7 +307,9 @@ function filesToBase64(fileList) {
   );
 }
 
-async function addExpense() {
+async function addExpense(event) {
+  if (event) event.preventDefault();
+
   const childName = childNameInput?.value.trim() || "";
   const year = yearSelect?.value.trim() || "";
   const date = expenseDateInput?.value || "";
@@ -404,20 +400,13 @@ function deleteExpense(id) {
   renderHistory();
 }
 
-window.deleteExpense = deleteExpense;
-
 function initDefaultValues() {
   const today = new Date();
   const currentYear = today.getFullYear();
   const todayIso = today.toISOString().split("T")[0];
 
-  if (yearSelect && !yearSelect.value) {
-    yearSelect.value = String(currentYear);
-  }
-
-  if (expenseDateInput && !expenseDateInput.value) {
-    expenseDateInput.value = todayIso;
-  }
+  if (yearSelect && !yearSelect.value) yearSelect.value = String(currentYear);
+  if (expenseDateInput && !expenseDateInput.value) expenseDateInput.value = todayIso;
 }
 
 function refreshAll() {
@@ -429,6 +418,9 @@ function refreshAll() {
 }
 
 function bindEvents() {
+  if (eventsBound) return;
+  eventsBound = true;
+
   if (childNameInput) {
     childNameInput.addEventListener("input", () => {
       saveSettings();
@@ -453,24 +445,20 @@ function bindEvents() {
     });
   }
 
-  if (rate0_11Input) {
-    rate0_11Input.addEventListener("input", updateSummary);
-  }
-
-  if (rate12_21Input) {
-    rate12_21Input.addEventListener("input", updateSummary);
-  }
+  if (rate0_11Input) rate0_11Input.addEventListener("input", updateSummary);
+  if (rate12_21Input) rate12_21Input.addEventListener("input", updateSummary);
 
   if (saveRatesBtn) {
-    saveRatesBtn.addEventListener("click", saveRates);
+    saveRatesBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      saveRates();
+    });
   }
 
   if (addExpenseBtn) {
     addExpenseBtn.addEventListener("click", addExpense);
   }
 }
-
-bindEvents();
 
 onAuthStateChanged(auth, (user) => {
   if (!user) {
@@ -479,5 +467,6 @@ onAuthStateChanged(auth, (user) => {
   }
 
   currentUid = user.uid;
+  bindEvents();
   refreshAll();
 });
