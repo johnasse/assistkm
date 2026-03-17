@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
   runTransaction,
   serverTimestamp,
   Timestamp
@@ -12,9 +11,9 @@ import {
 
 /*
   IMPORTANT
-  Remplace si besoin par ton vrai projet Firebase Functions.
+  Mets bien ton vrai projet Firebase ici.
 */
-const FUNCTIONS_BASE_URL = "https://us-central1-assistkm.cloudfunctions.net";
+const FUNCTIONS_BASE_URL = "https://us-central1-assistkm-24d0a.cloudfunctions.net";
 
 const els = {
   loginAlert: document.getElementById("loginAlert"),
@@ -41,17 +40,22 @@ function monthKeyFromDate(date) {
   return `${y}-${m}`;
 }
 
-function formatMonthLabel(date) {
-  return new Intl.DateTimeFormat("fr-FR", {
-    month: "long",
-    year: "numeric"
-  }).format(new Date(date));
+function getCurrentMonthKey() {
+  return monthKeyFromDate(new Date());
 }
 
 function formatDateFR(value) {
   if (!value) return "-";
   const d = new Date(value);
+  if (isNaN(d)) return "-";
   return d.toLocaleDateString("fr-FR");
+}
+
+function formatMonthLabel(date) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    year: "numeric"
+  }).format(new Date(date));
 }
 
 function toDate(value) {
@@ -61,19 +65,15 @@ function toDate(value) {
   return new Date(value);
 }
 
-function getCurrentMonthKey() {
-  return monthKeyFromDate(new Date());
-}
-
 function getAllowanceForMonth(accountCreatedAt, targetMonthKey) {
   const firstMonthKey = monthKeyFromDate(accountCreatedAt);
   return firstMonthKey === targetMonthKey ? 3 : 1;
 }
 
-function setLoadingState(isLoading, btn, loadingText, normalText) {
-  if (!btn) return;
-  btn.disabled = isLoading;
-  btn.innerHTML = isLoading
+function setButtonLoading(button, isLoading, loadingText, normalText) {
+  if (!button) return;
+  button.disabled = isLoading;
+  button.innerHTML = isLoading
     ? `<span class="loader"></span>${loadingText}`
     : normalText;
 }
@@ -84,7 +84,8 @@ async function ensureUserProfile(user) {
 
   if (!snap.exists()) {
     const now = new Date();
-    const data = {
+
+    const newProfile = {
       uid: user.uid,
       email: user.email || "",
       createdAt: Timestamp.fromDate(now),
@@ -96,69 +97,76 @@ async function ensureUserProfile(user) {
       updatedAt: serverTimestamp()
     };
 
-    await setDoc(userRef, data);
-    return data;
+    await setDoc(userRef, newProfile);
+    return {
+      ...newProfile,
+      updatedAt: now
+    };
   }
 
   return snap.data();
 }
 
 function renderProfile(profile) {
-  const now = new Date();
   const currentMonthKey = getCurrentMonthKey();
-  const accountCreatedAt = toDate(profile.createdAt);
+  const createdAt = toDate(profile.createdAt);
   const pdfUsage = profile.pdfUsage || {};
   const usedThisMonth = Number(pdfUsage[currentMonthKey] || 0);
-  const allowance = getAllowanceForMonth(accountCreatedAt, currentMonthKey);
-
+  const allowance = getAllowanceForMonth(createdAt, currentMonthKey);
   const isPremium = profile.subscriptionStatus === "active";
-  const remaining = isPremium ? "Illimité" : Math.max(allowance - usedThisMonth, 0);
+  const remaining = isPremium ? "∞" : Math.max(allowance - usedThisMonth, 0);
 
-  els.periodLabel.textContent = formatMonthLabel(now);
-  els.periodNote.textContent = `Compte créé le ${formatDateFR(accountCreatedAt)}.`;
+  els.periodLabel.textContent = formatMonthLabel(new Date());
+  els.periodNote.textContent = `Compte créé le ${formatDateFR(createdAt)}.`;
 
   if (isPremium) {
     els.subscriptionStatus.textContent = "Premium actif";
-    els.subscriptionStatus.className = "big status-active";
+    els.subscriptionStatus.className = "big-number status-green";
     els.subscriptionNote.textContent = profile.currentPeriodEnd
-      ? `Renouvellement jusqu'au ${formatDateFR(toDate(profile.currentPeriodEnd))}.`
-      : "Votre abonnement Premium est bien actif.";
+      ? `Actif jusqu'au ${formatDateFR(toDate(profile.currentPeriodEnd))}.`
+      : "Votre abonnement Premium est actif.";
+
     els.remainingPdfs.textContent = "∞";
-    els.remainingPdfs.className = "big status-active";
+    els.remainingPdfs.className = "big-number status-green";
     els.remainingNote.textContent = "Aucune limite de PDF pendant l'abonnement.";
+
     els.activeAlert.classList.remove("hidden");
     els.quotaAlert.classList.add("hidden");
+
     els.subscribeBtn.disabled = true;
     els.subscribeBtn.textContent = "✅ Abonnement actif";
     els.manageBtn.disabled = false;
-  } else {
-    els.subscriptionStatus.textContent = "Compte gratuit";
-    els.subscriptionStatus.className = "big status-free";
-    els.subscriptionNote.textContent = "3 PDF le premier mois, puis 1 PDF par mois.";
-    els.remainingPdfs.textContent = String(remaining);
-    els.remainingPdfs.className = remaining > 0 ? "big status-free" : "big status-blocked";
-    els.remainingNote.textContent = `Utilisés ce mois-ci : ${usedThisMonth} / ${allowance}`;
-    els.activeAlert.classList.add("hidden");
-    els.subscribeBtn.disabled = false;
-    els.subscribeBtn.textContent = "💳 S'abonner maintenant";
-    els.manageBtn.disabled = !profile.stripeCustomerId;
+    return;
+  }
 
-    if (remaining <= 0) {
-      els.quotaAlert.classList.remove("hidden");
-    } else {
-      els.quotaAlert.classList.add("hidden");
-    }
+  els.subscriptionStatus.textContent = "Compte gratuit";
+  els.subscriptionStatus.className = "big-number status-blue";
+  els.subscriptionNote.textContent = "3 PDF le premier mois, puis 1 PDF par mois.";
+
+  els.remainingPdfs.textContent = String(remaining);
+  els.remainingPdfs.className = remaining > 0 ? "big-number status-blue" : "big-number status-red";
+  els.remainingNote.textContent = `Utilisés ce mois-ci : ${usedThisMonth} / ${allowance}`;
+
+  els.activeAlert.classList.add("hidden");
+  els.subscribeBtn.disabled = false;
+  els.subscribeBtn.textContent = "💳 S'abonner maintenant";
+  els.manageBtn.disabled = !profile.stripeCustomerId;
+
+  if (remaining <= 0) {
+    els.quotaAlert.classList.remove("hidden");
+  } else {
+    els.quotaAlert.classList.add("hidden");
   }
 }
 
-async function loadProfileAndRender() {
+async function loadAndRenderProfile() {
   if (!currentUser) {
     els.loginAlert.classList.remove("hidden");
     els.subscriptionStatus.textContent = "Connexion requise";
-    els.subscriptionStatus.className = "big status-blocked";
-    els.subscriptionNote.textContent = "Connectez-vous pour voir votre quota.";
+    els.subscriptionStatus.className = "big-number status-red";
+    els.subscriptionNote.textContent = "Connectez-vous pour voir votre statut.";
     els.remainingPdfs.textContent = "--";
-    els.remainingNote.textContent = "Aucune donnée sans connexion.";
+    els.remainingNote.textContent = "Aucune donnée disponible.";
     els.periodLabel.textContent = "--";
     els.periodNote.textContent = "Connectez-vous pour continuer.";
     els.subscribeBtn.disabled = true;
@@ -173,9 +181,7 @@ async function loadProfileAndRender() {
 
 async function callProtectedFunction(endpoint, body = {}) {
   if (!currentUser) {
-    alert("Vous devez être connecté.");
-    window.location.href = "auth.html";
-    return null;
+    throw new Error("Vous devez être connecté.");
   }
 
   const token = await getIdToken(currentUser, true);
@@ -200,13 +206,17 @@ async function callProtectedFunction(endpoint, body = {}) {
 
 els.subscribeBtn.addEventListener("click", async () => {
   if (!currentUser) {
-    alert("Connectez-vous d'abord.");
-    window.location.href = "auth.html";
+    alert("Vous devez être connecté.");
     return;
   }
 
   try {
-    setLoadingState(true, els.subscribeBtn, "Création du paiement...", "💳 S'abonner maintenant");
+    setButtonLoading(
+      els.subscribeBtn,
+      true,
+      "Création du paiement...",
+      "💳 S'abonner maintenant"
+    );
 
     const data = await callProtectedFunction("createCheckoutSession", {
       successUrl: `${window.location.origin}/success.html`,
@@ -218,26 +228,35 @@ els.subscribeBtn.addEventListener("click", async () => {
       return;
     }
 
-    alert("Impossible de lancer Stripe.");
+    throw new Error("Aucune URL de paiement reçue.");
   } catch (error) {
-    console.error(error);
-    alert(error.message || "Erreur lors de la création du paiement.");
+    console.error("Erreur createCheckoutSession :", error);
+    alert(error.message || "Impossible de lancer le paiement.");
   } finally {
     if (currentProfile?.subscriptionStatus !== "active") {
-      setLoadingState(false, els.subscribeBtn, "", "💳 S'abonner maintenant");
+      setButtonLoading(
+        els.subscribeBtn,
+        false,
+        "",
+        "💳 S'abonner maintenant"
+      );
     }
   }
 });
 
 els.manageBtn.addEventListener("click", async () => {
   if (!currentUser) {
-    alert("Connectez-vous d'abord.");
-    window.location.href = "auth.html";
+    alert("Vous devez être connecté.");
     return;
   }
 
   try {
-    setLoadingState(true, els.manageBtn, "Ouverture...", "⚙️ Gérer mon abonnement");
+    setButtonLoading(
+      els.manageBtn,
+      true,
+      "Ouverture...",
+      "⚙️ Gérer mon abonnement"
+    );
 
     const data = await callProtectedFunction("createPortalSession", {
       returnUrl: `${window.location.origin}/premium.html`
@@ -248,48 +267,50 @@ els.manageBtn.addEventListener("click", async () => {
       return;
     }
 
-    alert("Impossible d'ouvrir le portail d'abonnement.");
+    throw new Error("Aucune URL de portail reçue.");
   } catch (error) {
-    console.error(error);
-    alert(error.message || "Erreur portail Stripe.");
+    console.error("Erreur createPortalSession :", error);
+    alert(error.message || "Impossible d'ouvrir la gestion d'abonnement.");
   } finally {
-    setLoadingState(false, els.manageBtn, "", "⚙️ Gérer mon abonnement");
+    setButtonLoading(
+      els.manageBtn,
+      false,
+      "",
+      "⚙️ Gérer mon abonnement"
+    );
   }
 });
 
 els.refreshBtn.addEventListener("click", async () => {
   try {
-    setLoadingState(true, els.refreshBtn, "Actualisation...", "🔄 Actualiser le statut");
-    await loadProfileAndRender();
+    setButtonLoading(
+      els.refreshBtn,
+      true,
+      "Actualisation...",
+      "🔄 Actualiser le statut"
+    );
+    await loadAndRenderProfile();
   } catch (error) {
     console.error(error);
-    alert("Erreur de rafraîchissement.");
+    alert("Erreur pendant l'actualisation.");
   } finally {
-    setLoadingState(false, els.refreshBtn, "", "🔄 Actualiser le statut");
+    setButtonLoading(
+      els.refreshBtn,
+      false,
+      "",
+      "🔄 Actualiser le statut"
+    );
   }
 });
 
 /*
-  ==========================
-  AIDE GLOBALE POUR LES PDF
-  ==========================
-  Tu pourras appeler ça depuis les autres modules.
-
-  Exemple dans un autre fichier :
-  const check = await window.EasyFraisPremium.canGeneratePdf();
-  if (!check.allowed) {
-    alert(check.message);
-    window.location.href = "premium.html";
-    return;
-  }
-
-  // puis juste après la vraie génération :
-  await window.EasyFraisPremium.registerPdfGeneration({ module: "autres" });
+  OUTILS GLOBAUX À RÉUTILISER DANS LES AUTRES MODULES
 */
-
 window.EasyFraisPremium = {
   async canGeneratePdf() {
-    if (!auth.currentUser) {
+    const user = auth.currentUser;
+
+    if (!user) {
       return {
         allowed: false,
         reason: "not_authenticated",
@@ -297,10 +318,10 @@ window.EasyFraisPremium = {
       };
     }
 
-    const profile = await ensureUserProfile(auth.currentUser);
+    const profile = await ensureUserProfile(user);
     const currentMonthKey = getCurrentMonthKey();
-    const accountCreatedAt = toDate(profile.createdAt);
-    const allowance = getAllowanceForMonth(accountCreatedAt, currentMonthKey);
+    const createdAt = toDate(profile.createdAt);
+    const allowance = getAllowanceForMonth(createdAt, currentMonthKey);
     const usedThisMonth = Number((profile.pdfUsage || {})[currentMonthKey] || 0);
 
     if (profile.subscriptionStatus === "active") {
@@ -337,6 +358,7 @@ window.EasyFraisPremium = {
 
   async registerPdfGeneration({ module = "inconnu" } = {}) {
     const user = auth.currentUser;
+
     if (!user) {
       throw new Error("Utilisateur non connecté.");
     }
@@ -352,9 +374,8 @@ window.EasyFraisPremium = {
 
       const data = snap.data();
       const currentMonthKey = getCurrentMonthKey();
-      const profileCreatedAt = toDate(data.createdAt);
-      const allowance = getAllowanceForMonth(profileCreatedAt, currentMonthKey);
-
+      const createdAt = toDate(data.createdAt);
+      const allowance = getAllowanceForMonth(createdAt, currentMonthKey);
       const pdfUsage = data.pdfUsage || {};
       const usedThisMonth = Number(pdfUsage[currentMonthKey] || 0);
 
@@ -362,16 +383,14 @@ window.EasyFraisPremium = {
         throw new Error("Quota gratuit atteint.");
       }
 
-      const nextUsage = {
-        ...pdfUsage,
-        [currentMonthKey]: usedThisMonth + 1
-      };
-
       transaction.update(userRef, {
-        pdfUsage: nextUsage,
-        updatedAt: serverTimestamp(),
+        pdfUsage: {
+          ...pdfUsage,
+          [currentMonthKey]: usedThisMonth + 1
+        },
         lastPdfModule: module,
-        lastPdfAt: serverTimestamp()
+        lastPdfAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
     });
 
@@ -385,11 +404,11 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
 
   try {
-    await loadProfileAndRender();
+    await loadAndRenderProfile();
   } catch (error) {
     console.error(error);
     els.subscriptionStatus.textContent = "Erreur";
-    els.subscriptionStatus.className = "big status-blocked";
+    els.subscriptionStatus.className = "big-number status-red";
     els.subscriptionNote.textContent = "Impossible de charger le statut Premium.";
   }
 });
