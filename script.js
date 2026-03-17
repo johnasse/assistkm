@@ -104,20 +104,20 @@ function loadUserDataIfReady() {
 }
 
 function bindEvents() {
-  document.getElementById("btnAddDestination").addEventListener("click", () => addDestination());
-  document.getElementById("btnSaveDomicile").addEventListener("click", saveDomicile);
-  document.getElementById("btnCalculer").addEventListener("click", calculerTrajet);
-  document.getElementById("btnAjouterDeplacement").addEventListener("click", ajouterDeplacement);
-  document.getElementById("btnReset").addEventListener("click", resetForm);
-  document.getElementById("btnPdfMensuel").addEventListener("click", genererPDFMensuel);
-  document.getElementById("btnViderListe").addEventListener("click", viderListe);
-  document.getElementById("departDomicile").addEventListener("change", toggleDepartDomicile);
-  document.getElementById("domicile").addEventListener("input", syncDepartIfNeeded);
-  document.getElementById("assistantNom").addEventListener("input", saveAssistantNom);
-  document.getElementById("moisEtat").addEventListener("change", saveMoisEtat);
-  document.getElementById("btnSaveBaremes").addEventListener("click", saveBaremes);
-  document.getElementById("btnResetBaremes").addEventListener("click", resetBaremes);
-  document.getElementById("btnToggleBaremes").addEventListener("click", toggleBaremesLock);
+  document.getElementById("btnAddDestination")?.addEventListener("click", () => addDestination());
+  document.getElementById("btnSaveDomicile")?.addEventListener("click", saveDomicile);
+  document.getElementById("btnCalculer")?.addEventListener("click", calculerTrajet);
+  document.getElementById("btnAjouterDeplacement")?.addEventListener("click", ajouterDeplacement);
+  document.getElementById("btnReset")?.addEventListener("click", resetForm);
+  document.getElementById("btnPdfMensuel")?.addEventListener("click", genererPDFMensuel);
+  document.getElementById("btnViderListe")?.addEventListener("click", viderListe);
+  document.getElementById("departDomicile")?.addEventListener("change", toggleDepartDomicile);
+  document.getElementById("domicile")?.addEventListener("input", syncDepartIfNeeded);
+  document.getElementById("assistantNom")?.addEventListener("input", saveAssistantNom);
+  document.getElementById("moisEtat")?.addEventListener("change", saveMoisEtat);
+  document.getElementById("btnSaveBaremes")?.addEventListener("click", saveBaremes);
+  document.getElementById("btnResetBaremes")?.addEventListener("click", resetBaremes);
+  document.getElementById("btnToggleBaremes")?.addEventListener("click", toggleBaremesLock);
 }
 
 function updateBaremesLockUI() {
@@ -512,10 +512,19 @@ function updateTotals() {
     totalMontant.toFixed(2).replace(".", ",") + " €";
 }
 
-function genererPDFMensuel() {
+async function genererPDFMensuel() {
   if (deplacements.length === 0) {
     alert("Aucun déplacement à exporter.");
     return;
+  }
+
+  if (window.EasyFraisPremium?.canGeneratePdf) {
+    const check = await window.EasyFraisPremium.canGeneratePdf();
+    if (!check.allowed) {
+      alert(check.message || "Quota PDF atteint");
+      window.location.href = "premium.html";
+      return;
+    }
   }
 
   if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -684,26 +693,40 @@ function genererPDFMensuel() {
   doc.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, y);
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
-
-  doc.save(fileName);
-
   const pdfBlob = doc.output("blob");
   const reader = new FileReader();
 
-  reader.onloadend = function () {
-    let historique = JSON.parse(localStorage.getItem(getHistoriquePdfKey()) || "[]");
+  reader.onloadend = async function () {
+    try {
+      let historique = JSON.parse(localStorage.getItem(getHistoriquePdfKey()) || "[]");
 
-    historique.push({
-      id: Date.now(),
-      type: "Frais kilométriques",
-      mois: formatMonthFr(moisEtat),
-      nom: fileName,
-      data: reader.result,
-      dateGeneration: new Date().toLocaleString("fr-FR")
-    });
+      historique.push({
+        id: Date.now(),
+        type: "Frais kilométriques",
+        mois: formatMonthFr(moisEtat),
+        nom: fileName,
+        data: reader.result,
+        dateGeneration: new Date().toLocaleString("fr-FR")
+      });
 
-    localStorage.setItem(getHistoriquePdfKey(), JSON.stringify(historique));
-    showToast("PDF mensuel généré et enregistré");
+      localStorage.setItem(getHistoriquePdfKey(), JSON.stringify(historique));
+
+      doc.save(fileName);
+
+      if (window.EasyFraisPremium?.registerPdfGeneration) {
+        await window.EasyFraisPremium.registerPdfGeneration({ module: "kilometrique" });
+      }
+
+      showToast("PDF mensuel généré et enregistré");
+    } catch (error) {
+      console.error("Erreur historique PDF :", error);
+      alert("Erreur lors de l'enregistrement dans l'historique.");
+    }
+  };
+
+  reader.onerror = (error) => {
+    console.error("Erreur FileReader :", error);
+    alert("Erreur lors de la lecture du PDF.");
   };
 
   reader.readAsDataURL(pdfBlob);
@@ -825,6 +848,8 @@ function resetFormAfterAdd() {
 
 function showToast(message) {
   const toast = document.getElementById("toast");
+  if (!toast) return;
+
   toast.textContent = message;
   toast.classList.add("show");
 
