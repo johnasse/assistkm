@@ -419,6 +419,7 @@ async function genererPdfAbattement() {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(18);
     pdf.text("ABATTEMENT FISCAL", pageWidth / 2, y, { align: "center" });
+    pdf.text("VERSION 2026 OK", 20, 80);
     y += 10;
 
     pdf.setFont("helvetica", "normal");
