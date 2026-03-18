@@ -26,11 +26,7 @@ function getField(id) {
 }
 
 function getYearField() {
-  return (
-    getField("anneeFiscale") ||
-    getField("anneeAbattement") ||
-    getField("yearSelectAbattement")
-  );
+  return getField("anneeFiscale");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -45,7 +41,6 @@ onAuthStateChanged(auth, (user) => {
   }
 
   uid = user.uid;
-
   lignesAbattement = JSON.parse(localStorage.getItem(getLignesKey()) || "[]");
   listeEnfantsAbattementMemo = JSON.parse(localStorage.getItem(getEnfantsKey()) || "[]");
 
@@ -62,10 +57,12 @@ onAuthStateChanged(auth, (user) => {
 });
 
 function saveLignesAbattement() {
+  if (!uid) return;
   localStorage.setItem(getLignesKey(), JSON.stringify(lignesAbattement));
 }
 
 function saveListeEnfants() {
+  if (!uid) return;
   localStorage.setItem(getEnfantsKey(), JSON.stringify(listeEnfantsAbattementMemo));
 }
 
@@ -84,8 +81,7 @@ function chargerInfosAbattement() {
 
 function saveAssistantNomAbattement() {
   const el = getField("assistantNomAbattement");
-  if (!el) return;
-
+  if (!el || !uid) return;
   localStorage.setItem(`assistantNomAbattement_${uid}`, el.value.trim());
 }
 
@@ -111,7 +107,6 @@ function renderListeEnfantsAbattement() {
   if (!datalist) return;
 
   datalist.innerHTML = "";
-
   listeEnfantsAbattementMemo.forEach((nom) => {
     const option = document.createElement("option");
     option.value = nom;
@@ -119,13 +114,94 @@ function renderListeEnfantsAbattement() {
   });
 }
 
+function formatEuro(v) {
+  return Number(v || 0).toFixed(2).replace(".", ",") + " €";
+}
+
+function lireNombre(id) {
+  const el = getField(id);
+  if (!el) return 0;
+  const parsed = parseFloat(String(el.value || "0").replace(",", "."));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function lireTexteMontant(id) {
+  const el = getField(id);
+  if (!el) return 0;
+
+  const text = String(el.textContent || "0")
+    .replace(/[^\d,.-]/g, "")
+    .replace(",", ".");
+  const parsed = parseFloat(text);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getCoefficient(type) {
+  switch (type) {
+    case "non_permanent":
+      return 3;
+    case "non_permanent_majore":
+      return 4;
+    case "permanent":
+      return 4;
+    case "permanent_majore":
+      return 5;
+    default:
+      return 0;
+  }
+}
+
+function getPeriodeLabel(value) {
+  return value === "apres" ? "Novembre → décembre" : "Janvier → octobre";
+}
+
+function getTypeAccueilLabel(value) {
+  switch (value) {
+    case "non_permanent":
+      return "Non permanent";
+    case "non_permanent_majore":
+      return "Non permanent majoré";
+    case "permanent":
+      return "Permanent 24h";
+    case "permanent_majore":
+      return "Permanent 24h majoré";
+    default:
+      return value || "-";
+  }
+}
+
+function updateSmicParAnnee() {
+  const yearField = getYearField();
+  const yearValue = Number(yearField?.value || new Date().getFullYear());
+  const config = SMIC_DATA[yearValue] || SMIC_DATA[2026];
+
+  const smicAvant = getField("smicAvantNov");
+  const smicApres = getField("smicApresNov");
+
+  if (smicAvant && !smicAvant.dataset.manualEdited) {
+    smicAvant.value = Number(config.avant).toFixed(2);
+  }
+
+  if (smicApres && !smicApres.dataset.manualEdited) {
+    smicApres.value = Number(config.apres).toFixed(2);
+  }
+}
+
+function updateCasesFiscales() {
+  const caseAbattement = getField("caseAbattement");
+  const caseImposable = getField("caseImposable");
+
+  if (caseAbattement) caseAbattement.textContent = "1GA à 1JA";
+  if (caseImposable) caseImposable.textContent = "1AJ à 1DJ";
+}
+
 function ajouterLigneAbattement() {
   const enfant = getField("nomEnfantLigne")?.value.trim() || "";
-  const periode = getField("periodeLigne")?.value || "";
-  const typeAccueil = getField("typeAccueilLigne")?.value || "";
-  const jours = parseFloat(getField("joursLigne")?.value || "0");
+  const periode = getField("periodeLigne")?.value || "avant";
+  const typeAccueil = getField("typeAccueilLigne")?.value || "non_permanent";
+  const jours = parseFloat(String(getField("joursLigne")?.value || "0").replace(",", "."));
 
-  if (!enfant || !periode || !typeAccueil || jours <= 0) {
+  if (!enfant || !periode || !typeAccueil || Number.isNaN(jours) || jours <= 0) {
     alert("Merci de remplir correctement la ligne enfant.");
     return;
   }
@@ -155,8 +231,7 @@ function supprimerLigneAbattement(id) {
 }
 
 function viderLignesAbattement() {
-  if (lignesAbattement.length === 0) return;
-
+  if (!lignesAbattement.length) return;
   if (!confirm("Voulez-vous vraiment vider toutes les lignes ?")) return;
 
   lignesAbattement = [];
@@ -172,32 +247,20 @@ function resetLigneAbattement() {
   if (getField("joursLigne")) getField("joursLigne").value = "0";
 }
 
-function formatEuro(v) {
-  return Number(v || 0).toFixed(2).replace(".", ",") + " €";
-}
+function resetAbattement() {
+  lignesAbattement = [];
+  saveLignesAbattement();
+  renderLignesAbattement();
 
-function lireNombre(id) {
-  const el = getField(id);
-  if (!el) return 0;
-
-  const parsed = parseFloat(el.value || "0");
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function getCoefficient(type) {
-  switch (type) {
-    case "non_permanent":
-      return 3;
-    case "non_permanent_majore":
-      return 4;
-    case "permanent":
-      return 4;
-    case "permanent_majore":
-      return 5;
-    default:
-      return 0;
+  if (getField("totalSommesRecues")) getField("totalSommesRecues").value = "0";
+  if (getField("detailCalculAbattement")) {
+    getField("detailCalculAbattement").textContent = "Aucun calcul effectué.";
   }
+
+  calculerAbattement();
 }
+
+window.resetAbattement = resetAbattement;
 
 function calculerAbattement() {
   const totalSommesRecues = lireNombre("totalSommesRecues");
@@ -205,70 +268,50 @@ function calculerAbattement() {
   const smicApres = lireNombre("smicApresNov");
 
   let abattement = 0;
+  let totalJours = 0;
+  const details = [];
 
   lignesAbattement.forEach((ligne) => {
     const coef = getCoefficient(ligne.typeAccueil);
-    const smic = ligne.periode === "avant" ? smicAvant : smicApres;
-    abattement += Number(ligne.jours || 0) * coef * smic;
+    const smic = ligne.periode === "apres" ? smicApres : smicAvant;
+    const montant = Number(ligne.jours || 0) * coef * smic;
+
+    totalJours += Number(ligne.jours || 0);
+    abattement += montant;
+
+    details.push(
+      `${ligne.enfant} | ${getPeriodeLabel(ligne.periode)} | ${getTypeAccueilLabel(ligne.typeAccueil)} | ${ligne.jours} j | coef ${coef} | SMIC ${smic.toFixed(2)} | ${montant.toFixed(2)} €`
+    );
   });
 
   const retenu = Math.min(abattement, totalSommesRecues);
   const imposable = Math.max(0, totalSommesRecues - retenu);
 
-  const abattementCalcule = getField("abattementCalcule");
-  const abattementRetenu = getField("abattementRetenu");
-  const montantImposable = getField("montantImposable");
-
-  if (abattementCalcule) abattementCalcule.textContent = formatEuro(abattement);
-  if (abattementRetenu) abattementRetenu.textContent = formatEuro(retenu);
-  if (montantImposable) montantImposable.textContent = formatEuro(imposable);
+  if (getField("nbLignesAbattement")) {
+    getField("nbLignesAbattement").textContent = String(lignesAbattement.length);
+  }
+  if (getField("totalJoursAbattement")) {
+    getField("totalJoursAbattement").textContent = totalJours.toFixed(2).replace(".", ",");
+  }
+  if (getField("abattementCalcule")) {
+    getField("abattementCalcule").textContent = formatEuro(abattement);
+  }
+  if (getField("abattementRetenu")) {
+    getField("abattementRetenu").textContent = formatEuro(retenu);
+  }
+  if (getField("montantImposable")) {
+    getField("montantImposable").textContent = formatEuro(imposable);
+  }
+  if (getField("detailCalculAbattement")) {
+    getField("detailCalculAbattement").textContent =
+      details.length > 0 ? details.join("\n") : "Aucun calcul effectué.";
+  }
 
   updateCasesFiscales();
 }
 
-function updateSmicParAnnee() {
-  const yearField = getYearField();
-  const yearValue = Number(yearField?.value || new Date().getFullYear());
-  const config = SMIC_DATA[yearValue] || SMIC_DATA[2026];
-
-  const smicAvant = getField("smicAvantNov");
-  const smicApres = getField("smicApresNov");
-
-  if (smicAvant && !smicAvant.dataset.manualEdited) {
-    smicAvant.value = Number(config.avant).toFixed(2);
-  }
-
-  if (smicApres && !smicApres.dataset.manualEdited) {
-    smicApres.value = Number(config.apres).toFixed(2);
-  }
-}
-
-function updateCasesFiscales() {
-  const retenu = lireTexteMontant("abattementRetenu");
-  const imposable = lireTexteMontant("montantImposable");
-
-  const caseAbattement = getField("caseAbattement");
-  const caseImposable = getField("caseImposable");
-
-  if (caseAbattement) caseAbattement.value = retenu.toFixed(2);
-  if (caseImposable) caseImposable.value = imposable.toFixed(2);
-}
-
-function lireTexteMontant(id) {
-  const el = getField(id);
-  if (!el) return 0;
-
-  const text = String(el.textContent || "0").replace(/[^\d,.-]/g, "").replace(",", ".");
-  const parsed = parseFloat(text);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
 function renderLignesAbattement() {
-  const body =
-    getField("lignesAbattementBody") ||
-    getField("abattementBody") ||
-    getField("tableAbattementBody");
-
+  const body = getField("abattementBody");
   if (!body) return;
 
   body.innerHTML = "";
@@ -276,58 +319,112 @@ function renderLignesAbattement() {
   if (lignesAbattement.length === 0) {
     body.innerHTML = `
       <tr>
-        <td colspan="5" class="empty-cell">Aucune ligne enregistrée</td>
+        <td colspan="8" class="empty-cell">Aucune ligne enregistrée</td>
       </tr>
     `;
     return;
   }
 
   lignesAbattement.forEach((ligne) => {
-    const tr = document.createElement("tr");
+    const coef = getCoefficient(ligne.typeAccueil);
+    const smic = ligne.periode === "apres" ? lireNombre("smicApresNov") : lireNombre("smicAvantNov");
+    const montant = Number(ligne.jours || 0) * coef * smic;
 
+    const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(ligne.enfant)}</td>
       <td>${escapeHtml(getPeriodeLabel(ligne.periode))}</td>
       <td>${escapeHtml(getTypeAccueilLabel(ligne.typeAccueil))}</td>
       <td>${Number(ligne.jours || 0).toFixed(2).replace(".", ",")}</td>
+      <td>${coef}</td>
+      <td>${smic.toFixed(2).replace(".", ",")} €</td>
+      <td>${formatEuro(montant)}</td>
       <td>
-        <button type="button" class="table-action-btn" data-id="${escapeHtml(String(ligne.id))}">
+        <button type="button" class="table-action-btn btn-delete-ligne" data-id="${escapeHtml(String(ligne.id))}">
           Supprimer
         </button>
       </td>
     `;
-
     body.appendChild(tr);
   });
 
-  body.querySelectorAll(".table-action-btn").forEach((btn) => {
+  body.querySelectorAll(".btn-delete-ligne").forEach((btn) => {
     btn.addEventListener("click", () => supprimerLigneAbattement(btn.dataset.id));
   });
 }
 
-function getPeriodeLabel(value) {
-  return value === "apres" ? "Après nov." : "Avant nov.";
-}
+async function genererPdfAbattement() {
+  try {
+    const jsPDFClass = window.jspdf?.jsPDF || window.jsPDF;
 
-function getTypeAccueilLabel(value) {
-  switch (value) {
-    case "non_permanent":
-      return "Non permanent";
-    case "non_permanent_majore":
-      return "Non permanent majoré";
-    case "permanent":
-      return "Permanent";
-    case "permanent_majore":
-      return "Permanent majoré";
-    default:
-      return value || "-";
+    if (!jsPDFClass) {
+      console.error("jsPDF introuvable :", window.jspdf, window.jsPDF);
+      alert("La librairie PDF n'est pas chargée.");
+      return;
+    }
+
+    const pdf = new jsPDFClass();
+    let y = 20;
+
+    const assistant = getField("assistantNomAbattement")?.value || "";
+    const annee = getField("anneeFiscale")?.value || "";
+    const totalRecu = lireNombre("totalSommesRecues");
+    const abattementRetenu = lireTexteMontant("abattementRetenu");
+    const imposable = lireTexteMontant("montantImposable");
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("Abattement fiscal", 14, y);
+    y += 10;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+    pdf.text(`Assistant(e) : ${assistant}`, 14, y); y += 7;
+    pdf.text(`Année fiscale : ${annee}`, 14, y); y += 7;
+    pdf.text(`Total des sommes reçues : ${totalRecu.toFixed(2)} €`, 14, y); y += 7;
+    pdf.text(`Abattement retenu : ${abattementRetenu.toFixed(2)} €`, 14, y); y += 7;
+    pdf.text(`Montant imposable : ${imposable.toFixed(2)} €`, 14, y); y += 12;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Lignes :", 14, y);
+    y += 8;
+
+    pdf.setFont("helvetica", "normal");
+
+    if (!lignesAbattement.length) {
+      pdf.text("Aucune ligne enregistrée.", 14, y);
+    } else {
+      lignesAbattement.forEach((ligne, index) => {
+        const coef = getCoefficient(ligne.typeAccueil);
+        const smic = ligne.periode === "apres" ? lireNombre("smicApresNov") : lireNombre("smicAvantNov");
+        const montant = Number(ligne.jours || 0) * coef * smic;
+
+        const texte = `${index + 1}. ${ligne.enfant} | ${getPeriodeLabel(ligne.periode)} | ${getTypeAccueilLabel(ligne.typeAccueil)} | ${ligne.jours} j | coef ${coef} | ${montant.toFixed(2)} €`;
+        const wrapped = pdf.splitTextToSize(texte, 180);
+        pdf.text(wrapped, 14, y);
+        y += wrapped.length * 6 + 2;
+
+        if (y > 270) {
+          pdf.addPage();
+          y = 20;
+        }
+      });
+    }
+
+    pdf.save(`abattement_${annee || "fiscal"}.pdf`);
+  } catch (error) {
+    console.error("Erreur PDF abattement :", error);
+    alert("Impossible de générer le PDF.");
   }
 }
 
 function bindAbattementEvents() {
-  const btnAjouter = getField("btnAjouterLigne");
-  const btnReset = getField("btnResetLigne");
-  const btnVider = getField("btnViderLignes");
+  const btnAjouter = getField("btnAjouterLigneAbattement");
+  const btnReset = getField("btnResetLigneAbattement");
+  const btnVider = getField("btnViderLignesAbattement");
+  const btnCalculer = getField("btnCalculerAbattement");
+  const btnPdf = getField("btnPdfAbattement");
+
   const inputNom = getField("assistantNomAbattement");
   const smicAvant = getField("smicAvantNov");
   const smicApres = getField("smicApresNov");
@@ -355,6 +452,20 @@ function bindAbattementEvents() {
     });
   }
 
+  if (btnCalculer) {
+    btnCalculer.addEventListener("click", (e) => {
+      e.preventDefault();
+      calculerAbattement();
+    });
+  }
+
+  if (btnPdf) {
+    btnPdf.addEventListener("click", (e) => {
+      e.preventDefault();
+      genererPdfAbattement();
+    });
+  }
+
   if (inputNom) {
     inputNom.addEventListener("input", saveAssistantNomAbattement);
   }
@@ -362,6 +473,7 @@ function bindAbattementEvents() {
   if (smicAvant) {
     smicAvant.addEventListener("input", () => {
       smicAvant.dataset.manualEdited = "1";
+      renderLignesAbattement();
       calculerAbattement();
     });
   }
@@ -369,6 +481,7 @@ function bindAbattementEvents() {
   if (smicApres) {
     smicApres.addEventListener("input", () => {
       smicApres.dataset.manualEdited = "1";
+      renderLignesAbattement();
       calculerAbattement();
     });
   }
@@ -379,7 +492,13 @@ function bindAbattementEvents() {
 
   if (yearField) {
     yearField.addEventListener("change", () => {
+      const smicAvantField = getField("smicAvantNov");
+      const smicApresField = getField("smicApresNov");
+      if (smicAvantField) delete smicAvantField.dataset.manualEdited;
+      if (smicApresField) delete smicApresField.dataset.manualEdited;
+
       updateSmicParAnnee();
+      renderLignesAbattement();
       calculerAbattement();
     });
   }
