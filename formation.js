@@ -333,7 +333,7 @@ function bindEvents() {
   $("btnPdfFormation").addEventListener("click", generatePdf);
   $("btnViderFormation").addEventListener("click", emptyList);
 
-  $("btnPhotoFormation").addEventListener("click", () => $("justificatifFormation").click());
+  
   $("justificatifFormation").addEventListener("change", updateFileName);
 
   $("assistantNomFormation").addEventListener("input", () => {
