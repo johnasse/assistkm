@@ -29,6 +29,71 @@ function getYearField() {
   return getField("anneeFiscale");
 }
 
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatEuro(v) {
+  return Number(v || 0).toFixed(2).replace(".", ",") + " €";
+}
+
+function lireNombre(id) {
+  const el = getField(id);
+  if (!el) return 0;
+  const parsed = parseFloat(String(el.value || "0").replace(",", "."));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function lireTexteMontant(id) {
+  const el = getField(id);
+  if (!el) return 0;
+
+  const text = String(el.textContent || "0")
+    .replace(/[^\d,.-]/g, "")
+    .replace(",", ".");
+  const parsed = parseFloat(text);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getCoefficient(type) {
+  switch (type) {
+    case "non_permanent":
+      return 3;
+    case "non_permanent_majore":
+      return 4;
+    case "permanent":
+      return 4;
+    case "permanent_majore":
+      return 5;
+    default:
+      return 0;
+  }
+}
+
+function getPeriodeLabel(value) {
+  return value === "apres" ? "Novembre → décembre" : "Janvier → octobre";
+}
+
+function getTypeAccueilLabel(value) {
+  switch (value) {
+    case "non_permanent":
+      return "Non permanent";
+    case "non_permanent_majore":
+      return "Non permanent majoré";
+    case "permanent":
+      return "Permanent 24h";
+    case "permanent_majore":
+      return "Permanent 24h majoré";
+    default:
+      return value || "-";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const allowed = await requirePremium();
   if (!allowed) return;
@@ -112,62 +177,6 @@ function renderListeEnfantsAbattement() {
     option.value = nom;
     datalist.appendChild(option);
   });
-}
-
-function formatEuro(v) {
-  return Number(v || 0).toFixed(2).replace(".", ",") + " €";
-}
-
-function lireNombre(id) {
-  const el = getField(id);
-  if (!el) return 0;
-  const parsed = parseFloat(String(el.value || "0").replace(",", "."));
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function lireTexteMontant(id) {
-  const el = getField(id);
-  if (!el) return 0;
-
-  const text = String(el.textContent || "0")
-    .replace(/[^\d,.-]/g, "")
-    .replace(",", ".");
-  const parsed = parseFloat(text);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function getCoefficient(type) {
-  switch (type) {
-    case "non_permanent":
-      return 3;
-    case "non_permanent_majore":
-      return 4;
-    case "permanent":
-      return 4;
-    case "permanent_majore":
-      return 5;
-    default:
-      return 0;
-  }
-}
-
-function getPeriodeLabel(value) {
-  return value === "apres" ? "Novembre → décembre" : "Janvier → octobre";
-}
-
-function getTypeAccueilLabel(value) {
-  switch (value) {
-    case "non_permanent":
-      return "Non permanent";
-    case "non_permanent_majore":
-      return "Non permanent majoré";
-    case "permanent":
-      return "Permanent 24h";
-    case "permanent_majore":
-      return "Permanent 24h majoré";
-    default:
-      return value || "-";
-  }
 }
 
 function updateSmicParAnnee() {
@@ -353,6 +362,39 @@ function renderLignesAbattement() {
   });
 }
 
+function drawSummaryBox(pdf, x, y, w, h, label, value) {
+  pdf.setDrawColor(210, 214, 220);
+  pdf.setFillColor(248, 250, 252);
+  pdf.roundedRect(x, y, w, h, 3, 3, "FD");
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.setTextColor(100, 116, 139);
+  pdf.text(label, x + 4, y + 7);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(13);
+  pdf.setTextColor(17, 24, 39);
+  pdf.text(value, x + 4, y + 16);
+}
+
+function drawTableHeader(pdf, y) {
+  const headers = ["Enfant", "Période", "Type", "Jours", "Coef", "Montant"];
+  const colX = [10, 42, 81, 129, 147, 162];
+
+  pdf.setFillColor(241, 245, 249);
+  pdf.rect(10, y - 5, 190, 8, "F");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  headers.forEach((header, index) => {
+    pdf.text(header, colX[index], y);
+  });
+
+  pdf.setDrawColor(203, 213, 225);
+  pdf.line(10, y + 3, 200, y + 3);
+}
+
 async function genererPdfAbattement() {
   try {
     const jsPDFClass = window.jspdf?.jsPDF || window.jsPDF;
@@ -364,52 +406,116 @@ async function genererPdfAbattement() {
     }
 
     const pdf = new jsPDFClass();
-    let y = 20;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    let y = 16;
 
-    const assistant = getField("assistantNomAbattement")?.value || "";
-    const annee = getField("anneeFiscale")?.value || "";
+    const assistant = getField("assistantNomAbattement")?.value || "-";
+    const annee = getField("anneeFiscale")?.value || "-";
     const totalRecu = lireNombre("totalSommesRecues");
+    const abattementCalcule = lireTexteMontant("abattementCalcule");
     const abattementRetenu = lireTexteMontant("abattementRetenu");
     const imposable = lireTexteMontant("montantImposable");
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(18);
-    pdf.text("Abattement fiscal", 14, y);
+    pdf.text("ABATTEMENT FISCAL", pageWidth / 2, y, { align: "center" });
     y += 10;
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(11);
-    pdf.text(`Assistant(e) : ${assistant}`, 14, y); y += 7;
-    pdf.text(`Année fiscale : ${annee}`, 14, y); y += 7;
-    pdf.text(`Total des sommes reçues : ${totalRecu.toFixed(2)} €`, 14, y); y += 7;
-    pdf.text(`Abattement retenu : ${abattementRetenu.toFixed(2)} €`, 14, y); y += 7;
-    pdf.text(`Montant imposable : ${imposable.toFixed(2)} €`, 14, y); y += 12;
+    pdf.setTextColor(31, 41, 55);
+    pdf.text(`Assistant : ${assistant}`, 14, y);
+    y += 6;
+    pdf.text(`Année fiscale : ${annee}`, 14, y);
+    y += 10;
+
+    const boxY = y;
+    const boxW = 58;
+    const boxH = 22;
+    drawSummaryBox(pdf, 10, boxY, boxW, boxH, "Total reçu", formatEuro(totalRecu));
+    drawSummaryBox(pdf, 76, boxY, boxW, boxH, "Abattement retenu", formatEuro(abattementRetenu));
+    drawSummaryBox(pdf, 142, boxY, boxW, boxH, "Montant imposable", formatEuro(imposable));
+    y += 30;
 
     pdf.setFont("helvetica", "bold");
-    pdf.text("Lignes :", 14, y);
+    pdf.setFontSize(12);
+    pdf.setTextColor(17, 24, 39);
+    pdf.text("Résumé du calcul", 14, y);
     y += 8;
 
     pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(`Abattement calculé : ${formatEuro(abattementCalcule)}`, 14, y);
+    y += 6;
+    pdf.text(`Nombre de lignes : ${lignesAbattement.length}`, 14, y);
+    y += 6;
+    pdf.text(`Total jours : ${getField("totalJoursAbattement")?.textContent || "0"}`, 14, y);
+    y += 10;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.text("Détail des lignes", 14, y);
+    y += 8;
+
+    drawTableHeader(pdf, y);
+    y += 10;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
 
     if (!lignesAbattement.length) {
       pdf.text("Aucune ligne enregistrée.", 14, y);
     } else {
-      lignesAbattement.forEach((ligne, index) => {
+      for (const ligne of lignesAbattement) {
         const coef = getCoefficient(ligne.typeAccueil);
         const smic = ligne.periode === "apres" ? lireNombre("smicApresNov") : lireNombre("smicAvantNov");
         const montant = Number(ligne.jours || 0) * coef * smic;
 
-        const texte = `${index + 1}. ${ligne.enfant} | ${getPeriodeLabel(ligne.periode)} | ${getTypeAccueilLabel(ligne.typeAccueil)} | ${ligne.jours} j | coef ${coef} | ${montant.toFixed(2)} €`;
-        const wrapped = pdf.splitTextToSize(texte, 180);
-        pdf.text(wrapped, 14, y);
-        y += wrapped.length * 6 + 2;
+        const row = [
+          String(ligne.enfant || "-"),
+          getPeriodeLabel(ligne.periode),
+          getTypeAccueilLabel(ligne.typeAccueil),
+          Number(ligne.jours || 0).toFixed(2).replace(".", ","),
+          String(coef),
+          formatEuro(montant)
+        ];
 
-        if (y > 270) {
+        const wrapped = [
+          pdf.splitTextToSize(row[0], 28),
+          pdf.splitTextToSize(row[1], 35),
+          pdf.splitTextToSize(row[2], 44),
+          pdf.splitTextToSize(row[3], 16),
+          pdf.splitTextToSize(row[4], 12),
+          pdf.splitTextToSize(row[5], 26)
+        ];
+
+        const rowHeight = Math.max(...wrapped.map((w) => w.length)) * 5 + 2;
+
+        if (y + rowHeight > 280) {
           pdf.addPage();
-          y = 20;
+          y = 18;
+          drawTableHeader(pdf, y);
+          y += 10;
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8.5);
         }
-      });
+
+        const colX = [10, 42, 81, 129, 147, 162];
+        wrapped.forEach((cellLines, index) => {
+          pdf.text(cellLines, colX[index], y);
+        });
+
+        pdf.setDrawColor(241, 245, 249);
+        pdf.line(10, y + rowHeight - 2, 200, y + rowHeight - 2);
+
+        y += rowHeight;
+      }
     }
+
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text("Document généré par EasyFrais", pageWidth / 2, 290, { align: "center" });
 
     pdf.save(`abattement_${annee || "fiscal"}.pdf`);
   } catch (error) {
@@ -502,13 +608,4 @@ function bindAbattementEvents() {
       calculerAbattement();
     });
   }
-}
-
-function escapeHtml(str) {
-  return String(str || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
