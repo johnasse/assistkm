@@ -1,3 +1,4 @@
+import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
@@ -470,3 +471,60 @@ onAuthStateChanged(auth, (user) => {
   bindEvents();
   refreshAll();
 });
+async function genererPDFHabillement() {
+
+  const expenses = getExpenses();
+
+  if (!expenses.length) {
+    alert("Aucune dépense à exporter.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+
+  let y = 10;
+
+  pdf.setFontSize(14);
+  pdf.text("Frais d'habillement", 10, y);
+  y += 10;
+
+  const child = childNameInput.value || "-";
+  const year = yearSelect.value || "-";
+
+  pdf.setFontSize(10);
+  pdf.text(`Enfant : ${child}`, 10, y); y += 6;
+  pdf.text(`Année : ${year}`, 10, y); y += 10;
+
+  expenses.forEach((item) => {
+    pdf.text(
+      `${item.date} - ${item.label} - ${item.amount.toFixed(2)} €`,
+      10,
+      y
+    );
+    y += 6;
+
+    if (y > 280) {
+      pdf.addPage();
+      y = 10;
+    }
+  });
+
+  const total = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  y += 8;
+  pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
+
+  const filename = `habillement_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+  // 🔥 HISTORIQUE
+  const saved = savePdfToHistory(pdf, {
+    mois: year,
+    nom: filename,
+    type: "Habillement"
+  });
+
+  console.log("savePdfToHistory =", saved);
+
+  pdf.save(filename);
+}
