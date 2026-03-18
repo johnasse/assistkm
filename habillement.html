@@ -11,7 +11,7 @@
     <header class="page-header">
       <div>
         <h1>Module Habillement</h1>
-        <p>Suivi du budget habillement avec calcul dégressif annuel</p>
+        <p>Suivi du budget habillement avec calcul annuel</p>
       </div>
       <a href="index.html" class="btn-home">⬅ Retour à l'accueil</a>
     </header>
@@ -50,11 +50,10 @@
           <input type="number" id="rate12_21" step="0.01" min="0" />
         </div>
 
-        <button class="btn btn-secondary" id="saveRatesBtn">Enregistrer les barèmes</button>
+        <button class="btn btn-secondary" id="saveRatesBtn" type="button">Enregistrer les barèmes</button>
 
         <div class="info-box">
           Le budget annuel se calcule automatiquement selon la tranche d’âge choisie.<br />
-          Exemple : 47,33 € × 12 = 567,96 € par an.<br />
           Chaque dépense vient se déduire du budget restant.
         </div>
       </section>
@@ -128,11 +127,28 @@
         </div>
 
         <div class="form-group">
-          <label for="expenseFiles">Justificatifs</label>
-          <input type="file" id="expenseFiles" multiple />
+          <label for="expenseFiles">Justificatif image</label>
+
+          <input
+            type="file"
+            id="expenseFiles"
+            accept=".jpg,.jpeg,.png,image/*"
+            capture="environment"
+            style="display:none;"
+          />
+
+          <label for="expenseFiles" class="btn btn-secondary" id="btnPhotoHabillement">
+            📷 Ajouter photo ou facture
+          </label>
+
+          <small id="nomJustificatifHabillement" class="saved-msg"></small>
         </div>
 
-        <button class="btn btn-primary" id="addExpenseBtn">Enregistrer la dépense</button>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="addExpenseBtn" type="button">Enregistrer la dépense</button>
+          <button class="btn btn-secondary" id="resetExpenseBtn" type="button">Réinitialiser</button>
+          <button class="btn btn-success" id="btnPdfHabillement" type="button">Générer PDF</button>
+        </div>
       </section>
 
       <section class="card full-width">
@@ -142,6 +158,7 @@
     </main>
   </div>
 
-  <script src="habillement.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="habillement.js"></script>
 </body>
 </html>

@@ -10,28 +10,7 @@ const DEFAULT_RATES = {
 let currentUid = null;
 let eventsBound = false;
 
-const childNameInput = document.getElementById("childName");
-const yearSelect = document.getElementById("yearSelect");
-const ageBracketSelect = document.getElementById("ageBracket");
-
-const rate0_11Input = document.getElementById("rate0_11");
-const rate12_21Input = document.getElementById("rate12_21");
-const saveRatesBtn = document.getElementById("saveRatesBtn");
-
-const monthlyBudgetEl = document.getElementById("monthlyBudget");
-const annualBudgetEl = document.getElementById("annualBudget");
-const totalSpentEl = document.getElementById("totalSpent");
-const remainingBudgetEl = document.getElementById("remainingBudget");
-
-const expenseDateInput = document.getElementById("expenseDate");
-const expenseMonthSelect = document.getElementById("expenseMonth");
-const expenseLabelInput = document.getElementById("expenseLabel");
-const expenseAmountInput = document.getElementById("expenseAmount");
-const expenseNotesInput = document.getElementById("expenseNotes");
-const expenseFilesInput = document.getElementById("expenseFiles");
-const addExpenseBtn = document.getElementById("addExpenseBtn");
-
-const historyContainer = document.getElementById("historyContainer");
+const $ = (id) => document.getElementById(id);
 
 function formatEuro(value) {
   return new Intl.NumberFormat("fr-FR", {
@@ -67,8 +46,8 @@ function normalizeChildName(name) {
 }
 
 function getStorageKey() {
-  const child = normalizeChildName(childNameInput?.value || "");
-  const year = (yearSelect?.value || new Date().getFullYear()).toString().trim();
+  const child = normalizeChildName($("childName")?.value || "");
+  const year = ($("yearSelect")?.value || new Date().getFullYear()).toString().trim();
   return `habillement_${getUID()}_${child}_${year}`;
 }
 
@@ -90,21 +69,20 @@ function getSavedRates() {
 
 function getCurrentRatesFromInputs() {
   return {
-    "0-11": safeParseNumber(rate0_11Input?.value, DEFAULT_RATES["0-11"]),
-    "12-21": safeParseNumber(rate12_21Input?.value, DEFAULT_RATES["12-21"])
+    "0-11": safeParseNumber($("rate0_11")?.value, DEFAULT_RATES["0-11"]),
+    "12-21": safeParseNumber($("rate12_21")?.value, DEFAULT_RATES["12-21"])
   };
 }
 
 function loadRatesIntoInputs() {
   const rates = getSavedRates();
-
-  if (rate0_11Input) rate0_11Input.value = rates["0-11"].toFixed(2);
-  if (rate12_21Input) rate12_21Input.value = rates["12-21"].toFixed(2);
+  $("rate0_11").value = rates["0-11"].toFixed(2);
+  $("rate12_21").value = rates["12-21"].toFixed(2);
 }
 
 function saveRates() {
-  const rate0_11 = parseFloat(rate0_11Input?.value);
-  const rate12_21 = parseFloat(rate12_21Input?.value);
+  const rate0_11 = parseFloat($("rate0_11")?.value);
+  const rate12_21 = parseFloat($("rate12_21")?.value);
 
   if (Number.isNaN(rate0_11) || rate0_11 < 0) {
     alert("Merci de renseigner un montant valide pour la tranche 0 à 11 ans.");
@@ -128,7 +106,7 @@ function saveRates() {
 
 function getCurrentMonthlyRate() {
   const rates = getCurrentRatesFromInputs();
-  return Number(rates[ageBracketSelect?.value] || 0);
+  return Number(rates[$("ageBracket")?.value] || 0);
 }
 
 function getAnnualBudget() {
@@ -137,9 +115,9 @@ function getAnnualBudget() {
 
 function saveSettings() {
   const settings = {
-    childName: childNameInput?.value.trim() || "",
-    year: yearSelect?.value || "",
-    ageBracket: ageBracketSelect?.value || ""
+    childName: $("childName")?.value.trim() || "",
+    year: $("yearSelect")?.value || "",
+    ageBracket: $("ageBracket")?.value || ""
   };
 
   localStorage.setItem(getSettingsKey(), JSON.stringify(settings));
@@ -152,9 +130,9 @@ function loadSettings() {
   try {
     const settings = JSON.parse(raw);
 
-    if (childNameInput && settings.childName) childNameInput.value = settings.childName;
-    if (yearSelect && settings.year) yearSelect.value = settings.year;
-    if (ageBracketSelect && settings.ageBracket) ageBracketSelect.value = settings.ageBracket;
+    if (settings.childName) $("childName").value = settings.childName;
+    if (settings.year) $("yearSelect").value = settings.year;
+    if (settings.ageBracket) $("ageBracket").value = settings.ageBracket;
   } catch (error) {
     console.error("Erreur chargement paramètres habillement :", error);
   }
@@ -178,8 +156,6 @@ function saveExpenses(expenses) {
 }
 
 function updateSummary() {
-  if (!monthlyBudgetEl || !annualBudgetEl || !totalSpentEl || !remainingBudgetEl) return;
-
   const monthly = getCurrentMonthlyRate();
   const annual = getAnnualBudget();
   const expenses = getExpenses();
@@ -187,13 +163,13 @@ function updateSummary() {
   const totalSpent = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const remaining = Number((annual - totalSpent).toFixed(2));
 
-  monthlyBudgetEl.textContent = formatEuro(monthly);
-  annualBudgetEl.textContent = formatEuro(annual);
-  totalSpentEl.textContent = formatEuro(totalSpent);
-  remainingBudgetEl.textContent = formatEuro(remaining);
+  $("monthlyBudget").textContent = formatEuro(monthly);
+  $("annualBudget").textContent = formatEuro(annual);
+  $("totalSpent").textContent = formatEuro(totalSpent);
+  $("remainingBudget").textContent = formatEuro(remaining);
 
-  remainingBudgetEl.classList.remove("green", "red");
-  remainingBudgetEl.classList.add(remaining < 0 ? "red" : "green");
+  $("remainingBudget").classList.remove("green", "red");
+  $("remainingBudget").classList.add(remaining < 0 ? "red" : "green");
 }
 
 function escapeHtml(value) {
@@ -205,120 +181,51 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function renderHistory() {
-  if (!historyContainer) return;
+function formatDateFr(dateStr) {
+  if (!dateStr) return "-";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
 
-  const expenses = getExpenses().sort((a, b) => new Date(b.date) - new Date(a.date));
+function updateNomJustificatif() {
+  const file = $("expenseFiles").files[0];
+  $("nomJustificatifHabillement").textContent = file ? `Fichier sélectionné : ${file.name}` : "";
+}
 
-  if (!expenses.length) {
-    historyContainer.innerHTML = `<div class="empty-state">Aucune dépense enregistrée pour le moment.</div>`;
-    return;
-  }
-
-  let html = `
-    <table class="history-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Mois</th>
-          <th>Libellé</th>
-          <th>Montant</th>
-          <th>Commentaire</th>
-          <th>Justificatifs</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-
-  expenses.forEach((expense) => {
-    const filesHtml =
-      expense.files && expense.files.length
-        ? `
-          <div class="file-list">
-            ${expense.files
-              .map(
-                (file) => `
-              <a class="file-link" href="${file.data}" download="${escapeHtml(file.name)}">
-                📎 ${escapeHtml(file.name)}
-              </a>
-            `
-              )
-              .join("")}
-          </div>
-        `
-        : "Aucun";
-
-    html += `
-      <tr>
-        <td>${escapeHtml(expense.date)}</td>
-        <td>${escapeHtml(expense.month)}</td>
-        <td>${escapeHtml(expense.label)}</td>
-        <td>${formatEuro(expense.amount)}</td>
-        <td>${escapeHtml(expense.notes)}</td>
-        <td>${filesHtml}</td>
-        <td>
-          <button type="button" class="btn btn-danger btn-delete-expense" data-id="${escapeHtml(expense.id)}">
-            Supprimer
-          </button>
-        </td>
-      </tr>
-    `;
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
   });
+}
 
-  html += `
-      </tbody>
-    </table>
-  `;
-
-  historyContainer.innerHTML = html;
-
-  historyContainer.querySelectorAll(".btn-delete-expense").forEach((btn) => {
-    btn.addEventListener("click", () => deleteExpense(btn.dataset.id));
-  });
+function isImageFile(file) {
+  return Boolean(file && file.type && file.type.startsWith("image/"));
 }
 
 function clearExpenseForm() {
-  if (expenseDateInput) expenseDateInput.value = "";
-  if (expenseMonthSelect) expenseMonthSelect.value = "";
-  if (expenseLabelInput) expenseLabelInput.value = "";
-  if (expenseAmountInput) expenseAmountInput.value = "";
-  if (expenseNotesInput) expenseNotesInput.value = "";
-  if (expenseFilesInput) expenseFilesInput.value = "";
-}
-
-function filesToBase64(fileList) {
-  return Promise.all(
-    Array.from(fileList).map((file) => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => {
-          resolve({
-            name: file.name,
-            type: file.type,
-            data: reader.result
-          });
-        };
-
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-    })
-  );
+  $("expenseDate").value = "";
+  $("expenseMonth").value = "";
+  $("expenseLabel").value = "";
+  $("expenseAmount").value = "";
+  $("expenseNotes").value = "";
+  $("expenseFiles").value = "";
+  $("nomJustificatifHabillement").textContent = "";
 }
 
 async function addExpense(event) {
   if (event) event.preventDefault();
 
-  const childName = childNameInput?.value.trim() || "";
-  const year = yearSelect?.value.trim() || "";
-  const date = expenseDateInput?.value || "";
-  const month = expenseMonthSelect?.value || "";
-  const label = expenseLabelInput?.value.trim() || "";
-  const amount = parseFloat(expenseAmountInput?.value);
-  const notes = expenseNotesInput?.value.trim() || "";
-  const files = expenseFilesInput?.files || [];
+  const childName = $("childName")?.value.trim() || "";
+  const year = $("yearSelect")?.value.trim() || "";
+  const date = $("expenseDate")?.value || "";
+  const month = $("expenseMonth")?.value || "";
+  const label = $("expenseLabel")?.value.trim() || "";
+  const amount = parseFloat($("expenseAmount")?.value);
+  const notes = $("expenseNotes")?.value.trim() || "";
+  const file = $("expenseFiles")?.files[0] || null;
 
   if (!auth.currentUser) {
     alert("Utilisateur non connecté.");
@@ -356,13 +263,23 @@ async function addExpense(event) {
     return;
   }
 
-  let encodedFiles = [];
+  let justificatif = null;
 
-  if (files.length > 0) {
+  if (file) {
+    if (!isImageFile(file)) {
+      alert("Pour le moment, seuls les justificatifs image sont acceptés.");
+      return;
+    }
+
     try {
-      encodedFiles = await filesToBase64(files);
+      justificatif = {
+        name: file.name,
+        type: file.type,
+        data: await fileToBase64(file)
+      };
     } catch (error) {
-      alert("Impossible de lire un ou plusieurs justificatifs.");
+      console.error("Erreur lecture justificatif habillement :", error);
+      alert("Impossible de lire le justificatif image.");
       return;
     }
   }
@@ -376,19 +293,42 @@ async function addExpense(event) {
     label,
     amount: Number(amount.toFixed(2)),
     notes,
-    files: encodedFiles
+    justificatif
   });
 
   saveExpenses(expenses);
   saveSettings();
   clearExpenseForm();
 
-  if (expenseDateInput) {
-    expenseDateInput.value = new Date().toISOString().split("T")[0];
-  }
+  $("expenseDate").value = new Date().toISOString().split("T")[0];
 
   updateSummary();
   renderHistory();
+}
+
+function viewJustificatif(id) {
+  const expense = getExpenses().find((item) => item.id === id);
+
+  if (!expense?.justificatif?.data) {
+    alert("Justificatif introuvable.");
+    return;
+  }
+
+  const win = window.open();
+  if (!win) {
+    alert("Impossible d’ouvrir le justificatif.");
+    return;
+  }
+
+  win.document.write(`
+    <html>
+      <head><title>${escapeHtml(expense.justificatif.name || "Justificatif")}</title></head>
+      <body style="margin:0;display:flex;justify-content:center;align-items:center;background:#111;">
+        <img src="${expense.justificatif.data}" style="max-width:100%;max-height:100vh;" />
+      </body>
+    </html>
+  `);
+  win.document.close();
 }
 
 function deleteExpense(id) {
@@ -401,78 +341,142 @@ function deleteExpense(id) {
   renderHistory();
 }
 
-function initDefaultValues() {
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const todayIso = today.toISOString().split("T")[0];
+function renderHistory() {
+  const historyContainer = $("historyContainer");
+  const expenses = getExpenses().sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  if (yearSelect && !yearSelect.value) yearSelect.value = String(currentYear);
-  if (expenseDateInput && !expenseDateInput.value) expenseDateInput.value = todayIso;
-}
-
-function refreshAll() {
-  loadSettings();
-  initDefaultValues();
-  loadRatesIntoInputs();
-  updateSummary();
-  renderHistory();
-}
-
-function bindEvents() {
-  if (eventsBound) return;
-  eventsBound = true;
-
-  if (childNameInput) {
-    childNameInput.addEventListener("input", () => {
-      saveSettings();
-      updateSummary();
-      renderHistory();
-    });
-  }
-
-  if (yearSelect) {
-    yearSelect.addEventListener("input", () => {
-      saveSettings();
-      updateSummary();
-      renderHistory();
-    });
-  }
-
-  if (ageBracketSelect) {
-    ageBracketSelect.addEventListener("change", () => {
-      saveSettings();
-      updateSummary();
-      renderHistory();
-    });
-  }
-
-  if (rate0_11Input) rate0_11Input.addEventListener("input", updateSummary);
-  if (rate12_21Input) rate12_21Input.addEventListener("input", updateSummary);
-
-  if (saveRatesBtn) {
-    saveRatesBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      saveRates();
-    });
-  }
-
-  if (addExpenseBtn) {
-    addExpenseBtn.addEventListener("click", addExpense);
-  }
-}
-
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.href = "login.html";
+  if (!expenses.length) {
+    historyContainer.innerHTML = `<div class="empty-state">Aucune dépense enregistrée pour le moment.</div>`;
     return;
   }
 
-  currentUid = user.uid;
-  bindEvents();
-  refreshAll();
-});
-async function genererPDFHabillement() {
+  let html = `
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Mois</th>
+          <th>Libellé</th>
+          <th>Montant</th>
+          <th>Commentaire</th>
+          <th>Justificatif</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
 
+  expenses.forEach((expense) => {
+    html += `
+      <tr>
+        <td>${escapeHtml(formatDateFr(expense.date))}</td>
+        <td>${escapeHtml(expense.month)}</td>
+        <td>${escapeHtml(expense.label)}</td>
+        <td>${formatEuro(expense.amount)}</td>
+        <td>${escapeHtml(expense.notes)}</td>
+        <td>
+          ${
+            expense.justificatif?.data
+              ? `<button type="button" class="btn btn-secondary btn-view-justif" data-id="${escapeHtml(expense.id)}">Voir</button>`
+              : "Aucun"
+          }
+        </td>
+        <td>
+          <button type="button" class="btn btn-danger btn-delete-expense" data-id="${escapeHtml(expense.id)}">
+            Supprimer
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  historyContainer.innerHTML = html;
+
+  historyContainer.querySelectorAll(".btn-delete-expense").forEach((btn) => {
+    btn.addEventListener("click", () => deleteExpense(btn.dataset.id));
+  });
+
+  historyContainer.querySelectorAll(".btn-view-justif").forEach((btn) => {
+    btn.addEventListener("click", () => viewJustificatif(btn.dataset.id));
+  });
+}
+
+async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
+  const img = new Image();
+  img.src = dataUrl;
+
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+
+  return {
+    dataUrl: canvas.toDataURL("image/jpeg", quality),
+    width: canvas.width,
+    height: canvas.height
+  };
+}
+
+async function ajouterImagesAuPdf(pdf, expenses) {
+  for (const expense of expenses) {
+    if (!expense.justificatif?.data) continue;
+
+    try {
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+
+      pdf.addPage();
+      pdf.setFontSize(13);
+      pdf.text("Justificatif", margin, 12);
+
+      pdf.setFontSize(10);
+      const meta = `${formatDateFr(expense.date)} - ${expense.month} - ${expense.label} - ${expense.amount.toFixed(2).replace(".", ",")} €`;
+      const lines = pdf.splitTextToSize(meta, pageWidth - margin * 2);
+      pdf.text(lines, margin, 22);
+
+      const startY = 22 + lines.length * 5 + 6;
+      const converted = await convertImageDataUrlToJpeg(expense.justificatif.data);
+
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - startY - margin;
+
+      let imgWidth = converted.width;
+      let imgHeight = converted.height;
+
+      const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+      imgWidth *= ratio;
+      imgHeight *= ratio;
+
+      pdf.addImage(
+        converted.dataUrl,
+        "JPEG",
+        (pageWidth - imgWidth) / 2,
+        startY,
+        imgWidth,
+        imgHeight
+      );
+    } catch (error) {
+      console.error("Erreur ajout image PDF habillement :", error);
+    }
+  }
+}
+
+async function genererPDFHabillement() {
   const expenses = getExpenses();
 
   if (!expenses.length) {
@@ -489,20 +493,27 @@ async function genererPDFHabillement() {
   pdf.text("Frais d'habillement", 10, y);
   y += 10;
 
-  const child = childNameInput.value || "-";
-  const year = yearSelect.value || "-";
+  const child = $("childName").value || "-";
+  const year = $("yearSelect").value || "-";
+  const total = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   pdf.setFontSize(10);
-  pdf.text(`Enfant : ${child}`, 10, y); y += 6;
-  pdf.text(`Année : ${year}`, 10, y); y += 10;
+  pdf.text(`Enfant : ${child}`, 10, y);
+  y += 6;
+  pdf.text(`Année : ${year}`, 10, y);
+  y += 6;
+  pdf.text(`Budget annuel : ${formatEuro(getAnnualBudget())}`, 10, y);
+  y += 6;
+  pdf.text(`Total dépensé : ${formatEuro(total)}`, 10, y);
+  y += 6;
+  pdf.text(`Reste disponible : ${formatEuro(getAnnualBudget() - total)}`, 10, y);
+  y += 10;
 
   expenses.forEach((item) => {
-    pdf.text(
-      `${item.date} - ${item.label} - ${item.amount.toFixed(2)} €`,
-      10,
-      y
-    );
-    y += 6;
+    const line = `${formatDateFr(item.date)} - ${item.month} - ${item.label} - ${item.amount.toFixed(2).replace(".", ",")} €`;
+    const lines = pdf.splitTextToSize(line, 180);
+    pdf.text(lines, 10, y);
+    y += lines.length * 6 + 2;
 
     if (y > 280) {
       pdf.addPage();
@@ -510,21 +521,79 @@ async function genererPDFHabillement() {
     }
   });
 
-  const total = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-  y += 8;
-  pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
+  await ajouterImagesAuPdf(pdf, expenses);
 
   const filename = `habillement_${new Date().toISOString().slice(0, 10)}.pdf`;
 
-  // 🔥 HISTORIQUE
-  const saved = savePdfToHistory(pdf, {
+  savePdfToHistory(pdf, {
     mois: year,
     nom: filename,
     type: "Habillement"
   });
 
-  console.log("savePdfToHistory =", saved);
-
   pdf.save(filename);
 }
+
+function initDefaultValues() {
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const todayIso = today.toISOString().split("T")[0];
+
+  if (!$("yearSelect").value) $("yearSelect").value = String(currentYear);
+  if (!$("expenseDate").value) $("expenseDate").value = todayIso;
+}
+
+function refreshAll() {
+  loadSettings();
+  initDefaultValues();
+  loadRatesIntoInputs();
+  updateSummary();
+  renderHistory();
+}
+
+function bindEvents() {
+  if (eventsBound) return;
+  eventsBound = true;
+
+  $("childName").addEventListener("input", () => {
+    saveSettings();
+    updateSummary();
+    renderHistory();
+  });
+
+  $("yearSelect").addEventListener("input", () => {
+    saveSettings();
+    updateSummary();
+    renderHistory();
+  });
+
+  $("ageBracket").addEventListener("change", () => {
+    saveSettings();
+    updateSummary();
+    renderHistory();
+  });
+
+  $("rate0_11").addEventListener("input", updateSummary);
+  $("rate12_21").addEventListener("input", updateSummary);
+
+  $("saveRatesBtn").addEventListener("click", (e) => {
+    e.preventDefault();
+    saveRates();
+  });
+
+  $("addExpenseBtn").addEventListener("click", addExpense);
+  $("resetExpenseBtn").addEventListener("click", clearExpenseForm);
+  $("btnPdfHabillement").addEventListener("click", genererPDFHabillement);
+  $("expenseFiles").addEventListener("change", updateNomJustificatif);
+}
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  currentUid = user.uid;
+  bindEvents();
+  refreshAll();
+});
