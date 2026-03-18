@@ -75,19 +75,19 @@
         </div>
 
         <div class="field">
-          <label for="justificatifLoisirs">Justificatif (PDF ou photo)</label>
+          <label for="justificatifLoisirs">Justificatif image</label>
 
           <input
             type="file"
             id="justificatifLoisirs"
-            accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+            accept=".jpg,.jpeg,.png,image/*"
             capture="environment"
-            hidden
+            style="display:none;"
           />
 
-          <button type="button" class="btn btn-secondary" id="btnPhotoLoisirs">
+          <label for="justificatifLoisirs" class="btn btn-secondary" id="btnPhotoLoisirs">
             📷 Ajouter photo ou facture
-          </button>
+          </label>
 
           <small id="nomJustificatifLoisirs" class="saved-msg"></small>
         </div>
@@ -142,12 +142,7 @@
     </section>
   </div>
 
-  <div id="toastLoisirs" class="toast">Action effectuée avec succès</div>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script>
-  console.log("HTML LOISIRS CHARGE");
-</script>
-<script type="module" src="loisirs-v2.js"></script>
+  <script type="module" src="loisirs-v2.js"></script>
 </body>
 </html>
