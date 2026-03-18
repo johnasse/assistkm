@@ -102,11 +102,29 @@ function isImageDataUrl(data) {
   return typeof data === "string" && data.startsWith("data:image/");
 }
 
-function getImageFormatFromDataUrl(dataUrl) {
-  if (!dataUrl) return "JPEG";
-  if (dataUrl.startsWith("data:image/png")) return "PNG";
-  if (dataUrl.startsWith("data:image/webp")) return "WEBP";
-  return "JPEG";
+async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
+  const img = new Image();
+  img.src = dataUrl;
+
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+
+  return {
+    dataUrl: canvas.toDataURL("image/jpeg", quality),
+    width: canvas.width,
+    height: canvas.height
+  };
 }
 
 function getTotalParking() {
@@ -166,6 +184,7 @@ async function ajouterFraisParking() {
 
 function voirJustificatifParking(id) {
   const item = fraisParking.find((row) => row.id === id);
+
   if (!item?.justificatif?.data) {
     alert("Justificatif introuvable.");
     return;
@@ -179,7 +198,9 @@ function voirJustificatifParking(id) {
 
   win.document.write(`
     <html>
-      <head><title>${escapeHtml(item.justificatif.name || "Justificatif")}</title></head>
+      <head>
+        <title>${escapeHtml(item.justificatif.name || "Justificatif")}</title>
+      </head>
       <body style="margin:0;display:flex;justify-content:center;align-items:center;background:#111;">
         <img src="${item.justificatif.data}" style="max-width:100%;max-height:100vh;" />
       </body>
@@ -274,57 +295,46 @@ async function ajouterImagesAuPdf(pdf) {
       continue;
     }
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const titleY = 12;
-    const metaStartY = 22;
+    try {
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
 
-    pdf.addPage();
-    pdf.setFontSize(13);
-    pdf.text("Justificatif", margin, titleY);
+      pdf.addPage();
+      pdf.setFontSize(13);
+      pdf.text("Justificatif", margin, 12);
 
-    pdf.setFontSize(10);
-    let currentY = metaStartY;
-    currentY = addWrappedText(
-      pdf,
-      `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet}`,
-      margin,
-      currentY,
-      pageWidth - margin * 2,
-      5
-    );
-    currentY += 4;
+      pdf.setFontSize(10);
+      let currentY = 22;
+      currentY = addWrappedText(
+        pdf,
+        `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet}`,
+        margin,
+        currentY,
+        pageWidth - margin * 2,
+        5
+      );
+      currentY += 4;
 
-    const img = new Image();
-    img.src = item.justificatif.data;
+      const converted = await convertImageDataUrlToJpeg(item.justificatif.data, 0.88);
 
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - currentY - margin;
 
-    const maxWidth = pageWidth - margin * 2;
-    const maxHeight = pageHeight - currentY - margin;
+      let imgWidth = converted.width;
+      let imgHeight = converted.height;
 
-    let imgWidth = img.width;
-    let imgHeight = img.height;
+      const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+      imgWidth *= ratio;
+      imgHeight *= ratio;
 
-    const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
-    imgWidth *= ratio;
-    imgHeight *= ratio;
+      const x = (pageWidth - imgWidth) / 2;
+      const y = currentY;
 
-    const x = (pageWidth - imgWidth) / 2;
-    const y = currentY;
-
-    pdf.addImage(
-      item.justificatif.data,
-      getImageFormatFromDataUrl(item.justificatif.data),
-      x,
-      y,
-      imgWidth,
-      imgHeight
-    );
+      pdf.addImage(converted.dataUrl, "JPEG", x, y, imgWidth, imgHeight);
+    } catch (error) {
+      console.error("Erreur ajout image au PDF :", error);
+    }
   }
 }
 
@@ -359,7 +369,10 @@ async function genererPDFParking() {
   y += 10;
 
   fraisParking.forEach((item) => {
-    const line = `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`;
+    const line =
+      `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet} - ` +
+      `${item.montant.toFixed(2).replace(".", ",")} €`;
+
     const lines = pdf.splitTextToSize(line, 180);
     pdf.text(lines, 10, y);
     y += lines.length * 6 + 2;
