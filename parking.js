@@ -263,19 +263,17 @@ async function genererPDFParking() {
   const filename = `parking_${new Date().toISOString().slice(0, 10)}.pdf`;
 
   // 🔥 Sauvegarde historique (sécurisée)
-  try {
-    await savePdfToHistory({
-      module: "Parking",
-      fileName: filename,
-      total,
-      entries: fraisParking,
-      mois: formatMonthLabel(mois),
-      userId: uid
-    });
-    console.log("Historique enregistré");
-  } catch (e) {
-    console.error("Erreur historique :", e);
-  }
+  // 🔥 Sauvegarde historique
+try {
+  await savePdfToHistory(pdf, {
+    mois: formatMonthLabel(mois),
+    nom: filename,
+    type: "Parking"
+  });
+  console.log("Historique enregistré");
+} catch (e) {
+  console.error("Erreur historique :", e);
+}
 
   // 📥 Télécharger PDF
   pdf.save(filename);
