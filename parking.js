@@ -344,11 +344,7 @@ async function genererPDFParking() {
     return;
   }
 
-  const access = await requirePdfAccess(auth.currentUser);
-  if (!access?.allowed) {
-    alert("Limite PDF atteinte pour ce mois. Passe en Premium pour débloquer l’illimité.");
-    return;
-  }
+  // Contrôle premium temporairement désactivé pour test
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
