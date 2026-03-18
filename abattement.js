@@ -1,3 +1,4 @@
+console.log("ABATTEMENT NEW JS LOADED");
 import { requirePremium } from "./premium.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -396,6 +397,7 @@ function drawTableHeader(pdf, y) {
 }
 
 async function genererPdfAbattement() {
+  alert("NOUVEAU PDF ABATTEMENT");
   try {
     const jsPDFClass = window.jspdf?.jsPDF || window.jsPDF;
 
