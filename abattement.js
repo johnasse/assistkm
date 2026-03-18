@@ -1,4 +1,5 @@
-console.log("ABATTEMENT NEW JS LOADED");
+console.log("ABATTEMENT JS VERSION TEST 123");
+alert("ABATTEMENT JS CHARGÉ");
 import { requirePremium } from "./premium.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
