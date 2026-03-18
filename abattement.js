@@ -1,3 +1,13 @@
+import {
+  createStyledPdf,
+  addPdfMeta,
+  drawSummaryCards,
+  drawSectionTitle,
+  drawTableHeader,
+  ensurePageSpace,
+  drawSimpleRow,
+  addPdfFooter
+} from "./pdf-utils.js";
 import { requirePremium } from "./premium.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -397,17 +407,12 @@ function drawTableHeader(pdf, y) {
 
 async function genererPdfAbattement() {
   try {
-    const jsPDFClass = window.jspdf?.jsPDF || window.jsPDF;
-
-    if (!jsPDFClass) {
-      console.error("jsPDF introuvable :", window.jspdf, window.jsPDF);
+    if (!window.jspdf?.jsPDF && !window.jsPDF) {
       alert("La librairie PDF n'est pas chargee.");
       return;
     }
 
-    const pdf = new jsPDFClass();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    let y = 16;
+    const pdf = createStyledPdf("ABATTEMENT FISCAL");
 
     const assistant = getField("assistantNomAbattement")?.value || "-";
     const annee = getField("anneeFiscale")?.value || "-";
@@ -416,60 +421,46 @@ async function genererPdfAbattement() {
     const abattementRetenu = lireTexteMontant("abattementRetenu");
     const imposable = lireTexteMontant("montantImposable");
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(18);
-    pdf.text("ABATTEMENT FISCAL", pageWidth / 2, y, { align: "center" });
-    pdf.text("VERSION 2026 OK", 20, 80);
-    y += 10;
+    let y = addPdfMeta(pdf, [
+      `Assistant : ${assistant}`,
+      `Annee fiscale : ${annee}`
+    ]);
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    pdf.setTextColor(31, 41, 55);
-    pdf.text(`Assistant : ${assistant}`, 14, y);
-    y += 6;
-    pdf.text(`Annee fiscale : ${annee}`, 14, y);
-    y += 10;
+    y = drawSummaryCards(
+      pdf,
+      [
+        { label: "Total recu", value: formatEuro(totalRecu) },
+        { label: "Abattement retenu", value: formatEuro(abattementRetenu) },
+        { label: "Montant imposable", value: formatEuro(imposable) }
+      ],
+      y
+    );
 
-    const boxY = y;
-    const boxW = 58;
-    const boxH = 22;
-    drawSummaryBox(pdf, 10, boxY, boxW, boxH, "Total recu", formatEuro(totalRecu));
-    drawSummaryBox(pdf, 76, boxY, boxW, boxH, "Abattement retenu", formatEuro(abattementRetenu));
-    drawSummaryBox(pdf, 142, boxY, boxW, boxH, "Montant imposable", formatEuro(imposable));
-    y += 30;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
-    pdf.setTextColor(17, 24, 39);
-    pdf.text("Resume du calcul", 14, y);
-    y += 8;
-
+    y = drawSectionTitle(pdf, "Resume du calcul", y);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text(`Abattement calcule : ${formatEuro(abattementCalcule)}`, 14, y);
-    y += 6;
-    pdf.text(`Nombre de lignes : ${lignesAbattement.length}`, 14, y);
-    y += 6;
-    pdf.text(`Total jours : ${getField("totalJoursAbattement")?.textContent || "0"}`, 14, y);
-    y += 10;
+    pdf.text(`Abattement calcule : ${formatEuro(abattementCalcule)}`, 14, y); y += 6;
+    pdf.text(`Nombre de lignes : ${lignesAbattement.length}`, 14, y); y += 6;
+    pdf.text(`Total jours : ${getField("totalJoursAbattement")?.textContent || "0"}`, 14, y); y += 10;
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
-    pdf.text("Detail des lignes", 14, y);
-    y += 8;
+    y = drawSectionTitle(pdf, "Detail des lignes", y);
 
-    drawTableHeader(pdf, y);
-    y += 10;
+    const headers = ["Enfant", "Periode", "Type", "Jours", "Coef", "Montant"];
+    const colX = [10, 42, 81, 129, 147, 162];
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8.5);
+    const drawHeader = (doc, startY) => drawTableHeader(doc, headers, colX, startY);
+    y = drawHeader(pdf, y);
 
     if (!lignesAbattement.length) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
       pdf.text("Aucune ligne enregistree.", 14, y);
     } else {
       for (const ligne of lignesAbattement) {
         const coef = getCoefficient(ligne.typeAccueil);
-        const smic = ligne.periode === "apres" ? lireNombre("smicApresNov") : lireNombre("smicAvantNov");
+        const smic = ligne.periode === "apres"
+          ? lireNombre("smicApresNov")
+          : lireNombre("smicAvantNov");
         const montant = Number(ligne.jours || 0) * coef * smic;
 
         const row = [
@@ -481,7 +472,7 @@ async function genererPdfAbattement() {
           formatEuro(montant)
         ];
 
-        const wrapped = [
+        const rowLines = [
           pdf.splitTextToSize(row[0], 28),
           pdf.splitTextToSize(row[1], 35),
           pdf.splitTextToSize(row[2], 44),
@@ -490,34 +481,13 @@ async function genererPdfAbattement() {
           pdf.splitTextToSize(row[5], 26)
         ];
 
-        const rowHeight = Math.max(...wrapped.map((w) => w.length)) * 5 + 2;
-
-        if (y + rowHeight > 280) {
-          pdf.addPage();
-          y = 18;
-          drawTableHeader(pdf, y);
-          y += 10;
-          pdf.setFont("helvetica", "normal");
-          pdf.setFontSize(8.5);
-        }
-
-        const colX = [10, 42, 81, 129, 147, 162];
-        wrapped.forEach((cellLines, index) => {
-          pdf.text(cellLines, colX[index], y);
-        });
-
-        pdf.setDrawColor(241, 245, 249);
-        pdf.line(10, y + rowHeight - 2, 200, y + rowHeight - 2);
-
-        y += rowHeight;
+        const rowHeight = Math.max(...rowLines.map((w) => w.length)) * 5 + 2;
+        y = ensurePageSpace(pdf, y, rowHeight, drawHeader);
+        y = drawSimpleRow(pdf, rowLines, colX, y, rowHeight);
       }
     }
 
-    pdf.setFont("helvetica", "italic");
-    pdf.setFontSize(8);
-    pdf.setTextColor(100, 116, 139);
-    pdf.text("Document genere par EasyFrais", pageWidth / 2, 290, { align: "center" });
-
+    addPdfFooter(pdf);
     pdf.save(`abattement_${annee || "fiscal"}.pdf`);
   } catch (error) {
     console.error("Erreur PDF abattement :", error);
