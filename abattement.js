@@ -1,5 +1,3 @@
-console.log("ABATTEMENT JS VERSION TEST 123");
-alert("ABATTEMENT JS CHARGÉ");
 import { requirePremium } from "./premium.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -78,7 +76,7 @@ function getCoefficient(type) {
 }
 
 function getPeriodeLabel(value) {
-  return value === "apres" ? "Novembre → décembre" : "Janvier → octobre";
+  return value === "apres" ? "Novembre - decembre" : "Janvier - octobre";
 }
 
 function getTypeAccueilLabel(value) {
@@ -86,11 +84,11 @@ function getTypeAccueilLabel(value) {
     case "non_permanent":
       return "Non permanent";
     case "non_permanent_majore":
-      return "Non permanent majoré";
+      return "Non permanent majore";
     case "permanent":
       return "Permanent 24h";
     case "permanent_majore":
-      return "Permanent 24h majoré";
+      return "Permanent 24h majore";
     default:
       return value || "-";
   }
@@ -202,8 +200,8 @@ function updateCasesFiscales() {
   const caseAbattement = getField("caseAbattement");
   const caseImposable = getField("caseImposable");
 
-  if (caseAbattement) caseAbattement.textContent = "1GA à 1JA";
-  if (caseImposable) caseImposable.textContent = "1AJ à 1DJ";
+  if (caseAbattement) caseAbattement.textContent = "1GA a 1JA";
+  if (caseImposable) caseImposable.textContent = "1AJ a 1DJ";
 }
 
 function ajouterLigneAbattement() {
@@ -265,7 +263,7 @@ function resetAbattement() {
 
   if (getField("totalSommesRecues")) getField("totalSommesRecues").value = "0";
   if (getField("detailCalculAbattement")) {
-    getField("detailCalculAbattement").textContent = "Aucun calcul effectué.";
+    getField("detailCalculAbattement").textContent = "Aucun calcul effectue.";
   }
 
   calculerAbattement();
@@ -315,7 +313,7 @@ function calculerAbattement() {
   }
   if (getField("detailCalculAbattement")) {
     getField("detailCalculAbattement").textContent =
-      details.length > 0 ? details.join("\n") : "Aucun calcul effectué.";
+      details.length > 0 ? details.join("\n") : "Aucun calcul effectue.";
   }
 
   updateCasesFiscales();
@@ -330,7 +328,7 @@ function renderLignesAbattement() {
   if (lignesAbattement.length === 0) {
     body.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-cell">Aucune ligne enregistrée</td>
+        <td colspan="8" class="empty-cell">Aucune ligne enregistree</td>
       </tr>
     `;
     return;
@@ -381,7 +379,7 @@ function drawSummaryBox(pdf, x, y, w, h, label, value) {
 }
 
 function drawTableHeader(pdf, y) {
-  const headers = ["Enfant", "Période", "Type", "Jours", "Coef", "Montant"];
+  const headers = ["Enfant", "Periode", "Type", "Jours", "Coef", "Montant"];
   const colX = [10, 42, 81, 129, 147, 162];
 
   pdf.setFillColor(241, 245, 249);
@@ -398,13 +396,12 @@ function drawTableHeader(pdf, y) {
 }
 
 async function genererPdfAbattement() {
-  alert("NOUVEAU PDF ABATTEMENT");
   try {
     const jsPDFClass = window.jspdf?.jsPDF || window.jsPDF;
 
     if (!jsPDFClass) {
       console.error("jsPDF introuvable :", window.jspdf, window.jsPDF);
-      alert("La librairie PDF n'est pas chargée.");
+      alert("La librairie PDF n'est pas chargee.");
       return;
     }
 
@@ -429,13 +426,13 @@ async function genererPdfAbattement() {
     pdf.setTextColor(31, 41, 55);
     pdf.text(`Assistant : ${assistant}`, 14, y);
     y += 6;
-    pdf.text(`Année fiscale : ${annee}`, 14, y);
+    pdf.text(`Annee fiscale : ${annee}`, 14, y);
     y += 10;
 
     const boxY = y;
     const boxW = 58;
     const boxH = 22;
-    drawSummaryBox(pdf, 10, boxY, boxW, boxH, "Total reçu", formatEuro(totalRecu));
+    drawSummaryBox(pdf, 10, boxY, boxW, boxH, "Total recu", formatEuro(totalRecu));
     drawSummaryBox(pdf, 76, boxY, boxW, boxH, "Abattement retenu", formatEuro(abattementRetenu));
     drawSummaryBox(pdf, 142, boxY, boxW, boxH, "Montant imposable", formatEuro(imposable));
     y += 30;
@@ -443,12 +440,12 @@ async function genererPdfAbattement() {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(17, 24, 39);
-    pdf.text("Résumé du calcul", 14, y);
+    pdf.text("Resume du calcul", 14, y);
     y += 8;
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text(`Abattement calculé : ${formatEuro(abattementCalcule)}`, 14, y);
+    pdf.text(`Abattement calcule : ${formatEuro(abattementCalcule)}`, 14, y);
     y += 6;
     pdf.text(`Nombre de lignes : ${lignesAbattement.length}`, 14, y);
     y += 6;
@@ -457,7 +454,7 @@ async function genererPdfAbattement() {
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(12);
-    pdf.text("Détail des lignes", 14, y);
+    pdf.text("Detail des lignes", 14, y);
     y += 8;
 
     drawTableHeader(pdf, y);
@@ -467,7 +464,7 @@ async function genererPdfAbattement() {
     pdf.setFontSize(8.5);
 
     if (!lignesAbattement.length) {
-      pdf.text("Aucune ligne enregistrée.", 14, y);
+      pdf.text("Aucune ligne enregistree.", 14, y);
     } else {
       for (const ligne of lignesAbattement) {
         const coef = getCoefficient(ligne.typeAccueil);
@@ -518,12 +515,12 @@ async function genererPdfAbattement() {
     pdf.setFont("helvetica", "italic");
     pdf.setFontSize(8);
     pdf.setTextColor(100, 116, 139);
-    pdf.text("Document généré par EasyFrais", pageWidth / 2, 290, { align: "center" });
+    pdf.text("Document genere par EasyFrais", pageWidth / 2, 290, { align: "center" });
 
     pdf.save(`abattement_${annee || "fiscal"}.pdf`);
   } catch (error) {
     console.error("Erreur PDF abattement :", error);
-    alert("Impossible de générer le PDF.");
+    alert("Impossible de generer le PDF.");
   }
 }
 
