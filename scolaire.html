@@ -72,19 +72,19 @@
         </div>
 
         <div class="field">
-          <label for="justificatifScolaire">Justificatif (PDF ou photo)</label>
+          <label for="justificatifScolaire">Justificatif image</label>
 
           <input
             type="file"
             id="justificatifScolaire"
             accept=".jpg,.jpeg,.png,image/*"
             capture="environment"
-            hidden
+            style="display:none;"
           />
 
-          <button type="button" class="btn btn-secondary" id="btnPhotoScolaire">
+          <label for="justificatifScolaire" class="btn btn-secondary" id="btnPhotoScolaire">
             📷 Ajouter photo ou facture
-          </button>
+          </label>
 
           <small id="nomJustificatifScolaire" class="saved-msg"></small>
         </div>
@@ -138,8 +138,6 @@
       </div>
     </section>
   </div>
-
-  <div id="toastScolaire" class="toast">Action effectuée avec succès</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="module" src="scolaire.js"></script>

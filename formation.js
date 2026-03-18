@@ -2,41 +2,28 @@ import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-let data = [];
+let fraisFormation = [];
 let uid = null;
 let eventsBound = false;
 
 const $ = (id) => document.getElementById(id);
 
-function storageKey() {
+function getStorageKey() {
   return `formation_${uid}`;
 }
 
-function save() {
-  localStorage.setItem(storageKey(), JSON.stringify(data));
-}
-
-function load() {
-  data = JSON.parse(localStorage.getItem(storageKey()) || "[]");
-}
-
-function getDefaultMonth() {
+function getDefaultMonthValue() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${now.getFullYear()}-${month}`;
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error);
-    fr.readAsDataURL(file);
-  });
+function saveData() {
+  localStorage.setItem(getStorageKey(), JSON.stringify(fraisFormation));
 }
 
-function isImageFile(file) {
-  return Boolean(file && file.type && file.type.startsWith("image/"));
+function loadData() {
+  fraisFormation = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
 }
 
 function formatDateFr(dateStr) {
@@ -54,11 +41,20 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-function totalAmount() {
-  return data.reduce((sum, item) => sum + Number(item.montant || 0), 0);
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
-function updateFileName() {
+function isImageFile(file) {
+  return Boolean(file && file.type && file.type.startsWith("image/"));
+}
+
+function updateNomJustificatif() {
   const file = $("justificatifFormation").files[0];
   $("nomJustificatifFormation").textContent = file ? `Fichier sélectionné : ${file.name}` : "";
 }
@@ -74,7 +70,11 @@ function resetForm() {
   $("nomJustificatifFormation").textContent = "";
 }
 
-async function addExpense() {
+function getTotal() {
+  return fraisFormation.reduce((sum, item) => sum + Number(item.montant || 0), 0);
+}
+
+async function ajouterFrais() {
   const date = $("dateFormation").value;
   const organisme = $("organismeFormation").value.trim();
   const type = $("typeFormation").value;
@@ -109,7 +109,7 @@ async function addExpense() {
     }
   }
 
-  data.push({
+  fraisFormation.push({
     id: Date.now(),
     date,
     organisme,
@@ -120,13 +120,14 @@ async function addExpense() {
     justificatif
   });
 
-  save();
+  saveData();
   render();
   resetForm();
 }
 
-function viewImage(id) {
-  const item = data.find((x) => x.id === id);
+function voirJustificatif(id) {
+  const item = fraisFormation.find((x) => x.id === id);
+
   if (!item?.justificatif?.data) {
     alert("Justificatif introuvable.");
     return;
@@ -149,17 +150,18 @@ function viewImage(id) {
   win.document.close();
 }
 
-function removeExpense(id) {
-  data = data.filter((x) => x.id !== id);
-  save();
+function supprimerFrais(id) {
+  fraisFormation = fraisFormation.filter((x) => x.id !== id);
+  saveData();
   render();
 }
 
-function emptyList() {
-  if (!data.length) return;
+function viderListe() {
+  if (!fraisFormation.length) return;
   if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
-  data = [];
-  save();
+
+  fraisFormation = [];
+  saveData();
   render();
 }
 
@@ -167,38 +169,44 @@ function render() {
   const body = $("formationBody");
   body.innerHTML = "";
 
-  if (!data.length) {
+  if (!fraisFormation.length) {
     body.innerHTML = `<tr><td colspan="8" class="empty-cell">Aucune dépense enregistrée</td></tr>`;
     $("totalLignesFormation").textContent = "0";
     $("totalMontantFormation").textContent = "0,00 €";
     return;
   }
 
-  data.forEach((d) => {
+  fraisFormation.forEach((item) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${formatDateFr(d.date)}</td>
-      <td>${escapeHtml(d.type)}</td>
-      <td>${escapeHtml(d.organisme)}</td>
-      <td>${escapeHtml(d.lieu)}</td>
-      <td>${escapeHtml(d.objet)}</td>
-      <td>${d.montant.toFixed(2).replace(".", ",")} €</td>
-      <td>${d.justificatif?.data ? `<button class="table-action-btn btn-view" data-id="${d.id}">Voir</button>` : "Aucun"}</td>
-      <td><button class="table-action-btn btn-delete" data-id="${d.id}">Supprimer</button></td>
+      <td>${formatDateFr(item.date)}</td>
+      <td>${escapeHtml(item.type)}</td>
+      <td>${escapeHtml(item.organisme)}</td>
+      <td>${escapeHtml(item.lieu)}</td>
+      <td>${escapeHtml(item.objet)}</td>
+      <td>${item.montant.toFixed(2).replace(".", ",")} €</td>
+      <td>
+        ${item.justificatif?.data
+          ? `<button class="table-action-btn btn-view" data-id="${item.id}">Voir</button>`
+          : "Aucun"}
+      </td>
+      <td>
+        <button class="table-action-btn btn-delete" data-id="${item.id}">Supprimer</button>
+      </td>
     `;
     body.appendChild(tr);
   });
 
   body.querySelectorAll(".btn-delete").forEach((btn) => {
-    btn.addEventListener("click", () => removeExpense(Number(btn.dataset.id)));
+    btn.addEventListener("click", () => supprimerFrais(Number(btn.dataset.id)));
   });
 
   body.querySelectorAll(".btn-view").forEach((btn) => {
-    btn.addEventListener("click", () => viewImage(Number(btn.dataset.id)));
+    btn.addEventListener("click", () => voirJustificatif(Number(btn.dataset.id)));
   });
 
-  $("totalLignesFormation").textContent = String(data.length);
-  $("totalMontantFormation").textContent = `${totalAmount().toFixed(2).replace(".", ",")} €`;
+  $("totalLignesFormation").textContent = String(fraisFormation.length);
+  $("totalMontantFormation").textContent = `${getTotal().toFixed(2).replace(".", ",")} €`;
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
@@ -226,9 +234,9 @@ async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   };
 }
 
-async function addImagesToPdf(pdf) {
-  for (const d of data) {
-    if (!d.justificatif?.data) continue;
+async function ajouterImagesAuPdf(pdf) {
+  for (const item of fraisFormation) {
+    if (!item.justificatif?.data) continue;
 
     try {
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -240,20 +248,20 @@ async function addImagesToPdf(pdf) {
       pdf.text("Justificatif", margin, 12);
 
       pdf.setFontSize(10);
-      const meta = `${formatDateFr(d.date)} - ${d.type} - ${d.organisme} - ${d.lieu} - ${d.objet}`;
+      const meta = `${formatDateFr(item.date)} - ${item.type} - ${item.organisme} - ${item.lieu} - ${item.objet}`;
       const lines = pdf.splitTextToSize(meta, pageWidth - margin * 2);
       pdf.text(lines, margin, 22);
 
       const startY = 22 + lines.length * 5 + 6;
-      const converted = await convertImageDataUrlToJpeg(d.justificatif.data);
+      const converted = await convertImageDataUrlToJpeg(item.justificatif.data);
 
       const maxWidth = pageWidth - margin * 2;
       const maxHeight = pageHeight - startY - margin;
 
       let imgWidth = converted.width;
       let imgHeight = converted.height;
-      const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
 
+      const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
       imgWidth *= ratio;
       imgHeight *= ratio;
 
@@ -271,8 +279,8 @@ async function addImagesToPdf(pdf) {
   }
 }
 
-async function generatePdf() {
-  if (!data.length) {
+async function genererPDF() {
+  if (!fraisFormation.length) {
     alert("Aucune dépense à exporter.");
     return;
   }
@@ -282,7 +290,7 @@ async function generatePdf() {
 
   const assistant = $("assistantNomFormation").value.trim() || "-";
   const mois = $("moisFormation").value || "";
-  const total = totalAmount();
+  const total = getTotal();
 
   let y = 12;
 
@@ -296,8 +304,8 @@ async function generatePdf() {
   pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
   y += 10;
 
-  data.forEach((d) => {
-    const line = `${formatDateFr(d.date)} - ${d.type} - ${d.organisme} - ${d.lieu} - ${d.objet} - ${d.montant.toFixed(2).replace(".", ",")} €`;
+  fraisFormation.forEach((item) => {
+    const line = `${formatDateFr(item.date)} - ${item.type} - ${item.organisme} - ${item.lieu} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`;
     const lines = pdf.splitTextToSize(line, 180);
     pdf.text(lines, 10, y);
     y += lines.length * 6 + 2;
@@ -311,7 +319,7 @@ async function generatePdf() {
   y += 4;
   pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
 
-  await addImagesToPdf(pdf);
+  await ajouterImagesAuPdf(pdf);
 
   const filename = `formation_${new Date().toISOString().slice(0, 10)}.pdf`;
 
@@ -328,13 +336,11 @@ function bindEvents() {
   if (eventsBound) return;
   eventsBound = true;
 
-  $("btnAjouterFormation").addEventListener("click", addExpense);
+  $("btnAjouterFormation").addEventListener("click", ajouterFrais);
   $("btnResetFormation").addEventListener("click", resetForm);
-  $("btnPdfFormation").addEventListener("click", generatePdf);
-  $("btnViderFormation").addEventListener("click", emptyList);
-
-  
-  $("justificatifFormation").addEventListener("change", updateFileName);
+  $("btnPdfFormation").addEventListener("click", genererPDF);
+  $("btnViderFormation").addEventListener("click", viderListe);
+  $("justificatifFormation").addEventListener("change", updateNomJustificatif);
 
   $("assistantNomFormation").addEventListener("input", () => {
     localStorage.setItem(`assistantNomFormation_${uid}`, $("assistantNomFormation").value.trim());
@@ -359,9 +365,9 @@ onAuthStateChanged(auth, (user) => {
     "";
 
   $("moisFormation").value =
-    localStorage.getItem(`moisFormation_${uid}`) || getDefaultMonth();
+    localStorage.getItem(`moisFormation_${uid}`) || getDefaultMonthValue();
 
-  load();
+  loadData();
   bindEvents();
   render();
 });

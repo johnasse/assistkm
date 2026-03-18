@@ -2,41 +2,28 @@ import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-let data = [];
+let fraisNoel = [];
 let uid = null;
 let eventsBound = false;
 
 const $ = (id) => document.getElementById(id);
 
-function storageKey() {
+function getStorageKey() {
   return `noel_${uid}`;
 }
 
-function save() {
-  localStorage.setItem(storageKey(), JSON.stringify(data));
-}
-
-function load() {
-  data = JSON.parse(localStorage.getItem(storageKey()) || "[]");
-}
-
-function getDefaultMonth() {
+function getDefaultMonthValue() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${now.getFullYear()}-${month}`;
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error);
-    fr.readAsDataURL(file);
-  });
+function saveData() {
+  localStorage.setItem(getStorageKey(), JSON.stringify(fraisNoel));
 }
 
-function isImageFile(file) {
-  return Boolean(file && file.type && file.type.startsWith("image/"));
+function loadData() {
+  fraisNoel = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
 }
 
 function formatDateFr(dateStr) {
@@ -54,11 +41,20 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-function totalAmount() {
-  return data.reduce((sum, item) => sum + Number(item.montant || 0), 0);
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
-function updateFileName() {
+function isImageFile(file) {
+  return Boolean(file && file.type && file.type.startsWith("image/"));
+}
+
+function updateNomJustificatif() {
   const file = $("justificatifNoel").files[0];
   $("nomJustificatifNoel").textContent = file ? `Fichier sélectionné : ${file.name}` : "";
 }
@@ -74,7 +70,11 @@ function resetForm() {
   $("nomJustificatifNoel").textContent = "";
 }
 
-async function addExpense() {
+function getTotal() {
+  return fraisNoel.reduce((sum, item) => sum + Number(item.montant || 0), 0);
+}
+
+async function ajouterFrais() {
   const date = $("dateNoel").value;
   const enfant = $("enfantNoel").value.trim();
   const type = $("typeNoel").value;
@@ -109,7 +109,7 @@ async function addExpense() {
     }
   }
 
-  data.push({
+  fraisNoel.push({
     id: Date.now(),
     date,
     enfant,
@@ -120,13 +120,14 @@ async function addExpense() {
     justificatif
   });
 
-  save();
+  saveData();
   render();
   resetForm();
 }
 
-function viewImage(id) {
-  const item = data.find((x) => x.id === id);
+function voirJustificatif(id) {
+  const item = fraisNoel.find((x) => x.id === id);
+
   if (!item?.justificatif?.data) {
     alert("Justificatif introuvable.");
     return;
@@ -149,17 +150,18 @@ function viewImage(id) {
   win.document.close();
 }
 
-function removeExpense(id) {
-  data = data.filter((x) => x.id !== id);
-  save();
+function supprimerFrais(id) {
+  fraisNoel = fraisNoel.filter((x) => x.id !== id);
+  saveData();
   render();
 }
 
-function emptyList() {
-  if (!data.length) return;
+function viderListe() {
+  if (!fraisNoel.length) return;
   if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
-  data = [];
-  save();
+
+  fraisNoel = [];
+  saveData();
   render();
 }
 
@@ -167,38 +169,44 @@ function render() {
   const body = $("noelBody");
   body.innerHTML = "";
 
-  if (!data.length) {
+  if (!fraisNoel.length) {
     body.innerHTML = `<tr><td colspan="8" class="empty-cell">Aucune dépense enregistrée</td></tr>`;
     $("totalLignesNoel").textContent = "0";
     $("totalMontantNoel").textContent = "0,00 €";
     return;
   }
 
-  data.forEach((d) => {
+  fraisNoel.forEach((item) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${formatDateFr(d.date)}</td>
-      <td>${escapeHtml(d.enfant)}</td>
-      <td>${escapeHtml(d.type)}</td>
-      <td>${escapeHtml(d.magasin)}</td>
-      <td>${escapeHtml(d.objet)}</td>
-      <td>${d.montant.toFixed(2).replace(".", ",")} €</td>
-      <td>${d.justificatif?.data ? `<button class="table-action-btn btn-view" data-id="${d.id}">Voir</button>` : "Aucun"}</td>
-      <td><button class="table-action-btn btn-delete" data-id="${d.id}">Supprimer</button></td>
+      <td>${formatDateFr(item.date)}</td>
+      <td>${escapeHtml(item.enfant)}</td>
+      <td>${escapeHtml(item.type)}</td>
+      <td>${escapeHtml(item.magasin)}</td>
+      <td>${escapeHtml(item.objet)}</td>
+      <td>${item.montant.toFixed(2).replace(".", ",")} €</td>
+      <td>
+        ${item.justificatif?.data
+          ? `<button class="table-action-btn btn-view" data-id="${item.id}">Voir</button>`
+          : "Aucun"}
+      </td>
+      <td>
+        <button class="table-action-btn btn-delete" data-id="${item.id}">Supprimer</button>
+      </td>
     `;
     body.appendChild(tr);
   });
 
   body.querySelectorAll(".btn-delete").forEach((btn) => {
-    btn.addEventListener("click", () => removeExpense(Number(btn.dataset.id)));
+    btn.addEventListener("click", () => supprimerFrais(Number(btn.dataset.id)));
   });
 
   body.querySelectorAll(".btn-view").forEach((btn) => {
-    btn.addEventListener("click", () => viewImage(Number(btn.dataset.id)));
+    btn.addEventListener("click", () => voirJustificatif(Number(btn.dataset.id)));
   });
 
-  $("totalLignesNoel").textContent = String(data.length);
-  $("totalMontantNoel").textContent = `${totalAmount().toFixed(2).replace(".", ",")} €`;
+  $("totalLignesNoel").textContent = String(fraisNoel.length);
+  $("totalMontantNoel").textContent = `${getTotal().toFixed(2).replace(".", ",")} €`;
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
@@ -226,9 +234,9 @@ async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   };
 }
 
-async function addImagesToPdf(pdf) {
-  for (const d of data) {
-    if (!d.justificatif?.data) continue;
+async function ajouterImagesAuPdf(pdf) {
+  for (const item of fraisNoel) {
+    if (!item.justificatif?.data) continue;
 
     try {
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -240,20 +248,20 @@ async function addImagesToPdf(pdf) {
       pdf.text("Justificatif", margin, 12);
 
       pdf.setFontSize(10);
-      const meta = `${formatDateFr(d.date)} - ${d.enfant} - ${d.type} - ${d.magasin} - ${d.objet}`;
+      const meta = `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.magasin} - ${item.objet}`;
       const lines = pdf.splitTextToSize(meta, pageWidth - margin * 2);
       pdf.text(lines, margin, 22);
 
       const startY = 22 + lines.length * 5 + 6;
-      const converted = await convertImageDataUrlToJpeg(d.justificatif.data);
+      const converted = await convertImageDataUrlToJpeg(item.justificatif.data);
 
       const maxWidth = pageWidth - margin * 2;
       const maxHeight = pageHeight - startY - margin;
 
       let imgWidth = converted.width;
       let imgHeight = converted.height;
-      const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
 
+      const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
       imgWidth *= ratio;
       imgHeight *= ratio;
 
@@ -271,8 +279,8 @@ async function addImagesToPdf(pdf) {
   }
 }
 
-async function generatePdf() {
-  if (!data.length) {
+async function genererPDF() {
+  if (!fraisNoel.length) {
     alert("Aucune dépense à exporter.");
     return;
   }
@@ -282,7 +290,7 @@ async function generatePdf() {
 
   const assistant = $("assistantNomNoel").value.trim() || "-";
   const mois = $("moisNoel").value || "";
-  const total = totalAmount();
+  const total = getTotal();
 
   let y = 12;
 
@@ -296,8 +304,8 @@ async function generatePdf() {
   pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
   y += 10;
 
-  data.forEach((d) => {
-    const line = `${formatDateFr(d.date)} - ${d.enfant} - ${d.type} - ${d.magasin} - ${d.objet} - ${d.montant.toFixed(2).replace(".", ",")} €`;
+  fraisNoel.forEach((item) => {
+    const line = `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.magasin} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`;
     const lines = pdf.splitTextToSize(line, 180);
     pdf.text(lines, 10, y);
     y += lines.length * 6 + 2;
@@ -311,7 +319,7 @@ async function generatePdf() {
   y += 4;
   pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
 
-  await addImagesToPdf(pdf);
+  await ajouterImagesAuPdf(pdf);
 
   const filename = `noel_${new Date().toISOString().slice(0, 10)}.pdf`;
 
@@ -328,13 +336,11 @@ function bindEvents() {
   if (eventsBound) return;
   eventsBound = true;
 
-  $("btnAjouterNoel").addEventListener("click", addExpense);
+  $("btnAjouterNoel").addEventListener("click", ajouterFrais);
   $("btnResetNoel").addEventListener("click", resetForm);
-  $("btnPdfNoel").addEventListener("click", generatePdf);
-  $("btnViderNoel").addEventListener("click", emptyList);
-
-  $("btnPhotoNoel").addEventListener("click", () => $("justificatifNoel").click());
-  $("justificatifNoel").addEventListener("change", updateFileName);
+  $("btnPdfNoel").addEventListener("click", genererPDF);
+  $("btnViderNoel").addEventListener("click", viderListe);
+  $("justificatifNoel").addEventListener("change", updateNomJustificatif);
 
   $("assistantNomNoel").addEventListener("input", () => {
     localStorage.setItem(`assistantNomNoel_${uid}`, $("assistantNomNoel").value.trim());
@@ -359,9 +365,9 @@ onAuthStateChanged(auth, (user) => {
     "";
 
   $("moisNoel").value =
-    localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonth();
+    localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
 
-  load();
+  loadData();
   bindEvents();
   render();
 });

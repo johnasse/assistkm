@@ -74,19 +74,19 @@
         </div>
 
         <div class="field">
-          <label for="justificatifFormation">Justificatif (PDF ou photo)</label>
+          <label for="justificatifFormation">Justificatif image</label>
 
           <input
-  type="file"
-  id="justificatifFormation"
-  accept=".jpg,.jpeg,.png,image/*"
-  capture="environment"
-  style="display:none;"
-/>
+            type="file"
+            id="justificatifFormation"
+            accept=".jpg,.jpeg,.png,image/*"
+            capture="environment"
+            style="display:none;"
+          />
 
-<label for="justificatifFormation" class="btn btn-secondary" id="btnPhotoFormation">
-  📷 Ajouter photo ou facture
-</label>
+          <label for="justificatifFormation" class="btn btn-secondary" id="btnPhotoFormation">
+            📷 Ajouter photo ou facture
+          </label>
 
           <small id="nomJustificatifFormation" class="saved-msg"></small>
         </div>
@@ -140,8 +140,6 @@
       </div>
     </section>
   </div>
-
-  <div id="toastFormation" class="toast">Action effectuée avec succès</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="module" src="formation.js"></script>
