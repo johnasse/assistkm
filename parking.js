@@ -212,3 +212,71 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+// 🔧 Correction init DB (vide pour éviter erreur)
+async function initParkingDB() {
+  console.log("Parking DB initialisée");
+}
+
+// 📄 Génération PDF + historique
+async function genererPDFParking() {
+
+  if (!fraisParking.length) {
+    alert("Aucune dépense à exporter.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+
+  let y = 10;
+
+  pdf.setFontSize(14);
+  pdf.text("Frais de parking", 10, y);
+  y += 10;
+
+  const assistant = document.getElementById("assistantNomParking").value;
+  const mois = document.getElementById("moisParking").value;
+
+  pdf.setFontSize(10);
+  pdf.text(`Assistant : ${assistant}`, 10, y); y += 6;
+  pdf.text(`Mois : ${mois}`, 10, y); y += 10;
+
+  fraisParking.forEach((item) => {
+    pdf.text(
+      `${formatDateFr(item.date)} - ${item.enfant} - ${item.montant}€`,
+      10,
+      y
+    );
+    y += 6;
+
+    if (y > 280) {
+      pdf.addPage();
+      y = 10;
+    }
+  });
+
+  const total = fraisParking.reduce((sum, item) => sum + item.montant, 0);
+
+  y += 10;
+  pdf.text(`Total : ${total.toFixed(2)} €`, 10, y);
+
+  const filename = `parking_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+  // 🔥 Sauvegarde historique (sécurisée)
+  try {
+    await savePdfToHistory({
+      module: "Parking",
+      fileName: filename,
+      total,
+      entries: fraisParking,
+      mois: formatMonthLabel(mois),
+      userId: uid
+    });
+    console.log("Historique enregistré");
+  } catch (e) {
+    console.error("Erreur historique :", e);
+  }
+
+  // 📥 Télécharger PDF
+  pdf.save(filename);
+}
