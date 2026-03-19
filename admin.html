@@ -49,16 +49,19 @@
       font-weight: 800;
       font-size: 20px;
       box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+      flex-shrink: 0;
     }
 
     .brand h1 {
       margin: 0;
       font-size: 30px;
+      color: #111827;
     }
 
     .brand p {
       margin: 4px 0 0;
       color: #6b7280;
+      font-size: 15px;
     }
 
     .actions {
@@ -105,13 +108,37 @@
     }
 
     .card h2 {
-      margin-top: 0;
-      margin-bottom: 10px;
+      margin: 0 0 10px;
+      color: #111827;
+      font-size: 22px;
     }
 
     .card p {
       color: #6b7280;
       line-height: 1.5;
+      margin: 0;
+    }
+
+    .status {
+      margin-top: 18px;
+      font-size: 14px;
+      color: #475569;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .error {
+      margin-top: 18px;
+      font-size: 14px;
+      color: #991b1b;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: none;
+      white-space: pre-line;
     }
 
     .stats {
@@ -140,30 +167,57 @@
       color: #111827;
     }
 
-    .status {
-      margin-top: 18px;
-      font-size: 14px;
+    .debug-box {
+      margin-top: 22px;
+      background: white;
+      border-radius: 18px;
+      padding: 18px 20px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    .debug-box h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: #111827;
+    }
+
+    .debug-box pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
       color: #475569;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 12px;
-      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
-    .error {
-      margin-top: 18px;
-      font-size: 14px;
-      color: #991b1b;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 12px;
-      padding: 12px 14px;
-      display: none;
-    }
-
-    @media (max-width: 768px) {
+    @media (max-width: 850px) {
       .stats {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .page {
+        padding: 16px;
+      }
+
+      .brand h1 {
+        font-size: 26px;
+      }
+
+      .brand-logo {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+      }
+
+      .actions {
+        width: 100%;
+      }
+
+      .btn {
+        flex: 1;
+        text-align: center;
       }
     }
   </style>
@@ -187,9 +241,7 @@
 
     <section class="card">
       <h2>Bienvenue dans l’espace administrateur</h2>
-      <p>
-        Cette page affiche les statistiques globales de l’application.
-      </p>
+      <p>Cette page affiche les statistiques globales de l’application.</p>
 
       <div class="status" id="statusMsg">Chargement des statistiques...</div>
       <div class="error" id="errorMsg"></div>
@@ -210,6 +262,11 @@
         <div class="label">PDF générés</div>
         <div class="value" id="pdfCount">--</div>
       </div>
+    </section>
+
+    <section class="debug-box">
+      <h3>Debug</h3>
+      <pre id="debugOutput">En attente…</pre>
     </section>
   </div>
 
@@ -234,6 +291,7 @@
     const pdfCountEl = document.getElementById("pdfCount");
     const statusMsg = document.getElementById("statusMsg");
     const errorMsg = document.getElementById("errorMsg");
+    const debugOutput = document.getElementById("debugOutput");
 
     function showError(message) {
       errorMsg.style.display = "block";
@@ -245,77 +303,85 @@
       errorMsg.textContent = "";
     }
 
+    function setDebug(lines) {
+      debugOutput.textContent = lines.join("\n");
+      console.log("ADMIN DEBUG\n" + lines.join("\n"));
+    }
+
     async function loadAdminStats() {
       hideError();
       statusMsg.textContent = "Chargement des statistiques...";
 
+      let usersTotal = 0;
+      let premiumTotal = 0;
+      let pdfTotal = 0;
+      const debugLines = [];
+
       try {
-        // 1) Nombre d'utilisateurs
-        let usersTotal = 0;
-        try {
-          const usersSnap = await getDocs(collection(db, "users"));
-          usersTotal = usersSnap.size;
-        } catch (err) {
-          console.warn("Impossible de lire users :", err);
-        }
+        const customersSnap = await getDocs(collection(db, "customers"));
+        usersTotal = customersSnap.size;
+        debugLines.push(`customers trouvés : ${customersSnap.size}`);
 
-        // 2) Nombre d'abonnés premium
-        let premiumTotal = 0;
-        try {
-          const subsSnap = await getDocs(collectionGroup(db, "subscriptions"));
-          subsSnap.forEach((doc) => {
-            const data = doc.data() || {};
-            const status = (data.status || "").toLowerCase();
+        const subsSnap = await getDocs(collectionGroup(db, "subscriptions"));
+        debugLines.push(`documents subscriptions trouvés : ${subsSnap.size}`);
 
-            if (
-              status === "active" ||
-              status === "trialing" ||
-              status === "trial" ||
-              status === "paid"
-            ) {
-              premiumTotal++;
-            }
-          });
-        } catch (err) {
-          console.warn("Impossible de lire subscriptions :", err);
-        }
+        subsSnap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const status = String(data.status || "").toLowerCase();
+          debugLines.push(`subscription ${docSnap.id} → status: ${status || "(vide)"}`);
 
-        // 3) Nombre total de PDF générés
-        let pdfTotal = 0;
-        try {
-          const usageSnap = await getDocs(collectionGroup(db, "usage"));
-          usageSnap.forEach((doc) => {
-            const data = doc.data() || {};
+          if (
+            status === "active" ||
+            status === "trialing" ||
+            status === "trial" ||
+            status === "paid"
+          ) {
+            premiumTotal++;
+          }
+        });
 
-            // essaie plusieurs noms possibles de champs
-            if (typeof data.pdfCount === "number") {
-              pdfTotal += data.pdfCount;
-            } else if (typeof data.count === "number") {
-              pdfTotal += data.count;
-            } else if (typeof data.total === "number") {
-              pdfTotal += data.total;
-            } else if (typeof data.used === "number") {
-              pdfTotal += data.used;
-            } else if (typeof data.generated === "number") {
-              pdfTotal += data.generated;
-            } else {
-              // si aucun champ connu, on compte au moins 1 doc
-              pdfTotal += 1;
-            }
-          });
-        } catch (err) {
-          console.warn("Impossible de lire usage :", err);
-        }
+        const usageSnap = await getDocs(collectionGroup(db, "usage"));
+        debugLines.push(`documents usage trouvés : ${usageSnap.size}`);
+
+        usageSnap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+
+          if (typeof data.pdfCount === "number") {
+            pdfTotal += data.pdfCount;
+          } else if (typeof data.count === "number") {
+            pdfTotal += data.count;
+          } else if (typeof data.total === "number") {
+            pdfTotal += data.total;
+          } else if (typeof data.used === "number") {
+            pdfTotal += data.used;
+          } else if (typeof data.generated === "number") {
+            pdfTotal += data.generated;
+          } else if (typeof data.pdfGenerated === "number") {
+            pdfTotal += data.pdfGenerated;
+          } else {
+            pdfTotal += 1;
+          }
+        });
 
         usersCountEl.textContent = usersTotal;
         premiumCountEl.textContent = premiumTotal;
         pdfCountEl.textContent = pdfTotal;
 
+        debugLines.push(`total utilisateurs affiché : ${usersTotal}`);
+        debugLines.push(`total premium affiché : ${premiumTotal}`);
+        debugLines.push(`total pdf affiché : ${pdfTotal}`);
+
+        setDebug(debugLines);
         statusMsg.textContent = "Statistiques chargées avec succès.";
       } catch (error) {
         console.error("Erreur admin :", error);
+        usersCountEl.textContent = usersTotal;
+        premiumCountEl.textContent = premiumTotal;
+        pdfCountEl.textContent = pdfTotal;
         statusMsg.textContent = "Chargement partiel des statistiques.";
-        showError("Impossible de charger toutes les données. Vérifie Firestore et les permissions.");
+        showError("Impossible de charger toutes les données.\nVérifie Firestore et les permissions.");
+        debugLines.push(`erreur : ${error.message || error}`);
+        setDebug(debugLines);
       }
     }
 
@@ -325,7 +391,7 @@
         return;
       }
 
-      if (user.email !== ADMIN_EMAIL) {
+      if ((user.email || "").toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
         alert("Accès administrateur refusé.");
         window.location.href = "index.html";
         return;
