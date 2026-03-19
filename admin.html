@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration - Easy Frais</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #f3f6fb, #e7edf7);
+      color: #111827;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: #6b7280;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      text-decoration: none;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-block;
+      transition: 0.2s;
+    }
+
+    .btn-home {
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn-home:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-logout {
+      background: #111827;
+      color: white;
+    }
+
+    .btn-logout:hover {
+      background: #1f2937;
+    }
+
+    .card {
+      background: white;
+      border-radius: 22px;
+      padding: 24px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      color: #6b7280;
+      line-height: 1.5;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .stat-box {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    .stat-box .label {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .stat-box .value {
+      font-size: 32px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .status {
+      margin-top: 18px;
+      font-size: 14px;
+      color: #475569;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .error {
+      margin-top: 18px;
+      font-size: 14px;
+      color: #991b1b;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">EF</div>
+        <div>
+          <h1>Administration</h1>
+          <p>Espace administrateur Easy Frais</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a href="index.html" class="btn btn-home">Accueil</a>
+        <button id="logoutBtn" class="btn btn-logout" type="button">Déconnexion</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Bienvenue dans l’espace administrateur</h2>
+      <p>
+        Cette page affiche les statistiques globales de l’application.
+      </p>
+
+      <div class="status" id="statusMsg">Chargement des statistiques...</div>
+      <div class="error" id="errorMsg"></div>
+    </section>
+
+    <section class="stats">
+      <div class="stat-box">
+        <div class="label">Utilisateurs</div>
+        <div class="value" id="usersCount">--</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Abonnés premium</div>
+        <div class="value" id="premiumCount">--</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">PDF générés</div>
+        <div class="value" id="pdfCount">--</div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    import {
+      collection,
+      collectionGroup,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const ADMIN_EMAIL = "john.rombert.76@gmail.com";
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    const usersCountEl = document.getElementById("usersCount");
+    const premiumCountEl = document.getElementById("premiumCount");
+    const pdfCountEl = document.getElementById("pdfCount");
+    const statusMsg = document.getElementById("statusMsg");
+    const errorMsg = document.getElementById("errorMsg");
+
+    function showError(message) {
+      errorMsg.style.display = "block";
+      errorMsg.textContent = message;
+    }
+
+    function hideError() {
+      errorMsg.style.display = "none";
+      errorMsg.textContent = "";
+    }
+
+    async function loadAdminStats() {
+      hideError();
+      statusMsg.textContent = "Chargement des statistiques...";
+
+      try {
+        // 1) Nombre d'utilisateurs
+        let usersTotal = 0;
+        try {
+          const usersSnap = await getDocs(collection(db, "users"));
+          usersTotal = usersSnap.size;
+        } catch (err) {
+          console.warn("Impossible de lire users :", err);
+        }
+
+        // 2) Nombre d'abonnés premium
+        let premiumTotal = 0;
+        try {
+          const subsSnap = await getDocs(collectionGroup(db, "subscriptions"));
+          subsSnap.forEach((doc) => {
+            const data = doc.data() || {};
+            const status = (data.status || "").toLowerCase();
+
+            if (
+              status === "active" ||
+              status === "trialing" ||
+              status === "trial" ||
+              status === "paid"
+            ) {
+              premiumTotal++;
+            }
+          });
+        } catch (err) {
+          console.warn("Impossible de lire subscriptions :", err);
+        }
+
+        // 3) Nombre total de PDF générés
+        let pdfTotal = 0;
+        try {
+          const usageSnap = await getDocs(collectionGroup(db, "usage"));
+          usageSnap.forEach((doc) => {
+            const data = doc.data() || {};
+
+            // essaie plusieurs noms possibles de champs
+            if (typeof data.pdfCount === "number") {
+              pdfTotal += data.pdfCount;
+            } else if (typeof data.count === "number") {
+              pdfTotal += data.count;
+            } else if (typeof data.total === "number") {
+              pdfTotal += data.total;
+            } else if (typeof data.used === "number") {
+              pdfTotal += data.used;
+            } else if (typeof data.generated === "number") {
+              pdfTotal += data.generated;
+            } else {
+              // si aucun champ connu, on compte au moins 1 doc
+              pdfTotal += 1;
+            }
+          });
+        } catch (err) {
+          console.warn("Impossible de lire usage :", err);
+        }
+
+        usersCountEl.textContent = usersTotal;
+        premiumCountEl.textContent = premiumTotal;
+        pdfCountEl.textContent = pdfTotal;
+
+        statusMsg.textContent = "Statistiques chargées avec succès.";
+      } catch (error) {
+        console.error("Erreur admin :", error);
+        statusMsg.textContent = "Chargement partiel des statistiques.";
+        showError("Impossible de charger toutes les données. Vérifie Firestore et les permissions.");
+      }
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "connexion.html";
+        return;
+      }
+
+      if (user.email !== ADMIN_EMAIL) {
+        alert("Accès administrateur refusé.");
+        window.location.href = "index.html";
+        return;
+      }
+
+      await loadAdminStats();
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        window.location.href = "connexion.html";
+      } catch (error) {
+        console.error("Erreur déconnexion :", error);
+        alert("Impossible de se déconnecter.");
+      }
+    });
+  </script>
+</body>
+</html>
