@@ -3,7 +3,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js"
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
@@ -37,28 +37,36 @@ function getPassword() {
   return passwordInput.value.trim();
 }
 
-function getFriendlyFirebaseError(error) {
-  const code = error?.code || "";
+// 🔥 Gestion propre des erreurs Firebase
+function getErrorMessage(error) {
+  console.error("🔥 Firebase error :", error);
+  console.error("🔥 Code :", error.code);
+  console.error("🔥 Message :", error.message);
 
-  switch (code) {
+  switch (error.code) {
     case "auth/invalid-email":
       return "Adresse mail invalide.";
     case "auth/user-not-found":
-    case "auth/invalid-credential":
-      return "Identifiants incorrects.";
+      return "Aucun compte trouvé.";
     case "auth/wrong-password":
-      return "Mot de passe incorrect.";
+    case "auth/invalid-credential":
+      return "Email ou mot de passe incorrect.";
     case "auth/email-already-in-use":
       return "Cette adresse mail est déjà utilisée.";
     case "auth/weak-password":
-      return "Le mot de passe est trop faible.";
+      return "Mot de passe trop faible (min 6 caractères).";
     case "auth/too-many-requests":
-      return "Trop de tentatives. Réessaie dans quelques minutes.";
+      return "Trop de tentatives. Réessaie plus tard.";
+    case "auth/network-request-failed":
+      return "Erreur réseau ou configuration Firebase incorrecte.";
+    case "auth/operation-not-allowed":
+      return "Email / mot de passe non activé dans Firebase.";
     default:
-      return error?.message || "Une erreur est survenue.";
+      return error.message || "Erreur inconnue.";
   }
 }
 
+// 🔵 LOGIN
 async function login() {
   clearMessage();
 
@@ -66,22 +74,29 @@ async function login() {
   const password = getPassword();
 
   if (!email || !password) {
-    showMessage("Merci de renseigner l’adresse mail et le mot de passe.");
+    showMessage("Merci de remplir tous les champs.");
     return;
   }
 
   try {
     setLoading(true);
+
     await signInWithEmailAndPassword(auth, email, password);
+
     showMessage("Connexion réussie...", "success");
-    window.location.href = "index.html";
+
+    setTimeout(() => {
+      window.location.href = "index.html";
+    }, 500);
+
   } catch (error) {
-    showMessage(getFriendlyFirebaseError(error));
+    showMessage(getErrorMessage(error));
   } finally {
     setLoading(false);
   }
 }
 
+// 🟢 REGISTER
 async function register() {
   clearMessage();
 
@@ -89,7 +104,7 @@ async function register() {
   const password = getPassword();
 
   if (!email || !password) {
-    showMessage("Merci de renseigner l’adresse mail et le mot de passe.");
+    showMessage("Merci de remplir tous les champs.");
     return;
   }
 
@@ -100,25 +115,31 @@ async function register() {
 
   try {
     setLoading(true);
+
     await createUserWithEmailAndPassword(auth, email, password);
-    showMessage("Compte créé avec succès...", "success");
-    window.location.href = "index.html";
+
+    showMessage("Compte créé avec succès !", "success");
+
+    setTimeout(() => {
+      window.location.href = "index.html";
+    }, 500);
+
   } catch (error) {
-    showMessage(getFriendlyFirebaseError(error));
+    showMessage(getErrorMessage(error));
   } finally {
     setLoading(false);
   }
 }
 
+// Events
 loginBtn.addEventListener("click", login);
 registerBtn.addEventListener("click", register);
 
-passwordInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    login();
-  }
+passwordInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") login();
 });
 
+// 🔥 auto redirect si déjà connecté
 onAuthStateChanged(auth, (user) => {
   if (!authChecked) {
     authChecked = true;
