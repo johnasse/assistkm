@@ -31,7 +31,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 /* STRIPE */
-const STRIPE_PRICE_ID = "price_1TBX8WCA2m5OcqFbTHBH4bHa";
+const STRIPE_PRICE_ID = "price_1TBXzxCA2m5OcqFbLcvPpl8n";
 
 /* LIMITES PDF */
 const FIRST_MONTH_FREE_PDF_LIMIT = 3;
