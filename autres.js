@@ -1,5 +1,6 @@
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
+import { requirePdfAccess } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 let fraisAutres = [];
@@ -55,7 +56,7 @@ function isImageFile(file) {
 }
 
 function updateNomJustificatif() {
-  const file = $("justificatifAutres").files[0];
+  const file = $("justificatifAutres")?.files?.[0];
   $("nomJustificatifAutres").textContent = file ? `Fichier sélectionné : ${file.name}` : "";
 }
 
@@ -81,7 +82,7 @@ async function ajouterFrais() {
   const lieu = $("lieuAutres").value.trim();
   const objet = $("objetAutres").value.trim();
   const montant = parseFloat($("montantAutres").value);
-  const file = $("justificatifAutres").files[0] || null;
+  const file = $("justificatifAutres")?.files?.[0] || null;
 
   if (!date || !objet || Number.isNaN(montant) || montant <= 0) {
     alert("Merci de renseigner la date, l'objet et un montant valide.");
@@ -284,6 +285,9 @@ async function genererPDF() {
     alert("Aucune dépense à exporter.");
     return;
   }
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
