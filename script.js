@@ -1,5 +1,6 @@
 import { auth } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
+import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 let map;
@@ -42,10 +43,6 @@ function getAssistantNomKey() {
 
 function getMoisEtatKey() {
   return `moisEtat_${getUid()}`;
-}
-
-function getHistoriquePdfKey() {
-  return `historiquePDF_${getUid()}`;
 }
 
 function getBaremesKey() {
@@ -688,38 +685,15 @@ async function genererPDFMensuel() {
   doc.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, y);
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
-  const pdfBlob = doc.output("blob");
-  const reader = new FileReader();
 
-  reader.onloadend = function () {
-    try {
-      let historique = JSON.parse(localStorage.getItem(getHistoriquePdfKey()) || "[]");
+  savePdfToHistory(doc, {
+    mois: formatMonthLabel(moisEtat),
+    nom: fileName,
+    type: "Frais kilométriques"
+  });
 
-      historique.push({
-        id: Date.now(),
-        type: "Frais kilométriques",
-        mois: formatMonthFr(moisEtat),
-        nom: fileName,
-        data: reader.result,
-        dateGeneration: new Date().toLocaleString("fr-FR")
-      });
-
-      localStorage.setItem(getHistoriquePdfKey(), JSON.stringify(historique));
-
-      doc.save(fileName);
-      showToast("PDF mensuel généré et enregistré");
-    } catch (error) {
-      console.error("Erreur historique PDF :", error);
-      alert("Erreur lors de l'enregistrement dans l'historique.");
-    }
-  };
-
-  reader.onerror = (error) => {
-    console.error("Erreur FileReader :", error);
-    alert("Erreur lors de la lecture du PDF.");
-  };
-
-  reader.readAsDataURL(pdfBlob);
+  doc.save(fileName);
+  showToast("PDF mensuel généré et enregistré");
 }
 
 function drawCellText(doc, textOrLines, x, y, width, height, align = "left") {
