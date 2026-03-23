@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin test - Easy Frais</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #f3f6fb;
+      color: #111827;
+    }
+
+    .page {
+      max-width: 1150px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+
+    .title p {
+      margin: 6px 0 0;
+      color: #6b7280;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-home {
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn-refresh {
+      background: #16a34a;
+      color: white;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+
+    .error {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #fef2f2;
+      color: #b91c1c;
+      font-size: 14px;
+      margin-top: 12px;
+      display: none;
+      white-space: pre-line;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    .stat-box {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .stat-label {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #374151;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge-premium {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-free {
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    @media (max-width: 950px) {
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 650px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="title">
+        <h1>Admin test</h1>
+        <p>Page de test séparée, sans toucher au reste du site.</p>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="index.html" class="btn btn-home">Accueil</a>
+        <button id="refreshBtn" class="btn btn-refresh" type="button">Actualiser</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <h2 style="margin-top:0;">État</h2>
+      <div id="statusMsg" class="status">Chargement...</div>
+      <div id="errorMsg" class="error"></div>
+    </section>
+
+    <section class="stats">
+      <div class="stat-box">
+        <div class="stat-label">Utilisateurs</div>
+        <div id="usersCount" class="stat-value">--</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">Abonnés premium</div>
+        <div id="premiumCount" class="stat-value">--</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">PDF générés</div>
+        <div id="pdfCount" class="stat-value">--</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">Revenu estimé / mois</div>
+        <div id="revenueCount" class="stat-value">0 €</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin-top:0;">Utilisateurs</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>UID</th>
+              <th>Statut</th>
+              <th>PDF</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="3">Chargement...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin-top:0;">Debug</h2>
+      <pre id="debugOutput">En attente…</pre>
+    </section>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      collection,
+      collectionGroup,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const ADMIN_EMAIL = "john.rombert.76@gmail.com";
+
+    const refreshBtn = document.getElementById("refreshBtn");
+    const usersCountEl = document.getElementById("usersCount");
+    const premiumCountEl = document.getElementById("premiumCount");
+    const pdfCountEl = document.getElementById("pdfCount");
+    const revenueCountEl = document.getElementById("revenueCount");
+    const usersTableBody = document.getElementById("usersTableBody");
+    const statusMsg = document.getElementById("statusMsg");
+    const errorMsg = document.getElementById("errorMsg");
+    const debugOutput = document.getElementById("debugOutput");
+
+    function showError(message) {
+      errorMsg.style.display = "block";
+      errorMsg.textContent = message;
+    }
+
+    function hideError() {
+      errorMsg.style.display = "none";
+      errorMsg.textContent = "";
+    }
+
+    function setDebug(lines) {
+      debugOutput.textContent = lines.join("\n");
+      console.log("ADMIN TEST DEBUG\n" + lines.join("\n"));
+    }
+
+    function formatEuro(value) {
+      return new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0
+      }).format(Number(value || 0));
+    }
+
+    async function loadAdminStats() {
+      hideError();
+      statusMsg.textContent = "Chargement des statistiques...";
+
+      const debugLines = [];
+      let usersTotal = 0;
+      let premiumTotal = 0;
+      let pdfTotal = 0;
+
+      try {
+        if (!db) {
+          throw new Error("db est introuvable. Vérifie firebase-config.js");
+        }
+
+        const customersSnap = await getDocs(collection(db, "customers"));
+        usersTotal = customersSnap.size;
+        debugLines.push(`customers trouvés : ${customersSnap.size}`);
+
+        const subscriptionsSnap = await getDocs(collectionGroup(db, "subscriptions"));
+        debugLines.push(`subscriptions trouvées : ${subscriptionsSnap.size}`);
+
+        const premiumUserIds = new Set();
+
+        subscriptionsSnap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const status = String(data.status || "").toLowerCase();
+
+          if (
+            status === "active" ||
+            status === "trialing" ||
+            status === "trial" ||
+            status === "paid"
+          ) {
+            const pathParts = docSnap.ref.path.split("/");
+            const userId = pathParts[1];
+            if (userId) premiumUserIds.add(userId);
+          }
+        });
+
+        premiumTotal = premiumUserIds.size;
+
+        const usageSnap = await getDocs(collectionGroup(db, "usage"));
+        debugLines.push(`usage trouvés : ${usageSnap.size}`);
+
+        const pdfByUser = {};
+
+        usageSnap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const pathParts = docSnap.ref.path.split("/");
+          const userId = pathParts[1];
+
+          let value = 0;
+          if (typeof data.pdfCount === "number") value = data.pdfCount;
+          else if (typeof data.count === "number") value = data.count;
+          else if (typeof data.total === "number") value = data.total;
+          else if (typeof data.used === "number") value = data.used;
+          else if (typeof data.generated === "number") value = data.generated;
+          else if (typeof data.pdfGenerated === "number") value = data.pdfGenerated;
+          else value = 1;
+
+          pdfTotal += value;
+
+          if (!pdfByUser[userId]) pdfByUser[userId] = 0;
+          pdfByUser[userId] += value;
+        });
+
+        usersCountEl.textContent = usersTotal;
+        premiumCountEl.textContent = premiumTotal;
+        pdfCountEl.textContent = pdfTotal;
+        revenueCountEl.textContent = formatEuro(premiumTotal * 2);
+
+        const rows = [];
+        customersSnap.forEach((docSnap) => {
+          const userId = docSnap.id;
+          const isPremium = premiumUserIds.has(userId);
+          const userPdf = pdfByUser[userId] || 0;
+
+          rows.push(`
+            <tr>
+              <td>${userId}</td>
+              <td>
+                <span class="badge ${isPremium ? "badge-premium" : "badge-free"}">
+                  ${isPremium ? "Premium" : "Gratuit"}
+                </span>
+              </td>
+              <td>${userPdf}</td>
+            </tr>
+          `);
+        });
+
+        usersTableBody.innerHTML = rows.length
+          ? rows.join("")
+          : `<tr><td colspan="3">Aucun utilisateur trouvé.</td></tr>`;
+
+        debugLines.push(`utilisateurs : ${usersTotal}`);
+        debugLines.push(`premium : ${premiumTotal}`);
+        debugLines.push(`pdf : ${pdfTotal}`);
+        debugLines.push(`revenu estimé : ${premiumTotal * 2} €/mois`);
+
+        setDebug(debugLines);
+        statusMsg.textContent = "Statistiques chargées avec succès.";
+      } catch (error) {
+        console.error("Erreur admin test :", error);
+        usersCountEl.textContent = usersTotal;
+        premiumCountEl.textContent = premiumTotal;
+        pdfCountEl.textContent = pdfTotal;
+        revenueCountEl.textContent = formatEuro(premiumTotal * 2);
+        usersTableBody.innerHTML = `<tr><td colspan="3">Impossible de charger les utilisateurs.</td></tr>`;
+        statusMsg.textContent = "Chargement partiel ou erreur.";
+        showError("Impossible de charger toutes les données.\nVérifie firebase-config.js, Firestore et les permissions.");
+        debugLines.push(`erreur : ${error.message || error}`);
+        setDebug(debugLines);
+      }
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "connexion.html";
+        return;
+      }
+
+      if ((user.email || "").toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        alert("Accès administrateur refusé.");
+        window.location.href = "index.html";
+        return;
+      }
+
+      await loadAdminStats();
+    });
+
+    refreshBtn.addEventListener("click", async () => {
+      await loadAdminStats();
+    });
+  </script>
+</body>
+</html>
