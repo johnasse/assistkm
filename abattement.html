@@ -104,6 +104,21 @@
       background: #fff;
     }
 
+    .checkbox-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid #dbe4f0;
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .checkbox-line input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+
     .row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -169,6 +184,7 @@
       text-align: left;
       border-bottom: 1px solid #e5edf8;
       font-size: 0.95rem;
+      vertical-align: top;
     }
 
     th {
@@ -244,6 +260,20 @@
       border-bottom: 1px solid #e5edf8;
     }
 
+    .detail-block {
+      padding: 10px 0;
+      border-bottom: 1px solid #e5edf8;
+    }
+
+    .detail-block:last-child {
+      border-bottom: none;
+    }
+
+    .readonly-style {
+      background: #f1f5f9 !important;
+      color: #475569;
+    }
+
     @media (max-width: 900px) {
       .grid,
       .row-2,
@@ -277,7 +307,8 @@
       <section class="hero">
         <h1>Abattement fiscal</h1>
         <p>
-          Saisis tes périodes par enfant, ton revenu total de référence, puis calcule automatiquement l’abattement et le montant imposable.
+          Compatible assistant familial et assistante maternelle. Tu peux saisir des heures réelles
+          ou cocher l’accueil permanent 24h/24.
         </p>
       </section>
 
@@ -306,12 +337,12 @@
 
           <div class="row-2">
             <div class="field">
-              <label for="smicAvantNov">SMIC avant nov.</label>
+              <label for="smicAvantNov">SMIC avant novembre</label>
               <input type="number" id="smicAvantNov" step="0.01" />
             </div>
 
             <div class="field">
-              <label for="smicApresNov">SMIC après nov.</label>
+              <label for="smicApresNov">SMIC après novembre</label>
               <input type="number" id="smicApresNov" step="0.01" />
             </div>
           </div>
@@ -322,7 +353,7 @@
           </div>
 
           <div class="field">
-            <label for="nomEnfant">Enfants accueillis (mémo)</label>
+            <label for="nomEnfant">Enfants accueillis</label>
             <div class="row-2">
               <input type="text" id="nomEnfant" placeholder="Prénom de l'enfant" />
               <button class="btn btn-primary" id="btnAjouterEnfant" type="button">Ajouter</button>
@@ -379,9 +410,17 @@
             </div>
           </div>
 
+          <div class="field">
+            <label>Mode d'accueil</label>
+            <label class="checkbox-line">
+              <input type="checkbox" id="accueilPermanent" />
+              <span>Accueil permanent (24h/24)</span>
+            </label>
+          </div>
+
           <div class="btn-row">
             <button class="btn btn-green" id="btnAjouterLigneAbattement" type="button">Ajouter la ligne</button>
-            <button class="btn btn-light" id="btnResetLigneAbattement" type="button">Réinitialiser la saisie</button>
+            <button class="btn btn-light" id="btnResetLigneAbattement" type="button">Réinitialiser</button>
             <button class="btn btn-red" id="btnViderLignesAbattement" type="button">Vider toutes les lignes</button>
           </div>
         </section>
@@ -398,6 +437,7 @@
                 <th>Mois</th>
                 <th>Jours</th>
                 <th>Heures/jour</th>
+                <th>Mode</th>
                 <th>Revenu ligne</th>
                 <th>Abattement</th>
                 <th></th>
@@ -405,7 +445,7 @@
             </thead>
             <tbody id="tbodyLignesAbattement">
               <tr>
-                <td colspan="7" class="muted">Aucune ligne enregistrée.</td>
+                <td colspan="8" class="muted">Aucune ligne enregistrée.</td>
               </tr>
             </tbody>
           </table>
@@ -433,6 +473,13 @@
             <span>Montant imposable</span>
             <span id="resultMontantImposable" class="strong">0.00 €</span>
           </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Détail du calcul</h2>
+        <div id="detailCalculAbattement" class="result-box">
+          <div class="muted">Aucun calcul disponible pour le moment.</div>
         </div>
       </section>
     </div>
