@@ -1,5 +1,6 @@
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
+import { requirePdfAccess } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 let fraisNoel = [];
@@ -284,6 +285,9 @@ async function genererPDF() {
     alert("Aucune dépense à exporter.");
     return;
   }
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
