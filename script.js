@@ -1,5 +1,6 @@
 import { auth } from "./firebase-config.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { requirePdfAccess } from "./premium.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 let map;
 let directionsService;
@@ -518,14 +519,8 @@ async function genererPDFMensuel() {
     return;
   }
 
-  if (window.EasyFraisPremium?.canGeneratePdf) {
-    const check = await window.EasyFraisPremium.canGeneratePdf();
-    if (!check.allowed) {
-      alert(check.message || "Quota PDF atteint");
-      window.location.href = "premium.html";
-      return;
-    }
-  }
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
 
   if (!window.jspdf || !window.jspdf.jsPDF) {
     alert("La librairie PDF n'est pas chargée.");
@@ -696,7 +691,7 @@ async function genererPDFMensuel() {
   const pdfBlob = doc.output("blob");
   const reader = new FileReader();
 
-  reader.onloadend = async function () {
+  reader.onloadend = function () {
     try {
       let historique = JSON.parse(localStorage.getItem(getHistoriquePdfKey()) || "[]");
 
@@ -712,11 +707,6 @@ async function genererPDFMensuel() {
       localStorage.setItem(getHistoriquePdfKey(), JSON.stringify(historique));
 
       doc.save(fileName);
-
-      if (window.EasyFraisPremium?.registerPdfGeneration) {
-        await window.EasyFraisPremium.registerPdfGeneration({ module: "kilometrique" });
-      }
-
       showToast("PDF mensuel généré et enregistré");
     } catch (error) {
       console.error("Erreur historique PDF :", error);
