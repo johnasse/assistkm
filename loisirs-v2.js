@@ -295,14 +295,17 @@ async function genererPDF() {
   const assistant = $("assistantNomLoisirs").value.trim() || "-";
   const mois = $("moisLoisirs").value || "";
   const total = getTotal();
+  const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
 
   let y = 12;
 
   pdf.setFontSize(14);
   pdf.text("Frais sports et loisirs", 10, y);
-  y += 10;
+  y += 8;
 
   pdf.setFontSize(10);
+  pdf.text(`PDF créé le ${dateCreationPdf}`, 10, y);
+  y += 6;
   pdf.text(`Assistant : ${assistant}`, 10, y);
   y += 6;
   pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
