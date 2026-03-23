@@ -49,6 +49,14 @@ function getBaremesKey() {
   return `baremesKilometriques_${getUid()}`;
 }
 
+function getSignatureDataKey() {
+  return `signatureKilometriqueData_${getUid()}`;
+}
+
+function getSignatureNameKey() {
+  return `signatureKilometriqueName_${getUid()}`;
+}
+
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 49.7579, lng: 0.3746 },
@@ -94,6 +102,7 @@ function loadUserDataIfReady() {
   deplacements = JSON.parse(localStorage.getItem(getDeplacementsKey()) || "[]");
   loadSavedInfos();
   loadBaremes();
+  loadSignatureInfo();
   renderDeplacements();
   updateTotals();
 
@@ -116,6 +125,13 @@ function bindEvents() {
   document.getElementById("btnSaveBaremes")?.addEventListener("click", saveBaremes);
   document.getElementById("btnResetBaremes")?.addEventListener("click", resetBaremes);
   document.getElementById("btnToggleBaremes")?.addEventListener("click", toggleBaremesLock);
+
+  document.getElementById("btnSignature")?.addEventListener("click", () => {
+    document.getElementById("signatureFile")?.click();
+  });
+
+  document.getElementById("signatureFile")?.addEventListener("change", handleSignatureChange);
+  document.getElementById("btnClearSignature")?.addEventListener("click", clearSignature);
 }
 
 function updateBaremesLockUI() {
@@ -531,6 +547,8 @@ async function genererPDFMensuel() {
   const assistantNom = document.getElementById("assistantNom").value.trim() || "-";
   const totalKm = deplacements.reduce((sum, item) => sum + item.km, 0);
   const baremes = getBaremesFromInputs();
+  const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
+  const signatureData = localStorage.getItem(getSignatureDataKey());
 
   const margin = 10;
   let y = 14;
@@ -650,7 +668,7 @@ async function genererPDFMensuel() {
 
   y += 10;
 
-  if (y > 178) {
+  if (y > 170) {
     doc.addPage("landscape", "a4");
     y = 20;
   }
@@ -663,12 +681,29 @@ async function genererPDFMensuel() {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text("Certifié exact le : ____________________", margin, y);
+  doc.text(`Certifié exact le : ${dateCreationPdf}`, margin, y);
 
   y += 10;
-  doc.text("Signature assistant familial : ____________________", margin, y);
+  doc.text("Signature assistant familial :", margin, y);
 
-  y += 14;
+  if (signatureData && isImageDataUrl(signatureData)) {
+    try {
+      const converted = await convertImageDataUrlToJpeg(signatureData, 0.92);
+      let imgWidth = 45;
+      let imgHeight = (converted.height / converted.width) * imgWidth;
+
+      if (imgHeight > 22) {
+        imgHeight = 22;
+        imgWidth = (converted.width / converted.height) * imgHeight;
+      }
+
+      doc.addImage(converted.dataUrl, "JPEG", margin + 55, y - 7, imgWidth, imgHeight);
+    } catch (error) {
+      console.error("Erreur ajout signature PDF :", error);
+    }
+  }
+
+  y += 18;
   doc.setFont("helvetica", "bold");
   doc.text("Barèmes kilométriques utilisés", margin, y);
 
@@ -844,6 +879,98 @@ function ouvrirCamera() {
   if (justificatif) {
     justificatif.click();
   }
+}
+
+function isImageFile(file) {
+  return Boolean(file && file.type && file.type.startsWith("image/"));
+}
+
+function isImageDataUrl(data) {
+  return typeof data === "string" && data.startsWith("data:image/");
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function convertImageDataUrlToJpeg(dataUrl, quality = 0.92) {
+  const img = new Image();
+  img.src = dataUrl;
+
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+
+  return {
+    dataUrl: canvas.toDataURL("image/jpeg", quality),
+    width: canvas.width,
+    height: canvas.height
+  };
+}
+
+function loadSignatureInfo() {
+  const signatureData = localStorage.getItem(getSignatureDataKey());
+  const signatureName = localStorage.getItem(getSignatureNameKey()) || "";
+  const info = document.getElementById("signatureInfo");
+  const preview = document.getElementById("signaturePreview");
+
+  if (!info || !preview) return;
+
+  if (signatureData) {
+    info.textContent = signatureName ? `Signature enregistrée : ${signatureName}` : "Signature enregistrée";
+    preview.src = signatureData;
+    preview.style.display = "block";
+  } else {
+    info.textContent = "";
+    preview.src = "";
+    preview.style.display = "none";
+  }
+}
+
+async function handleSignatureChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!isImageFile(file)) {
+    alert("Merci de choisir une image JPG ou PNG pour la signature.");
+    event.target.value = "";
+    return;
+  }
+
+  try {
+    const data = await fileToBase64(file);
+    localStorage.setItem(getSignatureDataKey(), data);
+    localStorage.setItem(getSignatureNameKey(), file.name);
+    loadSignatureInfo();
+    showToast("Signature enregistrée");
+  } catch (error) {
+    console.error("Erreur lecture signature :", error);
+    alert("Impossible de lire l'image de signature.");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function clearSignature() {
+  localStorage.removeItem(getSignatureDataKey());
+  localStorage.removeItem(getSignatureNameKey());
+  loadSignatureInfo();
+  showToast("Signature supprimée");
 }
 
 window.initMap = initMap;
