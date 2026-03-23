@@ -1,11 +1,10 @@
-import { auth } from "./premium.js";
+import { auth, requirePremium } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-import { requirePremium } from "./premium.js";
 
 let uid = null;
 let lignesAbattement = [];
 let listeEnfantsAbattementMemo = [];
-let moduleReady = false;
+let eventsBound = false;
 
 const SMIC_DATA = {
   2024: { avant: 11.65, apres: 11.88 },
@@ -32,12 +31,29 @@ function el(id) {
   return document.getElementById(id);
 }
 
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatCurrency(value) {
+  return `${Number(value || 0).toFixed(2)} €`;
+}
+
 function getLignesKey() {
   return `lignesAbattement_${uid}`;
 }
 
 function getEnfantsKey() {
   return `listeEnfantsAbattementMemo_${uid}`;
+}
+
+function getRevenuReferenceKey() {
+  return `revenuReferenceAbattement_${uid}`;
 }
 
 function showLock() {
@@ -62,17 +78,28 @@ function saveEnfants() {
   localStorage.setItem(getEnfantsKey(), JSON.stringify(listeEnfantsAbattementMemo));
 }
 
+function saveRevenuReference() {
+  const input = el("revenuTotalReference");
+  if (!input) return;
+  localStorage.setItem(getRevenuReferenceKey(), input.value || "0");
+}
+
 function loadData() {
   lignesAbattement = JSON.parse(localStorage.getItem(getLignesKey()) || "[]");
   listeEnfantsAbattementMemo = JSON.parse(localStorage.getItem(getEnfantsKey()) || "[]");
+
+  const savedRevenuRef = localStorage.getItem(getRevenuReferenceKey());
+  if (el("revenuTotalReference")) {
+    el("revenuTotalReference").value = savedRevenuRef || "0";
+  }
 }
 
 function updateSmicFields() {
-  const annee = el("anneeAbattement").value;
-  const data = SMIC_DATA[annee] || SMIC_DATA[2025];
+  const annee = el("anneeAbattement")?.value || "2025";
+  const data = SMIC_DATA[annee] || SMIC_DATA["2025"];
 
-  el("smicAvantNov").value = data.avant;
-  el("smicApresNov").value = data.apres;
+  if (el("smicAvantNov")) el("smicAvantNov").value = data.avant;
+  if (el("smicApresNov")) el("smicApresNov").value = data.apres;
 }
 
 function renderListeEnfantsAbattement() {
@@ -88,15 +115,18 @@ function renderListeEnfantsAbattement() {
   }
 
   container.innerHTML = listeEnfantsAbattementMemo.map((nom, index) => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #e5edf8;">
+    <div class="child-item">
       <span>${escapeHtml(nom)}</span>
-      <button class="btn btn-light" data-remove-enfant="${index}" style="padding:8px 12px;">Supprimer</button>
+      <button class="btn btn-light" type="button" data-remove-enfant="${index}" style="padding:8px 12px;">Supprimer</button>
     </div>
   `).join("");
 
-  select.innerHTML = listeEnfantsAbattementMemo.map(nom => `
-    <option value="${escapeHtmlAttr(nom)}">${escapeHtml(nom)}</option>
-  `).join("");
+  select.innerHTML = `
+    <option value="">Choisir un enfant</option>
+    ${listeEnfantsAbattementMemo.map(nom => `
+      <option value="${escapeHtml(nom)}">${escapeHtml(nom)}</option>
+    `).join("")}
+  `;
 }
 
 function renderLignesAbattement() {
@@ -116,46 +146,25 @@ function renderLignesAbattement() {
     <tr>
       <td>${escapeHtml(ligne.enfant)}</td>
       <td>${MOIS_LABELS[ligne.mois] || ligne.mois}</td>
-      <td>${ligne.jours}</td>
-      <td>${formatNumber(ligne.heuresParJour)}</td>
+      <td>${Number(ligne.jours || 0)}</td>
+      <td>${Number(ligne.heuresParJour || 0).toFixed(2)}</td>
       <td>${formatCurrency(ligne.revenu)}</td>
       <td>${formatCurrency(ligne.abattement)}</td>
       <td>
-        <button class="btn btn-light" data-remove-ligne="${index}" style="padding:8px 12px;">Supprimer</button>
+        <button class="btn btn-light" type="button" data-remove-ligne="${index}" style="padding:8px 12px;">Supprimer</button>
       </td>
     </tr>
   `).join("");
 }
 
-function formatNumber(value) {
-  return Number(value || 0).toFixed(2);
-}
-
-function formatCurrency(value) {
-  return `${Number(value || 0).toFixed(2)} €`;
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function escapeHtmlAttr(str) {
-  return escapeHtml(str);
-}
-
 function getAbattementMultiplier() {
-  const type = el("typeAccueil").value;
+  const type = el("typeAccueil")?.value || "classique";
   return type === "handicap" ? 5 : 4;
 }
 
 function getSmicForMonth(mois) {
-  const smicAvant = Number(el("smicAvantNov").value || 0);
-  const smicApres = Number(el("smicApresNov").value || 0);
+  const smicAvant = Number(el("smicAvantNov")?.value || 0);
+  const smicApres = Number(el("smicApresNov")?.value || 0);
   return Number(mois) >= 11 ? smicApres : smicAvant;
 }
 
@@ -167,13 +176,13 @@ function calculerAbattementLigne({ mois, jours, heuresParJour }) {
 }
 
 function calculerAbattement() {
-  let totalRevenus = 0;
+  let totalRevenusLignes = 0;
   let totalAbattement = 0;
 
   lignesAbattement = lignesAbattement.map((ligne) => {
     const abattement = calculerAbattementLigne(ligne);
 
-    totalRevenus += Number(ligne.revenu || 0);
+    totalRevenusLignes += Number(ligne.revenu || 0);
     totalAbattement += abattement;
 
     return {
@@ -185,22 +194,39 @@ function calculerAbattement() {
   saveLignes();
   renderLignesAbattement();
 
-  const imposable = Math.max(0, totalRevenus - totalAbattement);
+  const revenuReference = Number(el("revenuTotalReference")?.value || 0);
+  saveRevenuReference();
 
-  el("resultTotalRevenus").textContent = formatCurrency(totalRevenus);
-  el("resultTotalAbattement").textContent = formatCurrency(totalAbattement);
-  el("resultMontantImposable").textContent = formatCurrency(imposable);
+  const imposable = Math.max(0, revenuReference - totalAbattement);
+
+  if (el("resultTotalRevenus")) {
+    el("resultTotalRevenus").textContent = formatCurrency(totalRevenusLignes);
+  }
+
+  if (el("resultRevenuReference")) {
+    el("resultRevenuReference").textContent = formatCurrency(revenuReference);
+  }
+
+  if (el("resultTotalAbattement")) {
+    el("resultTotalAbattement").textContent = formatCurrency(totalAbattement);
+  }
+
+  if (el("resultMontantImposable")) {
+    el("resultMontantImposable").textContent = formatCurrency(imposable);
+  }
 }
 
 function resetSaisieLigne() {
-  el("moisLigne").value = "1";
-  el("joursAccueil").value = "0";
-  el("heuresParJour").value = "0";
-  el("revenuLigne").value = "0";
+  if (el("moisLigne")) el("moisLigne").value = "1";
+  if (el("joursAccueil")) el("joursAccueil").value = "0";
+  if (el("heuresParJour")) el("heuresParJour").value = "0";
+  if (el("revenuLigne")) el("revenuLigne").value = "0";
 }
 
 function ajouterEnfant() {
   const input = el("nomEnfant");
+  if (!input) return;
+
   const nom = (input.value || "").trim();
 
   if (!nom) {
@@ -217,7 +243,10 @@ function ajouterEnfant() {
   saveEnfants();
   renderListeEnfantsAbattement();
 
-  el("enfantLigne").value = nom;
+  if (el("enfantLigne")) {
+    el("enfantLigne").value = nom;
+  }
+
   input.value = "";
 }
 
@@ -226,24 +255,23 @@ function supprimerEnfant(index) {
   if (!nom) return;
 
   listeEnfantsAbattementMemo.splice(index, 1);
-  lignesAbattement = lignesAbattement.filter(l => l.enfant !== nom);
+  lignesAbattement = lignesAbattement.filter((ligne) => ligne.enfant !== nom);
 
   saveEnfants();
   saveLignes();
-
   renderListeEnfantsAbattement();
   calculerAbattement();
 }
 
 function ajouterLigneAbattement() {
-  const enfant = el("enfantLigne").value;
-  const mois = Number(el("moisLigne").value);
-  const jours = Number(el("joursAccueil").value);
-  const heuresParJour = Number(el("heuresParJour").value);
-  const revenu = Number(el("revenuLigne").value);
+  const enfant = el("enfantLigne")?.value || "";
+  const mois = Number(el("moisLigne")?.value || 1);
+  const jours = Number(el("joursAccueil")?.value || 0);
+  const heuresParJour = Number(el("heuresParJour")?.value || 0);
+  const revenu = Number(el("revenuLigne")?.value || 0);
 
   if (!enfant) {
-    alert("Ajoute d'abord un enfant.");
+    alert("Choisis un enfant.");
     return;
   }
 
@@ -301,8 +329,10 @@ function exportPdfAbattement() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
 
-  const annee = el("anneeAbattement").value;
-  const typeAccueil = el("typeAccueil").value === "handicap" ? "Handicap / majoré" : "Classique";
+  const annee = el("anneeAbattement")?.value || "";
+  const typeAccueil = (el("typeAccueil")?.value || "classique") === "handicap"
+    ? "Handicap / majoré"
+    : "Classique";
 
   let y = 15;
 
@@ -313,8 +343,9 @@ function exportPdfAbattement() {
   pdf.setFontSize(11);
   pdf.text(`Année : ${annee}`, 14, y); y += 7;
   pdf.text(`Type d'accueil : ${typeAccueil}`, 14, y); y += 7;
-  pdf.text(`SMIC avant nov. : ${el("smicAvantNov").value}`, 14, y); y += 7;
-  pdf.text(`SMIC après nov. : ${el("smicApresNov").value}`, 14, y); y += 10;
+  pdf.text(`SMIC avant nov. : ${el("smicAvantNov")?.value || "0"}`, 14, y); y += 7;
+  pdf.text(`SMIC après nov. : ${el("smicApresNov")?.value || "0"}`, 14, y); y += 7;
+  pdf.text(`Revenu total de référence : ${Number(el("revenuTotalReference")?.value || 0).toFixed(2)} €`, 14, y); y += 10;
 
   pdf.setFontSize(12);
   pdf.text("Lignes :", 14, y);
@@ -326,12 +357,12 @@ function exportPdfAbattement() {
     y += 8;
   } else {
     lignesAbattement.forEach((ligne, index) => {
-      const text = `${index + 1}. ${ligne.enfant} - ${MOIS_LABELS[ligne.mois]} - ${ligne.jours} jour(s) - ${ligne.heuresParJour} h/j - revenu ${Number(ligne.revenu).toFixed(2)} € - abattement ${Number(ligne.abattement).toFixed(2)} €`;
+      const texte = `${index + 1}. ${ligne.enfant} - ${MOIS_LABELS[ligne.mois]} - ${ligne.jours} jour(s) - ${Number(ligne.heuresParJour).toFixed(2)} h/j - revenu ${Number(ligne.revenu).toFixed(2)} € - abattement ${Number(ligne.abattement).toFixed(2)} €`;
 
-      const lines = pdf.splitTextToSize(text, 180);
+      const lignesTexte = pdf.splitTextToSize(texte, 180);
       pdf.setFontSize(10);
-      pdf.text(lines, 14, y);
-      y += (lines.length * 6) + 2;
+      pdf.text(lignesTexte, 14, y);
+      y += lignesTexte.length * 6 + 2;
 
       if (y > 270) {
         pdf.addPage();
@@ -342,12 +373,14 @@ function exportPdfAbattement() {
 
   y += 6;
 
-  const totalRevenus = lignesAbattement.reduce((sum, l) => sum + Number(l.revenu || 0), 0);
-  const totalAbattement = lignesAbattement.reduce((sum, l) => sum + Number(l.abattement || 0), 0);
-  const imposable = Math.max(0, totalRevenus - totalAbattement);
+  const totalRevenus = lignesAbattement.reduce((sum, ligne) => sum + Number(ligne.revenu || 0), 0);
+  const totalAbattement = lignesAbattement.reduce((sum, ligne) => sum + Number(ligne.abattement || 0), 0);
+  const revenuReference = Number(el("revenuTotalReference")?.value || 0);
+  const imposable = Math.max(0, revenuReference - totalAbattement);
 
   pdf.setFontSize(12);
-  pdf.text(`Total revenus : ${totalRevenus.toFixed(2)} €`, 14, y); y += 8;
+  pdf.text(`Total revenus des lignes : ${totalRevenus.toFixed(2)} €`, 14, y); y += 8;
+  pdf.text(`Revenu total de référence : ${revenuReference.toFixed(2)} €`, 14, y); y += 8;
   pdf.text(`Total abattement : ${totalAbattement.toFixed(2)} €`, 14, y); y += 8;
   pdf.text(`Montant imposable : ${imposable.toFixed(2)} €`, 14, y);
 
@@ -355,34 +388,41 @@ function exportPdfAbattement() {
 }
 
 function bindEvents() {
-  if (moduleReady) return;
-  moduleReady = true;
+  if (eventsBound) return;
+  eventsBound = true;
 
-  el("anneeAbattement").addEventListener("change", () => {
+  el("anneeAbattement")?.addEventListener("change", () => {
     updateSmicFields();
     calculerAbattement();
   });
 
-  el("typeAccueil").addEventListener("change", calculerAbattement);
-  el("smicAvantNov").addEventListener("input", calculerAbattement);
-  el("smicApresNov").addEventListener("input", calculerAbattement);
+  el("typeAccueil")?.addEventListener("change", calculerAbattement);
+  el("smicAvantNov")?.addEventListener("input", calculerAbattement);
+  el("smicApresNov")?.addEventListener("input", calculerAbattement);
+  el("revenuTotalReference")?.addEventListener("input", calculerAbattement);
 
-  el("btnAjouterEnfant").addEventListener("click", ajouterEnfant);
-  el("btnAjouterLigneAbattement").addEventListener("click", ajouterLigneAbattement);
-  el("btnResetLigneAbattement").addEventListener("click", resetSaisieLigne);
-  el("btnViderLignesAbattement").addEventListener("click", viderToutesLesLignes);
-  el("btnCalculerAbattement").addEventListener("click", calculerAbattement);
-  el("btnPdfAbattement").addEventListener("click", exportPdfAbattement);
+  el("btnAjouterEnfant")?.addEventListener("click", ajouterEnfant);
+  el("btnAjouterLigneAbattement")?.addEventListener("click", ajouterLigneAbattement);
+  el("btnResetLigneAbattement")?.addEventListener("click", resetSaisieLigne);
+  el("btnViderLignesAbattement")?.addEventListener("click", viderToutesLesLignes);
+  el("btnCalculerAbattement")?.addEventListener("click", calculerAbattement);
+  el("btnPdfAbattement")?.addEventListener("click", exportPdfAbattement);
 
-  el("listeEnfantsAbattement").addEventListener("click", (e) => {
-    const index = e.target.getAttribute("data-remove-enfant");
+  el("listeEnfantsAbattement")?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const index = target.getAttribute("data-remove-enfant");
     if (index !== null) {
       supprimerEnfant(Number(index));
     }
   });
 
-  el("tbodyLignesAbattement").addEventListener("click", (e) => {
-    const index = e.target.getAttribute("data-remove-ligne");
+  el("tbodyLignesAbattement")?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const index = target.getAttribute("data-remove-ligne");
     if (index !== null) {
       supprimerLigne(Number(index));
     }

@@ -235,6 +235,15 @@
       font-size: 0.92rem;
     }
 
+    .child-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e5edf8;
+    }
+
     @media (max-width: 900px) {
       .grid,
       .row-2,
@@ -268,7 +277,7 @@
       <section class="hero">
         <h1>Abattement fiscal</h1>
         <p>
-          Calculez votre abattement à partir de vos périodes d’accueil et exportez un PDF clair.
+          Saisis tes périodes par enfant, ton revenu total de référence, puis calcule automatiquement l’abattement et le montant imposable.
         </p>
       </section>
 
@@ -308,10 +317,15 @@
           </div>
 
           <div class="field">
-            <label for="nbEnfants">Enfants accueillis (mémo)</label>
+            <label for="revenuTotalReference">Revenu total de référence (€)</label>
+            <input type="number" id="revenuTotalReference" min="0" step="0.01" value="0" />
+          </div>
+
+          <div class="field">
+            <label for="nomEnfant">Enfants accueillis (mémo)</label>
             <div class="row-2">
               <input type="text" id="nomEnfant" placeholder="Prénom de l'enfant" />
-              <button class="btn btn-primary" id="btnAjouterEnfant">Ajouter</button>
+              <button class="btn btn-primary" id="btnAjouterEnfant" type="button">Ajouter</button>
             </div>
           </div>
 
@@ -324,7 +338,9 @@
           <div class="row-2">
             <div class="field">
               <label for="enfantLigne">Enfant</label>
-              <select id="enfantLigne"></select>
+              <select id="enfantLigne">
+                <option value="">Aucun enfant</option>
+              </select>
             </div>
 
             <div class="field">
@@ -358,15 +374,15 @@
             </div>
 
             <div class="field">
-              <label for="revenuLigne">Revenu perçu (€)</label>
+              <label for="revenuLigne">Revenu de la ligne (€)</label>
               <input type="number" id="revenuLigne" min="0" step="0.01" value="0" />
             </div>
           </div>
 
           <div class="btn-row">
-            <button class="btn btn-green" id="btnAjouterLigneAbattement">Ajouter la ligne</button>
-            <button class="btn btn-light" id="btnResetLigneAbattement">Réinitialiser la saisie</button>
-            <button class="btn btn-red" id="btnViderLignesAbattement">Vider toutes les lignes</button>
+            <button class="btn btn-green" id="btnAjouterLigneAbattement" type="button">Ajouter la ligne</button>
+            <button class="btn btn-light" id="btnResetLigneAbattement" type="button">Réinitialiser la saisie</button>
+            <button class="btn btn-red" id="btnViderLignesAbattement" type="button">Vider toutes les lignes</button>
           </div>
         </section>
       </div>
@@ -382,7 +398,7 @@
                 <th>Mois</th>
                 <th>Jours</th>
                 <th>Heures/jour</th>
-                <th>Revenu</th>
+                <th>Revenu ligne</th>
                 <th>Abattement</th>
                 <th></th>
               </tr>
@@ -396,14 +412,18 @@
         </div>
 
         <div class="btn-row">
-          <button class="btn btn-primary" id="btnCalculerAbattement">Recalculer</button>
-          <button class="btn btn-green" id="btnPdfAbattement">Exporter PDF</button>
+          <button class="btn btn-primary" id="btnCalculerAbattement" type="button">Recalculer</button>
+          <button class="btn btn-green" id="btnPdfAbattement" type="button">Exporter PDF</button>
         </div>
 
         <div class="result-box">
           <div class="result-line">
-            <span>Total revenus</span>
+            <span>Total revenus des lignes</span>
             <span id="resultTotalRevenus" class="strong">0.00 €</span>
+          </div>
+          <div class="result-line">
+            <span>Revenu total de référence</span>
+            <span id="resultRevenuReference" class="strong">0.00 €</span>
           </div>
           <div class="result-line">
             <span>Total abattement</span>
