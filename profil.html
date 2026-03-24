@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profil utilisateur - Easy Frais</title>
+  <style>
+    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #f3f6fb, #e7edf7);
+      color: #111827;
+    }
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-logo {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+      flex-shrink: 0;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 30px;
+      color: #111827;
+    }
+    .brand p {
+      margin: 4px 0 0;
+      color: #6b7280;
+      font-size: 15px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      text-decoration: none;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-block;
+      transition: 0.2s ease;
+      font-size: 14px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-home { background: #2563eb; color: white; }
+    .btn-home:hover { background: #1d4ed8; }
+    .btn-secondary { background: #111827; color: white; }
+    .btn-secondary:hover { background: #1f2937; }
+    .btn-save {
+      background: #16a34a;
+      color: white;
+      box-shadow: 0 10px 24px rgba(22, 163, 74, 0.2);
+    }
+    .btn-save:hover { background: #15803d; }
+    .card {
+      background: white;
+      border-radius: 22px;
+      padding: 24px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      color: #111827;
+      font-size: 22px;
+    }
+    .card p {
+      color: #6b7280;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .status {
+      margin-top: 18px;
+      font-size: 14px;
+      color: #475569;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .error {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #991b1b;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: none;
+      white-space: pre-line;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+    .section-title {
+      margin: 0 0 16px;
+      font-size: 20px;
+      color: #111827;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .field label {
+      font-weight: 700;
+      color: #374151;
+      font-size: 14px;
+    }
+    .input,
+    .textarea,
+    .select {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+      transition: 0.2s ease;
+    }
+    .input:focus,
+    .textarea:focus,
+    .select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
+    }
+    .textarea {
+      resize: vertical;
+      min-height: 110px;
+    }
+    .note {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+    .actions-bottom {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .summary-box {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .summary-box h3 {
+      margin: 0 0 12px;
+      color: #111827;
+      font-size: 18px;
+    }
+    .summary-list {
+      display: grid;
+      gap: 10px;
+      font-size: 14px;
+      color: #374151;
+    }
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .summary-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    @media (max-width: 850px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .page { padding: 16px; }
+      .brand h1 { font-size: 26px; }
+      .brand-logo { width: 50px; height: 50px; font-size: 18px; }
+      .actions { width: 100%; }
+      .btn { flex: 1; text-align: center; }
+      .actions-bottom { flex-direction: column; }
+      .actions-bottom .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">EF</div>
+        <div>
+          <h1>Profil utilisateur</h1>
+          <p>Renseignez vos informations pour préremplir vos documents Easy Frais</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a href="index.html" class="btn btn-home">Accueil</a>
+        <a href="app.html" class="btn btn-secondary">Retour à l’application</a>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Votre profil</h2>
+      <p>
+        Ces informations peuvent être réutilisées plus tard dans les PDF, les exports
+        et les modules de frais afin d’éviter de tout ressaisir à chaque fois.
+      </p>
+      <div class="status" id="statusMsg">Chargement du profil...</div>
+      <div class="error" id="errorMsg"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h3 class="section-title">Informations personnelles</h3>
+
+        <div class="field">
+          <label for="fullName">Nom et prénom</label>
+          <input id="fullName" class="input" type="text" placeholder="Ex : John Rombert" />
+        </div>
+
+        <div class="field">
+          <label for="email">Adresse email</label>
+          <input id="email" class="input" type="email" placeholder="Ex : john.rombert.76@gmail.com" />
+        </div>
+
+        <div class="field">
+          <label for="phone">Téléphone</label>
+          <input id="phone" class="input" type="text" placeholder="Ex : 06 00 00 00 00" />
+        </div>
+
+        <div class="field">
+          <label for="address">Adresse</label>
+          <textarea id="address" class="textarea" placeholder="Ex : 12 rue de ..."></textarea>
+        </div>
+
+        <div class="field">
+          <label for="serviceName">Service / organisme</label>
+          <input id="serviceName" class="input" type="text" placeholder="Ex : SPF / Fondation Les Nids" />
+        </div>
+
+        <div class="field">
+          <label for="serviceAddress">Adresse du service</label>
+          <textarea id="serviceAddress" class="textarea" placeholder="Adresse du service utilisée dans le module kilométrique"></textarea>
+          <div class="note">Cette adresse pourra être utilisée automatiquement comme destination dans les trajets.</div>
+        </div>
+
+        <div class="field">
+          <label for="spvEmail">Email de transmission / comptabilité</label>Email de transmission / comptabilité</label>
+          <input id="spvEmail" class="input" type="email" placeholder="Ex : contact@service.fr" />
+          <div class="note">Ce champ pourra servir plus tard pour les envois ou exports.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 class="section-title">Informations véhicule et remboursement</h3>
+
+        <div class="field">
+          <label for="vehicleModel">Véhicule</label>
+          <input id="vehicleModel" class="input" type="text" placeholder="Ex : Audi A6" />
+        </div>
+
+        <div class="field">
+          <label for="registration">Immatriculation</label>
+          <input id="registration" class="input" type="text" placeholder="Ex : AB-123-CD" />
+        </div>
+
+        <div class="field">
+          <label for="fiscalPower">Puissance fiscale</label>
+          <select id="fiscalPower" class="select">
+            <option value="">Sélectionner</option>
+            <option value="3 CV">3 CV</option>
+            <option value="4 CV">4 CV</option>
+            <option value="5 CV">5 CV</option>
+            <option value="6 CV">6 CV</option>
+            <option value="7 CV">7 CV</option>
+            <option value="8 CV">8 CV</option>
+            <option value="9 CV">9 CV</option>
+            <option value="10 CV et +">10 CV et +</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="defaultRate">Barème kilométrique par défaut</label>
+          <input id="defaultRate" class="input" type="text" placeholder="Ex : barème fiscal / personnalisé" />
+        </div>
+
+        <div class="field">
+          <label for="homeAddress">Adresse de départ habituelle</label>
+          <textarea id="homeAddress" class="textarea" placeholder="Adresse utilisée pour les trajets fréquents"></textarea>
+        </div>
+
+        <div class="summary-box">
+          <h3>Ce profil servira pour</h3>
+          <div class="summary-list">
+            <div class="summary-item"><span>Préremplissage des PDF</span><strong>Oui</strong></div>
+            <div class="summary-item"><span>Modules kilométriques</span><strong>Oui</strong></div>
+            <div class="summary-item"><span>Infos véhicule</span><strong>Oui</strong></div>
+            <div class="summary-item"><span>Exports futurs</span><strong>Prévu</strong></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h3 class="section-title">Signature et notes</h3>
+
+      <div class="field">
+        <label for="signatureName">Nom de signature</label>
+        <input id="signatureName" class="input" type="text" placeholder="Ex : John Rombert" />
+      </div>
+
+      <div class="field">
+        <label for="signatureImage">Signature en image</label>
+        <input id="signatureImage" class="input" type="file" accept="image/*" />
+        <div class="note">Vous pourrez importer une photo de votre signature pour l’intégrer plus tard automatiquement aux PDF.</div>
+      </div>
+
+      <div class="field">
+        <label for="carteGriseImage">Carte grise du véhicule</label>
+        <input id="carteGriseImage" class="input" type="file" accept="image/*,.pdf" />
+        <div class="note">Ce fichier pourra être repris automatiquement dans certains PDF comme justificatif véhicule.</div>
+      </div>
+
+      <div class="field">
+        <label for="childrenList">Enfants accueillis en permanence</label>
+        <textarea id="childrenList" class="textarea" placeholder="Un enfant par ligne&#10;Ex : Léa Martin&#10;Noah Dupont"></textarea>
+        <div class="note">Cette liste pourra servir plus tard à proposer les noms automatiquement dans les modules.</div>
+      </div>
+
+      <div class="actions-bottom">
+        <button id="resetBtn" class="btn btn-secondary" type="button">Réinitialiser</button>
+        <button id="saveBtn" class="btn btn-save" type="button">Enregistrer le profil</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+    import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+    const statusMsg = document.getElementById("statusMsg");
+    const errorMsg = document.getElementById("errorMsg");
+    const saveBtn = document.getElementById("saveBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const fields = {
+      fullName: document.getElementById("fullName"),
+      email: document.getElementById("email"),
+      phone: document.getElementById("phone"),
+      address: document.getElementById("address"),
+      serviceName: document.getElementById("serviceName"),
+      serviceAddress: document.getElementById("serviceAddress"),
+      spvEmail: document.getElementById("spvEmail"),
+      vehicleModel: document.getElementById("vehicleModel"),
+      registration: document.getElementById("registration"),
+      fiscalPower: document.getElementById("fiscalPower"),
+      defaultRate: document.getElementById("defaultRate"),
+      homeAddress: document.getElementById("homeAddress"),
+      signatureName: document.getElementById("signatureName"),
+      userNotes: document.getElementById("userNotes"),
+      childrenList: document.getElementById("childrenList")
+    };
+
+    const signatureImageInput = document.getElementById("signatureImage");
+    const carteGriseImageInput = document.getElementById("carteGriseImage");
+
+    let currentUser = null;
+    let signatureImageBase64 = "";
+    let carteGriseImageBase64 = "";
+
+    function showError(message) {
+      errorMsg.style.display = "block";
+      errorMsg.textContent = message;
+    }
+
+    function hideError() {
+      errorMsg.style.display = "none";
+      errorMsg.textContent = "";
+    }
+
+    function setStatus(message) {
+      statusMsg.textContent = message;
+    }
+
+    function getProfileData() {
+      return {
+        fullName: fields.fullName.value.trim(),
+        email: fields.email.value.trim(),
+        phone: fields.phone.value.trim(),
+        address: fields.address.value.trim(),
+        serviceName: fields.serviceName.value.trim(),
+        serviceAddress: fields.serviceAddress.value.trim(),
+        spvEmail: fields.spvEmail.value.trim(),
+        vehicleModel: fields.vehicleModel.value.trim(),
+        registration: fields.registration.value.trim(),
+        fiscalPower: fields.fiscalPower.value,
+        defaultRate: fields.defaultRate.value.trim(),
+        homeAddress: fields.homeAddress.value.trim(),
+        signatureName: fields.signatureName.value.trim(),
+        userNotes: fields.userNotes.value.trim(),
+        childrenList: fields.childrenList.value.trim(),
+        signatureImageBase64,
+        carteGriseImageBase64
+      };
+    }
+
+    function fillForm(data = {}) {
+      fields.fullName.value = data.fullName || "";
+      fields.email.value = data.email || currentUser?.email || "";
+      fields.phone.value = data.phone || "";
+      fields.address.value = data.address || "";
+      fields.serviceName.value = data.serviceName || "";
+      fields.serviceAddress.value = data.serviceAddress || "";
+      fields.spvEmail.value = data.spvEmail || "";
+      fields.vehicleModel.value = data.vehicleModel || "";
+      fields.registration.value = data.registration || "";
+      fields.fiscalPower.value = data.fiscalPower || "";
+      fields.defaultRate.value = data.defaultRate || "";
+      fields.homeAddress.value = data.homeAddress || "";
+      fields.signatureName.value = data.signatureName || data.fullName || "";
+      fields.userNotes.value = data.userNotes || "";
+      fields.childrenList.value = data.childrenList || "";
+      signatureImageBase64 = data.signatureImageBase64 || "";
+      carteGriseImageBase64 = data.carteGriseImageBase64 || "";
+    }
+
+    function readFileAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result || "");
+        reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function loadProfile(uid) {
+      try {
+        hideError();
+        setStatus("Chargement du profil...");
+
+        const ref = doc(db, "users", uid, "profile", "main");
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          fillForm(snap.data() || {});
+          setStatus("Profil chargé.");
+        } else {
+          fillForm({ email: currentUser?.email || "" });
+          setStatus("Aucun profil enregistré pour le moment.");
+        }
+      } catch (error) {
+        console.error(error);
+        showError("Impossible de charger le profil.");
+        setStatus("Erreur de chargement.");
+      }
+    }
+
+    async function saveProfile() {
+      if (!currentUser) {
+        showError("Utilisateur non connecté.");
+        return;
+      }
+
+      try {
+        hideError();
+        setStatus("Enregistrement du profil...");
+
+        if (signatureImageInput.files && signatureImageInput.files[0]) {
+          signatureImageBase64 = await readFileAsBase64(signatureImageInput.files[0]);
+        }
+
+        if (carteGriseImageInput.files && carteGriseImageInput.files[0]) {
+          carteGriseImageBase64 = await readFileAsBase64(carteGriseImageInput.files[0]);
+        }
+
+        const data = getProfileData();
+
+        await setDoc(doc(db, "users", currentUser.uid, "profile", "main"), {
+          ...data,
+          updatedAt: serverTimestamp(),
+          createdBy: currentUser.uid
+        }, { merge: true });
+
+        await setDoc(doc(db, "customers", currentUser.uid), {
+          email: data.email || currentUser.email || "",
+          fullName: data.fullName || "",
+          phone: data.phone || "",
+          vehicleModel: data.vehicleModel || "",
+          registration: data.registration || "",
+          fiscalPower: data.fiscalPower || "",
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        setStatus("Profil enregistré avec succès.");
+      } catch (error) {
+        console.error(error);
+        showError("Impossible d’enregistrer le profil.");
+        setStatus("Erreur d’enregistrement.");
+      }
+    }
+
+    function resetForm() {
+      if (!confirm("Réinitialiser les champs affichés ?")) return;
+      fillForm({ email: currentUser?.email || "" });
+      signatureImageInput.value = "";
+      carteGriseImageInput.value = "";
+      signatureImageBase64 = "";
+      carteGriseImageBase64 = "";
+      setStatus("Champs réinitialisés.");
+      hideError();
+    }
+
+    saveBtn.addEventListener("click", saveProfile);
+    resetBtn.addEventListener("click", resetForm);
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "connexion.html";
+        return;
+      }
+
+      currentUser = user;
+      await loadProfile(user.uid);
+    });
+  </script>
+</body>
+</html>

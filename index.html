@@ -244,7 +244,7 @@
         <div class="user-badge">
           Connecté : <strong id="userEmail">...</strong>
         </div>
-        <button id="logoutBtn" class="logout-btn">Déconnexion</button>
+        <button id="logoutBtn" class="logout-btn" type="button">Déconnexion</button>
       </div>
     </header>
 
@@ -254,7 +254,8 @@
           <h2>Bienvenue sur votre espace de gestion</h2>
           <p>
             Accédez rapidement à vos modules, suivez vos dépenses,
-            ajoutez vos justificatifs et générez vos PDF facilement.
+            ajoutez vos justificatifs, complétez votre profil
+            et générez vos PDF facilement.
           </p>
         </div>
 
@@ -269,6 +270,15 @@
       <h3 class="section-title">Mes modules</h3>
 
       <div class="menu-grid">
+        <a class="menu-card" href="profil.html">
+          <div class="menu-icon">👤</div>
+          <div class="menu-title">Mon profil</div>
+          <div class="menu-desc">
+            Informations personnelles, véhicule, signature, carte grise,
+            adresse du service et enfants accueillis.
+          </div>
+        </a>
+
         <a class="menu-card" href="kilometrique.html">
           <div class="menu-icon">🚗</div>
           <div class="menu-title">Frais kilométriques</div>
@@ -323,6 +333,12 @@
           <div class="menu-desc">Suivi des achats de fin d’année, cadeaux et justificatifs.</div>
         </a>
 
+        <a class="menu-card" href="argentdepoche.html">
+          <div class="menu-icon">💶</div>
+          <div class="menu-title">Argent de poche</div>
+          <div class="menu-desc">Suivi du budget, versements, dépenses, justificatifs et PDF par enfant.</div>
+        </a>
+
         <a class="menu-card" href="historique.html">
           <div class="menu-icon">🕘</div>
           <div class="menu-title">Historique</div>
@@ -334,11 +350,6 @@
           <div class="menu-title">Premium</div>
           <div class="menu-desc">Gérez l’abonnement, les accès avancés et les options premium.</div>
         </a>
-        <a class="menu-card" href="argentdepoche.html">
-  <div class="menu-icon">💶</div>
-  <div class="menu-title">Argent de poche</div>
-  <div class="menu-desc">Suivi du budget, versements, dépenses, justificatifs et PDF par enfant.</div>
-</a>
 
         <a class="menu-card" href="admin.html" id="adminCard" style="display:none;">
           <div class="menu-icon">🛠️</div>
@@ -354,23 +365,55 @@
   </div>
 
   <script type="module">
-    import { auth } from "./firebase-config.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { auth, db } from "./firebase-config.js";
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+    import {
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-    const ADMIN_EMAIL = "john.rombert.76@gmail.com";
+    const userEmail = document.getElementById("userEmail");
+    const adminCard = document.getElementById("adminCard");
+    const logoutBtn = document.getElementById("logoutBtn");
 
-    onAuthStateChanged(auth, (user) => {
-      const adminCard = document.getElementById("adminCard");
-      const userEmail = document.getElementById("userEmail");
+    async function isAdmin(uid) {
+      try {
+        const adminRef = doc(db, "admins", uid);
+        const adminSnap = await getDoc(adminRef);
+        return adminSnap.exists();
+      } catch (error) {
+        console.error("Erreur vérification admin :", error);
+        return false;
+      }
+    }
 
+    onAuthStateChanged(auth, async (user) => {
       if (userEmail) {
         userEmail.textContent = user?.email || "...";
       }
 
-      if (adminCard && user && user.email === ADMIN_EMAIL) {
+      if (!user) return;
+
+      const admin = await isAdmin(user.uid);
+      if (adminCard && admin) {
         adminCard.style.display = "flex";
       }
     });
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", async () => {
+        try {
+          await signOut(auth);
+          window.location.href = "connexion.html";
+        } catch (error) {
+          console.error("Erreur déconnexion :", error);
+          alert("Impossible de se déconnecter.");
+        }
+      });
+    }
   </script>
 
   <script type="module" src="auth-guard.js"></script>
