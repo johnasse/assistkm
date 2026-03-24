@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Frais kilométriques</title>
+  <title>Frais kilométriques - EasyFrais</title>
   <style>
     * {
       box-sizing: border-box;
@@ -12,14 +12,14 @@
 
     body {
       margin: 0;
-      background: #f3f6fb;
+      background: linear-gradient(135deg, #f3f6fb, #e7edf7);
       color: #111827;
     }
 
     .page {
       max-width: 1380px;
       margin: 0 auto;
-      padding: 20px;
+      padding: 24px;
     }
 
     .topbar {
@@ -28,27 +28,65 @@
       align-items: center;
       gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
 
-    .topbar h1 {
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+      flex-shrink: 0;
+    }
+
+    .brand h1 {
       margin: 0;
       font-size: 30px;
+      color: #111827;
     }
 
-    .topbar p {
-      margin: 6px 0 0;
+    .brand p {
+      margin: 4px 0 0;
       color: #6b7280;
+      font-size: 15px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
     .btn {
       border: none;
       border-radius: 12px;
       padding: 12px 16px;
-      font-weight: bold;
+      font-size: 14px;
+      font-weight: 700;
       cursor: pointer;
       text-decoration: none;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
     }
 
     .btn-primary {
@@ -56,9 +94,17 @@
       color: white;
     }
 
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
     .btn-secondary {
       background: #e5e7eb;
       color: #111827;
+    }
+
+    .btn-secondary:hover {
+      background: #d1d5db;
     }
 
     .btn-success {
@@ -66,71 +112,118 @@
       color: white;
     }
 
+    .btn-success:hover {
+      background: #15803d;
+    }
+
     .btn-danger {
       background: #dc2626;
       color: white;
     }
 
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
     .card {
       background: white;
-      border-radius: 20px;
-      padding: 20px;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      border-radius: 22px;
+      padding: 24px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
       margin-bottom: 20px;
     }
 
-    .card h2 {
-      margin-top: 0;
-      font-size: 22px;
+    .card h2,
+    .card h3 {
+      margin: 0 0 12px;
+      color: #111827;
     }
 
-    .section-title {
-      margin: 0 0 14px 0;
-      font-size: 20px;
+    .card p {
+      margin: 0;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 20px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
     }
 
     .form-group {
-      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .form-group.full {
+      grid-column: 1 / -1;
     }
 
     .form-group label {
-      display: block;
+      font-size: 14px;
       font-weight: 700;
-      margin-bottom: 6px;
+      color: #374151;
     }
 
     input,
     select,
     textarea {
       width: 100%;
-      padding: 11px 12px;
-      border-radius: 12px;
       border: 1px solid #d1d5db;
-      font-size: 15px;
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 14px;
+      outline: none;
       background: white;
+      transition: 0.2s ease;
     }
 
-    .inline-grid-2 {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
     }
 
-    .inline-grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+    textarea {
+      resize: vertical;
+      min-height: 100px;
     }
 
-    .check-line {
+    .hint {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .inline-checks {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .inline-checks label {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin: 10px 0;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
     }
 
-    .check-line input {
+    .inline-checks input[type="checkbox"] {
       width: auto;
+      margin: 0;
     }
 
     .dest-row {
@@ -140,61 +233,105 @@
       margin-bottom: 10px;
     }
 
-    .summary-boxes {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .summary-box {
-      background: #f8fafc;
-      border: 1px solid #e5e7eb;
-      border-radius: 16px;
-      padding: 14px;
-      text-align: center;
-    }
-
-    .summary-box .label {
-      font-size: 13px;
-      color: #6b7280;
-      margin-bottom: 6px;
-    }
-
-    .summary-box .value {
-      font-size: 22px;
-      font-weight: 800;
-      color: #111827;
-    }
-
     .actions-row {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
-      margin-top: 14px;
+      margin-top: 6px;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .result-box {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    .result-box span {
+      display: block;
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .result-box strong {
+      font-size: 28px;
+      color: #111827;
+    }
+
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .signature-box {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 18px;
+      margin-top: 16px;
+    }
+
+    .signature-preview {
+      max-width: 220px;
+      max-height: 100px;
+      display: none;
+      margin-top: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: white;
+      padding: 6px;
+    }
+
+    .map-box {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      margin-top: 12px;
+    }
+
+    #map {
+      width: 100%;
+      height: 360px;
+      background: #e5e7eb;
     }
 
     .table-wrap {
       overflow-x: auto;
-      width: 100%;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      margin-top: 10px;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
+      min-width: 980px;
     }
 
     th,
     td {
-      padding: 10px;
+      padding: 12px 10px;
       border-bottom: 1px solid #e5e7eb;
       text-align: left;
       font-size: 14px;
-      vertical-align: top;
+      vertical-align: middle;
     }
 
     th {
       background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
     }
 
     .empty-cell {
@@ -203,308 +340,357 @@
       padding: 20px;
     }
 
-    .stats-footer {
-      display: flex;
-      gap: 18px;
-      flex-wrap: wrap;
-      margin-top: 12px;
+    .table-action-btn {
+      border: none;
+      border-radius: 10px;
+      background: #dc2626;
+      color: white;
+      padding: 8px 10px;
+      font-size: 12px;
       font-weight: 700;
+      cursor: pointer;
+    }
+
+    .table-action-btn:hover {
+      background: #b91c1c;
+    }
+
+    .baremes-box {
+      margin-top: 16px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    .baremes-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .baremes-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    .baremes-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .baremes-locked input {
+      background: #f3f4f6;
+      color: #6b7280;
+      pointer-events: none;
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
     }
 
     .saved-msg {
-      color: #16a34a;
-      font-size: 13px;
-      display: block;
       margin-top: 8px;
+      font-size: 13px;
+      color: #16a34a;
+      font-weight: 600;
     }
 
-    #toast {
+    .toast {
       position: fixed;
-      right: 20px;
-      bottom: 20px;
+      right: 18px;
+      bottom: 18px;
       background: #111827;
       color: white;
-      padding: 12px 16px;
+      padding: 14px 16px;
       border-radius: 12px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.25);
       opacity: 0;
       pointer-events: none;
       transform: translateY(10px);
       transition: 0.25s ease;
       z-index: 9999;
+      font-size: 14px;
+      font-weight: 600;
     }
 
-    #toast.show {
+    .toast.show {
       opacity: 1;
       transform: translateY(0);
     }
 
-    .baremes-locked input {
-      pointer-events: none;
-      background: #f3f4f6;
-      color: #6b7280;
+    @media (max-width: 1100px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .baremes-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
-    .baremes-unlocked input {
-      background: white;
-    }
+    @media (max-width: 760px) {
+      .page {
+        padding: 16px;
+      }
 
-    details.optional-map {
-      margin-top: 10px;
-    }
+      .form-grid,
+      .results-grid,
+      .month-grid {
+        grid-template-columns: 1fr;
+      }
 
-    details.optional-map summary {
-      cursor: pointer;
-      font-weight: 700;
-      color: #374151;
-      list-style: none;
-    }
-
-    details.optional-map summary::-webkit-details-marker {
-      display: none;
-    }
-
-    details.optional-map summary::before {
-      content: "▶ ";
-    }
-
-    details.optional-map[open] summary::before {
-      content: "▼ ";
-    }
-
-    #map {
-      width: 100%;
-      height: 260px;
-      border-radius: 16px;
-      border: 1px solid #d1d5db;
-      background: #eef2f7;
-      margin-top: 12px;
-    }
-
-    @media (max-width: 900px) {
-      .inline-grid-2,
-      .inline-grid-3,
-      .summary-boxes {
+      .baremes-grid {
         grid-template-columns: 1fr;
       }
 
       .dest-row {
         grid-template-columns: 1fr;
       }
+
+      .top-actions,
+      .actions-row,
+      .footer-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="topbar">
-      <div>
-        <h1>Frais kilométriques</h1>
-        <p>Version simplifiée et plus lisible, centrée sur le tableau mensuel.</p>
-      </div>
-      <a href="index.html" class="btn btn-primary">Retour accueil</a>
-    </div>
-
-    <div class="card">
-      <h2 class="section-title">Informations générales</h2>
-
-      <div class="inline-grid-2">
-        <div class="form-group">
-          <label for="assistantNom">Nom et prénom de l'assistant familial</label>
-          <input type="text" id="assistantNom" placeholder="Ex : John Rombert" />
-        </div>
-
-        <div class="form-group">
-          <label for="moisEtat">Mois de l'état</label>
-          <input type="month" id="moisEtat" />
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">EF</div>
+        <div>
+          <h1>Frais kilométriques</h1>
+          <p>Calcul, suivi mensuel, export PDF et préremplissage depuis le profil utilisateur.</p>
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="domicile">Adresse du domicile</label>
-        <input type="text" id="domicile" placeholder="Adresse complète du domicile" />
-        <small id="domicileSaved" class="saved-msg"></small>
+      <div class="top-actions">
+        <a href="index.html" class="btn btn-primary">Accueil</a>
+        <a href="profil.html" class="btn btn-secondary">Mon profil</a>
       </div>
+    </header>
 
-      <div class="actions-row">
-        <button type="button" class="btn btn-secondary" id="btnSaveDomicile">Enregistrer le domicile</button>
-      </div>
-    </div>
+    <div class="grid">
+      <section class="card">
+        <h2>Préparer un déplacement</h2>
+        <p>Renseignez les informations ci-dessous puis calculez le trajet avant de l’ajouter à votre relevé mensuel.</p>
 
-    <div class="card">
-      <h2 class="section-title">Calcul du trajet</h2>
-
-      <div class="check-line">
-        <input type="checkbox" id="departDomicile" />
-        <label for="departDomicile">Départ depuis le domicile</label>
-      </div>
-
-      <div class="form-group">
-        <label for="depart">Lieu de départ</label>
-        <input type="text" id="depart" placeholder="Adresse de départ" />
-      </div>
-
-      <div class="check-line">
-        <input type="checkbox" id="retourDomicile" checked />
-        <label for="retourDomicile">Retour au domicile</label>
-      </div>
-
-      <div class="form-group">
-        <label>Destinations / rendez-vous</label>
-        <div id="destinations"></div>
-        <button type="button" class="btn btn-secondary" id="btnAddDestination">Ajouter une destination</button>
-      </div>
-
-      <div class="actions-row">
-        <button type="button" class="btn btn-primary" id="btnCalculer">Calculer le trajet</button>
-      </div>
-
-      <div class="summary-boxes">
-        <div class="summary-box">
-          <div class="label">Distance totale</div>
-          <div class="value" id="distanceTotale">0 km</div>
-        </div>
-        <div class="summary-box">
-          <div class="label">Temps total</div>
-          <div class="value" id="tempsTotal">0 min</div>
-        </div>
-        <div class="summary-box">
-          <div class="label">Montant estimé</div>
-          <div class="value" id="montantTotal">0,00 €</div>
-        </div>
-      </div>
-
-      <details class="optional-map">
-        <summary>Aperçu carte du trajet (optionnel)</summary>
-        <div id="map"></div>
-      </details>
-    </div>
-
-    <div class="card">
-      <h2 class="section-title">Informations du déplacement</h2>
-
-      <div class="inline-grid-3">
-        <div class="form-group">
-          <label for="dateTrajet">Date</label>
-          <input type="date" id="dateTrajet" />
-        </div>
-
-        <div class="form-group">
-          <label for="heureDebut">Heure début</label>
-          <input type="time" id="heureDebut" />
-        </div>
-
-        <div class="form-group">
-          <label for="heureFin">Heure fin</label>
-          <input type="time" id="heureFin" />
-        </div>
-      </div>
-
-      <div class="inline-grid-3">
-        <div class="form-group">
-          <label for="enfant">Enfant concerné</label>
-          <input type="text" id="enfant" placeholder="Nom / prénom" />
-        </div>
-
-        <div class="form-group">
-          <label for="professionnel">Professionnel rencontré</label>
-          <input type="text" id="professionnel" placeholder="Nom du professionnel" />
-        </div>
-
-        <div class="form-group">
-          <label for="cv">Puissance fiscale</label>
-          <select id="cv">
-            <option value="3">3 CV</option>
-            <option value="4">4 CV</option>
-            <option value="5">5 CV</option>
-            <option value="6">6 CV</option>
-            <option value="7" selected>7 CV et +</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="motif">Motif</label>
-        <input type="text" id="motif" placeholder="Ex : rendez-vous médecin, visite, école..." />
-      </div>
-
-      <div class="actions-row">
-        <button type="button" class="btn btn-success" id="btnAjouterDeplacement">Ajouter le déplacement</button>
-        <button type="button" class="btn btn-secondary" id="btnReset">Réinitialiser</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2 class="section-title">Signature</h2>
-
-      <div class="form-group">
-        <label>Signature (photo ou scan)</label>
-        <div class="actions-row">
-          <button type="button" class="btn btn-secondary" id="btnSignature">Ajouter une signature</button>
-          <button type="button" class="btn btn-danger" id="btnClearSignature">Supprimer la signature</button>
-        </div>
-
-        <input
-          type="file"
-          id="signatureFile"
-          accept=".jpg,.jpeg,.png,image/*"
-          style="display:none;"
-        />
-
-        <small id="signatureInfo" class="saved-msg"></small>
-
-        <div style="margin-top:10px;">
-          <img
-            id="signaturePreview"
-            alt="Aperçu signature"
-            style="max-height:80px; max-width:220px; display:none; border:1px solid #ddd; padding:6px; background:#fff;"
-          />
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2 class="section-title">Barèmes kilométriques</h2>
-
-      <div class="actions-row">
-        <button type="button" class="btn btn-secondary" id="btnToggleBaremes">✏️ Modifier</button>
-      </div>
-
-      <div id="baremesWrapper" class="baremes-locked" style="margin-top:14px;">
-        <div class="inline-grid-3">
+        <div class="form-grid" style="margin-top:18px;">
           <div class="form-group">
-            <label for="bareme3cv">3 CV</label>
-            <input type="number" step="0.001" id="bareme3cv" />
+            <label for="moisEtat">Mois concerné</label>
+            <input type="month" id="moisEtat" />
           </div>
 
           <div class="form-group">
-            <label for="bareme4cv">4 CV</label>
-            <input type="number" step="0.001" id="bareme4cv" />
+            <label for="assistantNom">Nom de l’assistant familial</label>
+            <input type="text" id="assistantNom" placeholder="Nom / prénom" />
+          </div>
+
+          <div class="form-group full">
+            <label for="domicile">Adresse du domicile</label>
+            <input type="text" id="domicile" placeholder="Adresse complète du domicile" />
+            <div class="actions-row">
+              <button type="button" class="btn btn-secondary" id="btnSaveDomicile">Enregistrer le domicile</button>
+            </div>
+            <div id="domicileSaved" class="saved-msg"></div>
           </div>
 
           <div class="form-group">
-            <label for="bareme5cv">5 CV</label>
-            <input type="number" step="0.001" id="bareme5cv" />
+            <label for="dateTrajet">Date du trajet</label>
+            <input type="date" id="dateTrajet" />
           </div>
 
           <div class="form-group">
-            <label for="bareme6cv">6 CV</label>
-            <input type="number" step="0.001" id="bareme6cv" />
+            <label for="cv">Puissance fiscale</label>
+            <select id="cv">
+              <option value="3">3 CV</option>
+              <option value="4">4 CV</option>
+              <option value="5">5 CV</option>
+              <option value="6">6 CV</option>
+              <option value="7" selected>7 CV et +</option>
+            </select>
           </div>
 
           <div class="form-group">
-            <label for="bareme7cv">7 CV et +</label>
-            <input type="number" step="0.001" id="bareme7cv" />
+            <label for="enfant">Enfant concerné</label>
+            <input type="text" id="enfant" list="childrenSuggestions" placeholder="Nom / prénom" />
+            <datalist id="childrenSuggestions"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="professionnel">Professionnel / structure</label>
+            <input type="text" id="professionnel" placeholder="Ex : CMP, école, médecin..." />
+          </div>
+
+          <div class="form-group full">
+            <label for="motif">Motif du déplacement</label>
+            <input type="text" id="motif" placeholder="Ex : Rendez-vous médical, activité, école..." />
+          </div>
+
+          <div class="form-group">
+            <label for="heureDebut">Heure de début</label>
+            <input type="time" id="heureDebut" />
+          </div>
+
+          <div class="form-group">
+            <label for="heureFin">Heure de fin</label>
+            <input type="time" id="heureFin" />
+          </div>
+
+          <div class="form-group full">
+            <label for="depart">Adresse de départ</label>
+            <input type="text" id="depart" placeholder="Adresse de départ" />
+
+            <div class="inline-checks">
+              <label>
+                <input type="checkbox" id="departDomicile" />
+                Départ depuis le domicile
+              </label>
+
+              <label>
+                <input type="checkbox" id="retourDomicile" checked />
+                Retour au domicile
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group full">
+            <label>Destinations / rendez-vous</label>
+            <div id="destinations"></div>
+
+            <div class="actions-row">
+              <button type="button" class="btn btn-secondary" id="btnAddDestination">Ajouter une destination</button>
+              <button type="button" class="btn btn-secondary" id="btnUseServiceDestination">Utiliser l’adresse du service</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="actions-row">
-        <button type="button" class="btn btn-success" id="btnSaveBaremes">Enregistrer les barèmes</button>
-        <button type="button" class="btn btn-danger" id="btnResetBaremes">Réinitialiser</button>
-      </div>
+        <div class="footer-actions">
+          <button type="button" class="btn btn-primary" id="btnCalculer">Calculer le trajet</button>
+          <button type="button" class="btn btn-success" id="btnAjouterDeplacement">Ajouter le déplacement</button>
+          <button type="button" class="btn btn-secondary" id="btnReset">Réinitialiser</button>
+        </div>
+
+        <div class="results-grid">
+          <div class="result-box">
+            <span>Distance totale</span>
+            <strong id="distanceTotale">0 km</strong>
+          </div>
+          <div class="result-box">
+            <span>Temps estimé</span>
+            <strong id="tempsTotal">0 min</strong>
+          </div>
+          <div class="result-box">
+            <span>Montant estimé</span>
+            <strong id="montantTotal">0,00 €</strong>
+          </div>
+        </div>
+
+        <div class="map-box">
+          <div id="map"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Outils du mois</h2>
+        <p>Suivi du cumul mensuel, signature locale et barèmes personnalisables.</p>
+
+        <div class="month-grid">
+          <div class="result-box">
+            <span>Total kilomètres du mois</span>
+            <strong id="totalKmMois">0 km</strong>
+          </div>
+          <div class="result-box">
+            <span>Total montant estimé</span>
+            <strong id="totalMontantMois">0,00 €</strong>
+          </div>
+        </div>
+
+        <div class="signature-box">
+          <h3>Signature locale</h3>
+          <p class="hint">Cette signature est utilisée par le PDF kilométrique sur cet appareil.</p>
+
+          <div class="actions-row" style="margin-top:12px;">
+            <button type="button" class="btn btn-secondary" id="btnSignature">Importer une signature</button>
+            <button type="button" class="btn btn-danger" id="btnClearSignature">Supprimer la signature</button>
+          </div>
+
+          <input type="file" id="signatureFile" accept="image/*" style="display:none;" />
+          <div id="signatureInfo" class="saved-msg"></div>
+          <img id="signaturePreview" class="signature-preview" alt="Aperçu signature" />
+        </div>
+
+        <div class="baremes-box">
+          <div class="baremes-top">
+            <div>
+              <h3 style="margin:0;">Barèmes kilométriques</h3>
+              <div class="hint">Tu peux verrouiller ou modifier les valeurs.</div>
+            </div>
+
+            <button type="button" class="btn btn-secondary" id="btnToggleBaremes">✏️ Modifier</button>
+          </div>
+
+          <div id="baremesWrapper" class="baremes-locked">
+            <div class="baremes-grid">
+              <div class="form-group">
+                <label for="bareme3cv">3 CV</label>
+                <input type="number" step="0.001" id="bareme3cv" />
+              </div>
+
+              <div class="form-group">
+                <label for="bareme4cv">4 CV</label>
+                <input type="number" step="0.001" id="bareme4cv" />
+              </div>
+
+              <div class="form-group">
+                <label for="bareme5cv">5 CV</label>
+                <input type="number" step="0.001" id="bareme5cv" />
+              </div>
+
+              <div class="form-group">
+                <label for="bareme6cv">6 CV</label>
+                <input type="number" step="0.001" id="bareme6cv" />
+              </div>
+
+              <div class="form-group">
+                <label for="bareme7cv">7 CV et +</label>
+                <input type="number" step="0.001" id="bareme7cv" />
+              </div>
+            </div>
+          </div>
+
+          <div class="baremes-actions">
+            <button type="button" class="btn btn-success" id="btnSaveBaremes">Enregistrer les barèmes</button>
+            <button type="button" class="btn btn-secondary" id="btnResetBaremes">Réinitialiser</button>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <div class="card">
-      <h2 class="section-title">Déplacements du mois</h2>
+    <section class="card">
+      <h2>Déplacements enregistrés</h2>
+      <p>Retrouve ici le détail des trajets ajoutés pour le mois en cours.</p>
+
+      <div class="footer-actions">
+        <button type="button" class="btn btn-primary" id="btnPdfMensuel">Générer le PDF mensuel</button>
+        <button type="button" class="btn btn-danger" id="btnViderListe">Vider la liste</button>
+      </div>
 
       <div class="table-wrap">
         <table>
@@ -513,9 +699,9 @@
               <th>Enfant</th>
               <th>Motif</th>
               <th>Date</th>
-              <th>Début</th>
-              <th>Fin</th>
-              <th>Départ</th>
+              <th>H. début</th>
+              <th>H. fin</th>
+              <th>Lieu départ</th>
               <th>Lieu RDV</th>
               <th>KM A/R</th>
               <th>Action</th>
@@ -528,28 +714,20 @@
           </tbody>
         </table>
       </div>
-
-      <div class="stats-footer">
-        <div>Total KM mois : <span id="totalKmMois">0 km</span></div>
-        <div>Total montant mois : <span id="totalMontantMois">0,00 €</span></div>
-      </div>
-
-      <div class="actions-row">
-        <button type="button" class="btn btn-primary" id="btnPdfMensuel">Générer le PDF mensuel</button>
-        <button type="button" class="btn btn-danger" id="btnViderListe">Vider la liste</button>
-      </div>
-    </div>
+    </section>
   </div>
 
-  <div id="toast"></div>
+  <div id="toast" class="toast"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <input type="file" id="justificatif" accept="image/*" capture="environment" style="display:none;" />
+
   <script type="module" src="script.js"></script>
 
+  <!-- Remplace YOUR_GOOGLE_MAPS_API_KEY par ta vraie clé Google Maps -->
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places&callback=initMap"
     async
     defer
-  ></script>
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places&callback=initMap">
+  </script>
 </body>
 </html>

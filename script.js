@@ -1,7 +1,8 @@
-import { auth } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 let map;
 let directionsService;
@@ -16,6 +17,7 @@ let currentUid = null;
 let mapReady = false;
 let eventsBound = false;
 let baremesUnlocked = false;
+let currentProfile = null;
 
 const DEFAULT_BAREMES = {
   3: 0.529,
@@ -88,7 +90,7 @@ function initMap() {
 
 onAuthStateChanged(auth, (user) => {
   if (!user) {
-    window.location.href = "login.html";
+    window.location.href = "connexion.html";
     return;
   }
 
@@ -96,13 +98,16 @@ onAuthStateChanged(auth, (user) => {
   loadUserDataIfReady();
 });
 
-function loadUserDataIfReady() {
+async function loadUserDataIfReady() {
   if (!mapReady || !currentUid) return;
 
   deplacements = JSON.parse(localStorage.getItem(getDeplacementsKey()) || "[]");
+
   loadSavedInfos();
   loadBaremes();
   loadSignatureInfo();
+  await loadProfileData();
+
   renderDeplacements();
   updateTotals();
 
@@ -110,8 +115,119 @@ function loadUserDataIfReady() {
   updateBaremesLockUI();
 }
 
+async function loadProfileData() {
+  try {
+    const profileRef = doc(db, "users", currentUid, "profile", "main");
+    const snap = await getDoc(profileRef);
+
+    if (!snap.exists()) {
+      currentProfile = null;
+      populateChildrenSuggestions([]);
+      return;
+    }
+
+    currentProfile = snap.data() || {};
+
+    applyProfileToKilometrique();
+  } catch (error) {
+    console.error("Erreur chargement profil :", error);
+  }
+}
+
+function applyProfileToKilometrique() {
+  if (!currentProfile) return;
+
+  const assistantNomInput = document.getElementById("assistantNom");
+  const domicileInput = document.getElementById("domicile");
+  const cvSelect = document.getElementById("cv");
+
+  const savedAssistantNom = localStorage.getItem(getAssistantNomKey()) || "";
+  const savedDomicile = localStorage.getItem(getDomicileKey()) || "";
+
+  const profileName = String(currentProfile.fullName || "").trim();
+  const profileHomeAddress = String(
+    currentProfile.homeAddress || currentProfile.address || ""
+  ).trim();
+
+  if (!savedAssistantNom && !assistantNomInput.value.trim() && profileName) {
+    assistantNomInput.value = profileName;
+    localStorage.setItem(getAssistantNomKey(), profileName);
+  }
+
+  if (!savedDomicile && !domicileInput.value.trim() && profileHomeAddress) {
+    domicileInput.value = profileHomeAddress;
+    localStorage.setItem(getDomicileKey(), profileHomeAddress);
+
+    const savedMsg = document.getElementById("domicileSaved");
+    if (savedMsg) {
+      savedMsg.textContent = "Adresse du profil chargée automatiquement.";
+    }
+  }
+
+  const fiscalPower = parseFiscalPower(currentProfile.fiscalPower);
+  if (fiscalPower && cvSelect) {
+    cvSelect.value = String(fiscalPower);
+  }
+
+  const children = parseChildrenList(currentProfile.childrenList || "");
+  populateChildrenSuggestions(children);
+
+  syncDepartIfNeeded();
+}
+
+function parseFiscalPower(value) {
+  if (!value) return 7;
+  const match = String(value).match(/\d+/);
+  if (!match) return 7;
+
+  const numeric = Number(match[0]);
+  if (Number.isNaN(numeric)) return 7;
+
+  return Math.min(Math.max(numeric, 3), 7);
+}
+
+function parseChildrenList(value) {
+  return String(value || "")
+    .split(/\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function populateChildrenSuggestions(children) {
+  const datalist = document.getElementById("childrenSuggestions");
+  if (!datalist) return;
+
+  datalist.innerHTML = "";
+
+  children.forEach((child) => {
+    const option = document.createElement("option");
+    option.value = child;
+    datalist.appendChild(option);
+  });
+}
+
+function useServiceAddressAsDestination() {
+  const serviceAddress = String(currentProfile?.serviceAddress || "").trim();
+
+  if (!serviceAddress) {
+    alert("Aucune adresse de service n’est enregistrée dans le profil.");
+    return;
+  }
+
+  const destinationInputs = [...document.querySelectorAll(".destination-input")];
+
+  const emptyInput = destinationInputs.find((input) => !input.value.trim());
+  if (emptyInput) {
+    emptyInput.value = serviceAddress;
+    return;
+  }
+
+  addDestination(serviceAddress);
+}
+
 function bindEvents() {
   document.getElementById("btnAddDestination")?.addEventListener("click", () => addDestination());
+  document.getElementById("btnUseServiceDestination")?.addEventListener("click", useServiceAddressAsDestination);
   document.getElementById("btnSaveDomicile")?.addEventListener("click", saveDomicile);
   document.getElementById("btnCalculer")?.addEventListener("click", calculerTrajet);
   document.getElementById("btnAjouterDeplacement")?.addEventListener("click", ajouterDeplacement);
@@ -541,7 +657,7 @@ async function genererPDFMensuel() {
   }
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF("landscape", "mm", "a4");
+  const docPdf = new jsPDF("landscape", "mm", "a4");
 
   const moisEtat = document.getElementById("moisEtat").value;
   const assistantNom = document.getElementById("assistantNom").value.trim() || "-";
@@ -553,18 +669,18 @@ async function genererPDFMensuel() {
   const margin = 10;
   let y = 14;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text(
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(13);
+  docPdf.text(
     `ETAT DE FRAIS DE DEPLACEMENTS DU MOIS DE : ${formatMonthFr(moisEtat)}`,
     margin,
     y
   );
 
   y += 8;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10.5);
-  doc.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(10.5);
+  docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
 
   y += 8;
 
@@ -584,12 +700,12 @@ async function genererPDFMensuel() {
 
   function drawHeader() {
     let x = margin;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
+    docPdf.setFont("helvetica", "bold");
+    docPdf.setFontSize(9.5);
 
     cols.forEach((col) => {
-      doc.rect(x, y, col.width, headerHeight);
-      drawCellText(doc, col.title, x, y, col.width, headerHeight, "center");
+      docPdf.rect(x, y, col.width, headerHeight);
+      drawCellText(docPdf, col.title, x, y, col.width, headerHeight, "center");
       x += col.width;
     });
 
@@ -598,8 +714,8 @@ async function genererPDFMensuel() {
 
   drawHeader();
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(9);
 
   deplacements.forEach((item) => {
     const rowValues = [
@@ -625,41 +741,41 @@ async function genererPDFMensuel() {
         return [String(value)];
       }
 
-      return doc.splitTextToSize(String(value), col.width - 3);
+      return docPdf.splitTextToSize(String(value), col.width - 3);
     });
 
     const maxLines = Math.max(...rowLines.map((lines) => lines.length));
     const rowHeight = Math.max(8, maxLines * lineHeight + 2);
 
     if (y + rowHeight > 175) {
-      doc.addPage("landscape", "a4");
+      docPdf.addPage("landscape", "a4");
       y = 14;
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.text(
+      docPdf.setFont("helvetica", "bold");
+      docPdf.setFontSize(13);
+      docPdf.text(
         `ETAT DE FRAIS DE DEPLACEMENTS DU MOIS DE : ${formatMonthFr(moisEtat)}`,
         margin,
         y
       );
 
       y += 8;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10.5);
-      doc.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
+      docPdf.setFont("helvetica", "normal");
+      docPdf.setFontSize(10.5);
+      docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
 
       y += 8;
       drawHeader();
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      docPdf.setFont("helvetica", "normal");
+      docPdf.setFontSize(9);
     }
 
     let x = margin;
 
     rowValues.forEach((value, i) => {
       const col = cols[i];
-      doc.rect(x, y, col.width, rowHeight);
-      drawCellText(doc, rowLines[i], x, y, col.width, rowHeight, col.align);
+      docPdf.rect(x, y, col.width, rowHeight);
+      drawCellText(docPdf, rowLines[i], x, y, col.width, rowHeight, col.align);
       x += col.width;
     });
 
@@ -669,22 +785,22 @@ async function genererPDFMensuel() {
   y += 10;
 
   if (y > 170) {
-    doc.addPage("landscape", "a4");
+    docPdf.addPage("landscape", "a4");
     y = 20;
   }
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10.5);
-  doc.text(`Total kilomètres : ${totalKm.toFixed(1).replace(".", ",")} km`, margin, y);
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(10.5);
+  docPdf.text(`Total kilomètres : ${totalKm.toFixed(1).replace(".", ",")} km`, margin, y);
 
   y += 12;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Certifié exact le : ${dateCreationPdf}`, margin, y);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(10);
+  docPdf.text(`Certifié exact le : ${dateCreationPdf}`, margin, y);
 
   y += 10;
-  doc.text("Signature assistant familial :", margin, y);
+  docPdf.text("Signature assistant familial :", margin, y);
 
   if (signatureData && isImageDataUrl(signatureData)) {
     try {
@@ -697,43 +813,43 @@ async function genererPDFMensuel() {
         imgWidth = (converted.width / converted.height) * imgHeight;
       }
 
-      doc.addImage(converted.dataUrl, "JPEG", margin + 55, y - 7, imgWidth, imgHeight);
+      docPdf.addImage(converted.dataUrl, "JPEG", margin + 55, y - 7, imgWidth, imgHeight);
     } catch (error) {
       console.error("Erreur ajout signature PDF :", error);
     }
   }
 
   y += 18;
-  doc.setFont("helvetica", "bold");
-  doc.text("Barèmes kilométriques utilisés", margin, y);
+  docPdf.setFont("helvetica", "bold");
+  docPdf.text("Barèmes kilométriques utilisés", margin, y);
 
   y += 7;
-  doc.setFont("helvetica", "normal");
-  doc.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, margin, y);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, margin, y);
+  docPdf.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, margin, y);
+  docPdf.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, margin, y);
+  docPdf.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, margin, y);
   y += 5.5;
-  doc.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, y);
+  docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, y);
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
 
-  savePdfToHistory(doc, {
+  savePdfToHistory(docPdf, {
     mois: formatMonthLabel(moisEtat),
     nom: fileName,
     type: "Frais kilométriques"
   });
 
-  doc.save(fileName);
+  docPdf.save(fileName);
   showToast("PDF mensuel généré et enregistré");
 }
 
-function drawCellText(doc, textOrLines, x, y, width, height, align = "left") {
+function drawCellText(docPdf, textOrLines, x, y, width, height, align = "left") {
   const lines = Array.isArray(textOrLines) ? textOrLines : [String(textOrLines)];
-  const fontSize = doc.getFontSize();
+  const fontSize = docPdf.getFontSize();
   const lineGap = fontSize * 0.35;
   const totalTextHeight = lines.length * lineGap;
   let currentY = y + (height - totalTextHeight) / 2 + 2.2;
@@ -743,12 +859,12 @@ function drawCellText(doc, textOrLines, x, y, width, height, align = "left") {
 
     if (align === "center") {
       textX = x + width / 2;
-      doc.text(line, textX, currentY, { align: "center" });
+      docPdf.text(line, textX, currentY, { align: "center" });
     } else if (align === "right") {
       textX = x + width - 1.5;
-      doc.text(line, textX, currentY, { align: "right" });
+      docPdf.text(line, textX, currentY, { align: "right" });
     } else {
-      doc.text(line, textX, currentY);
+      docPdf.text(line, textX, currentY);
     }
 
     currentY += lineGap;
