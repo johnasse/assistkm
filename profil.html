@@ -5,17 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Profil utilisateur - Easy Frais</title>
   <style>
-    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
     body {
       margin: 0;
       background: linear-gradient(135deg, #f3f6fb, #e7edf7);
       color: #111827;
     }
+
     .page {
       max-width: 1100px;
       margin: 0 auto;
       padding: 24px;
     }
+
     .topbar {
       display: flex;
       justify-content: space-between;
@@ -24,11 +30,13 @@
       flex-wrap: wrap;
       margin-bottom: 24px;
     }
+
     .brand {
       display: flex;
       align-items: center;
       gap: 14px;
     }
+
     .brand-logo {
       width: 54px;
       height: 54px;
@@ -43,21 +51,25 @@
       box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
       flex-shrink: 0;
     }
+
     .brand h1 {
       margin: 0;
       font-size: 30px;
       color: #111827;
     }
+
     .brand p {
       margin: 4px 0 0;
       color: #6b7280;
       font-size: 15px;
     }
+
     .actions {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
     }
+
     .btn {
       text-decoration: none;
       border: none;
@@ -69,17 +81,39 @@
       transition: 0.2s ease;
       font-size: 14px;
     }
-    .btn:hover { transform: translateY(-1px); }
-    .btn-home { background: #2563eb; color: white; }
-    .btn-home:hover { background: #1d4ed8; }
-    .btn-secondary { background: #111827; color: white; }
-    .btn-secondary:hover { background: #1f2937; }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-home {
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn-home:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-secondary {
+      background: #111827;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #1f2937;
+    }
+
     .btn-save {
       background: #16a34a;
       color: white;
       box-shadow: 0 10px 24px rgba(22, 163, 74, 0.2);
     }
-    .btn-save:hover { background: #15803d; }
+
+    .btn-save:hover {
+      background: #15803d;
+    }
+
     .card {
       background: white;
       border-radius: 22px;
@@ -87,16 +121,19 @@
       box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
       margin-bottom: 20px;
     }
+
     .card h2 {
       margin: 0 0 10px;
       color: #111827;
       font-size: 22px;
     }
+
     .card p {
       color: #6b7280;
       line-height: 1.5;
       margin: 0;
     }
+
     .status {
       margin-top: 18px;
       font-size: 14px;
@@ -106,6 +143,7 @@
       border-radius: 12px;
       padding: 12px 14px;
     }
+
     .error {
       margin-top: 12px;
       font-size: 14px;
@@ -117,27 +155,32 @@
       display: none;
       white-space: pre-line;
     }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 18px;
     }
+
     .section-title {
       margin: 0 0 16px;
       font-size: 20px;
       color: #111827;
     }
+
     .field {
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-bottom: 16px;
     }
+
     .field label {
       font-weight: 700;
       color: #374151;
       font-size: 14px;
     }
+
     .input,
     .textarea,
     .select {
@@ -150,21 +193,25 @@
       background: #fff;
       transition: 0.2s ease;
     }
+
     .input:focus,
     .textarea:focus,
     .select:focus {
       border-color: #2563eb;
       box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
     }
+
     .textarea {
       resize: vertical;
       min-height: 110px;
     }
+
     .note {
       font-size: 13px;
       color: #6b7280;
       margin-top: 6px;
     }
+
     .actions-bottom {
       display: flex;
       justify-content: flex-end;
@@ -172,23 +219,27 @@
       margin-top: 8px;
       flex-wrap: wrap;
     }
+
     .summary-box {
       background: #f8fafc;
       border: 1px solid #e5e7eb;
       border-radius: 18px;
       padding: 18px;
     }
+
     .summary-box h3 {
       margin: 0 0 12px;
       color: #111827;
       font-size: 18px;
     }
+
     .summary-list {
       display: grid;
       gap: 10px;
       font-size: 14px;
       color: #374151;
     }
+
     .summary-item {
       display: flex;
       justify-content: space-between;
@@ -196,21 +247,49 @@
       padding-bottom: 10px;
       border-bottom: 1px solid #e5e7eb;
     }
+
     .summary-item:last-child {
       border-bottom: none;
       padding-bottom: 0;
     }
+
     @media (max-width: 850px) {
-      .grid { grid-template-columns: 1fr; }
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
+
     @media (max-width: 560px) {
-      .page { padding: 16px; }
-      .brand h1 { font-size: 26px; }
-      .brand-logo { width: 50px; height: 50px; font-size: 18px; }
-      .actions { width: 100%; }
-      .btn { flex: 1; text-align: center; }
-      .actions-bottom { flex-direction: column; }
-      .actions-bottom .btn { width: 100%; }
+      .page {
+        padding: 16px;
+      }
+
+      .brand h1 {
+        font-size: 26px;
+      }
+
+      .brand-logo {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+      }
+
+      .actions {
+        width: 100%;
+      }
+
+      .btn {
+        flex: 1;
+        text-align: center;
+      }
+
+      .actions-bottom {
+        flex-direction: column;
+      }
+
+      .actions-bottom .btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -227,14 +306,14 @@
 
       <div class="actions">
         <a href="index.html" class="btn btn-home">Accueil</a>
-        <a href="app.html" class="btn btn-secondary">Retour à l’application</a>
+        <a href="index.html" class="btn btn-secondary">Retour à l’application</a>
       </div>
     </header>
 
     <section class="card">
       <h2>Votre profil</h2>
       <p>
-        Ces informations peuvent être réutilisées plus tard dans les PDF, les exports
+        Ces informations pourront être réutilisées plus tard dans les PDF, les exports
         et les modules de frais afin d’éviter de tout ressaisir à chaque fois.
       </p>
       <div class="status" id="statusMsg">Chargement du profil...</div>
@@ -277,7 +356,7 @@
         </div>
 
         <div class="field">
-          <label for="spvEmail">Email de transmission / comptabilité</label>Email de transmission / comptabilité</label>
+          <label for="spvEmail">Email de transmission / comptabilité</label>
           <input id="spvEmail" class="input" type="email" placeholder="Ex : contact@service.fr" />
           <div class="note">Ce champ pourra servir plus tard pour les envois ou exports.</div>
         </div>
@@ -334,7 +413,7 @@
     </div>
 
     <section class="card">
-      <h3 class="section-title">Signature et notes</h3>
+      <h3 class="section-title">Signature, documents et notes</h3>
 
       <div class="field">
         <label for="signatureName">Nom de signature</label>
@@ -357,6 +436,11 @@
         <label for="childrenList">Enfants accueillis en permanence</label>
         <textarea id="childrenList" class="textarea" placeholder="Un enfant par ligne&#10;Ex : Léa Martin&#10;Noah Dupont"></textarea>
         <div class="note">Cette liste pourra servir plus tard à proposer les noms automatiquement dans les modules.</div>
+      </div>
+
+      <div class="field">
+        <label for="userNotes">Notes personnelles</label>
+        <textarea id="userNotes" class="textarea" placeholder="Informations complémentaires, remarques, rappels utiles..."></textarea>
       </div>
 
       <div class="actions-bottom">
