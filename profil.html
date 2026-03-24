@@ -423,13 +423,13 @@
       <div class="field">
         <label for="signatureImage">Signature en image</label>
         <input id="signatureImage" class="input" type="file" accept="image/*" />
-        <div class="note">Vous pourrez importer une photo de votre signature pour l’intégrer plus tard automatiquement aux PDF.</div>
+        <div class="note">Champ prêt pour une future intégration avec Firebase Storage.</div>
       </div>
 
       <div class="field">
         <label for="carteGriseImage">Carte grise du véhicule</label>
         <input id="carteGriseImage" class="input" type="file" accept="image/*,.pdf" />
-        <div class="note">Ce fichier pourra être repris automatiquement dans certains PDF comme justificatif véhicule.</div>
+        <div class="note">Champ prêt pour une future intégration avec Firebase Storage.</div>
       </div>
 
       <div class="field">
@@ -478,12 +478,7 @@
       childrenList: document.getElementById("childrenList")
     };
 
-    const signatureImageInput = document.getElementById("signatureImage");
-    const carteGriseImageInput = document.getElementById("carteGriseImage");
-
     let currentUser = null;
-    let signatureImageBase64 = "";
-    let carteGriseImageBase64 = "";
 
     function showError(message) {
       errorMsg.style.display = "block";
@@ -515,9 +510,7 @@
         homeAddress: fields.homeAddress.value.trim(),
         signatureName: fields.signatureName.value.trim(),
         userNotes: fields.userNotes.value.trim(),
-        childrenList: fields.childrenList.value.trim(),
-        signatureImageBase64,
-        carteGriseImageBase64
+        childrenList: fields.childrenList.value.trim()
       };
     }
 
@@ -537,17 +530,6 @@
       fields.signatureName.value = data.signatureName || data.fullName || "";
       fields.userNotes.value = data.userNotes || "";
       fields.childrenList.value = data.childrenList || "";
-      signatureImageBase64 = data.signatureImageBase64 || "";
-      carteGriseImageBase64 = data.carteGriseImageBase64 || "";
-    }
-
-    function readFileAsBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result || "");
-        reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
-        reader.readAsDataURL(file);
-      });
     }
 
     async function loadProfile(uid) {
@@ -582,31 +564,31 @@
         hideError();
         setStatus("Enregistrement du profil...");
 
-        if (signatureImageInput.files && signatureImageInput.files[0]) {
-          signatureImageBase64 = await readFileAsBase64(signatureImageInput.files[0]);
-        }
-
-        if (carteGriseImageInput.files && carteGriseImageInput.files[0]) {
-          carteGriseImageBase64 = await readFileAsBase64(carteGriseImageInput.files[0]);
-        }
-
         const data = getProfileData();
 
-        await setDoc(doc(db, "users", currentUser.uid, "profile", "main"), {
-          ...data,
-          updatedAt: serverTimestamp(),
-          createdBy: currentUser.uid
-        }, { merge: true });
+        await setDoc(
+          doc(db, "users", currentUser.uid, "profile", "main"),
+          {
+            ...data,
+            updatedAt: serverTimestamp(),
+            createdBy: currentUser.uid
+          },
+          { merge: true }
+        );
 
-        await setDoc(doc(db, "customers", currentUser.uid), {
-          email: data.email || currentUser.email || "",
-          fullName: data.fullName || "",
-          phone: data.phone || "",
-          vehicleModel: data.vehicleModel || "",
-          registration: data.registration || "",
-          fiscalPower: data.fiscalPower || "",
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        await setDoc(
+          doc(db, "customers", currentUser.uid),
+          {
+            email: data.email || currentUser.email || "",
+            fullName: data.fullName || "",
+            phone: data.phone || "",
+            vehicleModel: data.vehicleModel || "",
+            registration: data.registration || "",
+            fiscalPower: data.fiscalPower || "",
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
 
         setStatus("Profil enregistré avec succès.");
       } catch (error) {
@@ -619,10 +601,13 @@
     function resetForm() {
       if (!confirm("Réinitialiser les champs affichés ?")) return;
       fillForm({ email: currentUser?.email || "" });
-      signatureImageInput.value = "";
-      carteGriseImageInput.value = "";
-      signatureImageBase64 = "";
-      carteGriseImageBase64 = "";
+
+      const signatureImageInput = document.getElementById("signatureImage");
+      const carteGriseImageInput = document.getElementById("carteGriseImage");
+
+      if (signatureImageInput) signatureImageInput.value = "";
+      if (carteGriseImageInput) carteGriseImageInput.value = "";
+
       setStatus("Champs réinitialisés.");
       hideError();
     }
