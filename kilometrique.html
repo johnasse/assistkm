@@ -15,10 +15,6 @@
       padding: 20px;
     }
 
-    h1 {
-      margin-bottom: 10px;
-    }
-
     .card {
       background: white;
       padding: 20px;
@@ -110,7 +106,6 @@
   <h3>Informations</h3>
 
   <input type="text" id="assistantNom" placeholder="Nom assistant familial">
-
   <input type="month" id="moisEtat">
 
   <br>
@@ -121,15 +116,8 @@
 
   <br>
 
-  <label>
-    <input type="checkbox" id="departDomicile">
-    Départ domicile
-  </label>
-
-  <label>
-    <input type="checkbox" id="retourDomicile" checked>
-    Retour domicile
-  </label>
+  <label><input type="checkbox" id="departDomicile"> Départ domicile</label>
+  <label><input type="checkbox" id="retourDomicile" checked> Retour domicile</label>
 
   <br>
 
@@ -189,6 +177,23 @@
   <div id="map"></div>
 </div>
 
+<!-- BARÈMES -->
+<div class="card">
+  <h3>Barèmes kilométriques</h3>
+
+  3 CV <input type="number" step="0.001" id="bareme3cv">
+  4 CV <input type="number" step="0.001" id="bareme4cv">
+  5 CV <input type="number" step="0.001" id="bareme5cv">
+  6 CV <input type="number" step="0.001" id="bareme6cv">
+  7 CV <input type="number" step="0.001" id="bareme7cv">
+
+  <br>
+
+  <button id="btnToggleBaremes">Modifier</button>
+  <button id="btnSaveBaremes">Enregistrer</button>
+  <button id="btnResetBaremes">Réinitialiser</button>
+</div>
+
 <div class="card">
   <h3>Déplacements enregistrés</h3>
 
@@ -225,17 +230,14 @@
 
 <div id="toast"></div>
 
-<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<!-- Ton script -->
 <script type="module" src="script.js"></script>
 
-<!-- Google Maps -->
 <script
   async
   defer
   src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places&callback=initMap">
 </script>
+
 </body>
 </html>
