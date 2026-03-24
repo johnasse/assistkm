@@ -17,7 +17,7 @@
     }
 
     .page {
-      max-width: 1400px;
+      max-width: 1380px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -71,12 +71,6 @@
       color: white;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 20px;
-    }
-
     .card {
       background: white;
       border-radius: 20px;
@@ -88,6 +82,11 @@
     .card h2 {
       margin-top: 0;
       font-size: 22px;
+    }
+
+    .section-title {
+      margin: 0 0 14px 0;
+      font-size: 20px;
     }
 
     .form-group {
@@ -141,14 +140,6 @@
       margin-bottom: 10px;
     }
 
-    #map {
-      width: 100%;
-      height: 420px;
-      border-radius: 16px;
-      border: 1px solid #d1d5db;
-      background: #eef2f7;
-    }
-
     .summary-boxes {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -185,6 +176,7 @@
 
     .table-wrap {
       overflow-x: auto;
+      width: 100%;
     }
 
     table {
@@ -256,13 +248,39 @@
       background: white;
     }
 
-    @media (max-width: 1100px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+    details.optional-map {
+      margin-top: 10px;
     }
 
-    @media (max-width: 700px) {
+    details.optional-map summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: #374151;
+      list-style: none;
+    }
+
+    details.optional-map summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.optional-map summary::before {
+      content: "▶ ";
+    }
+
+    details.optional-map[open] summary::before {
+      content: "▼ ";
+    }
+
+    #map {
+      width: 100%;
+      height: 260px;
+      border-radius: 16px;
+      border: 1px solid #d1d5db;
+      background: #eef2f7;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 900px) {
       .inline-grid-2,
       .inline-grid-3,
       .summary-boxes {
@@ -280,250 +298,245 @@
     <div class="topbar">
       <div>
         <h1>Frais kilométriques</h1>
-        <p>Calcul des trajets, suivi mensuel, PDF officiel et signature.</p>
+        <p>Version simplifiée et plus lisible, centrée sur le tableau mensuel.</p>
       </div>
       <a href="index.html" class="btn btn-primary">Retour accueil</a>
     </div>
 
-    <div class="grid">
-      <div>
-        <div class="card">
-          <h2>Informations générales</h2>
+    <div class="card">
+      <h2 class="section-title">Informations générales</h2>
 
-          <div class="inline-grid-2">
-            <div class="form-group">
-              <label for="assistantNom">Nom et prénom de l'assistant familial</label>
-              <input type="text" id="assistantNom" placeholder="Ex : John Rombert" />
-            </div>
-
-            <div class="form-group">
-              <label for="moisEtat">Mois de l'état</label>
-              <input type="month" id="moisEtat" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="domicile">Adresse du domicile</label>
-            <input type="text" id="domicile" placeholder="Adresse complète du domicile" />
-            <small id="domicileSaved" class="saved-msg"></small>
-          </div>
-
-          <div class="actions-row">
-            <button type="button" class="btn btn-secondary" id="btnSaveDomicile">Enregistrer le domicile</button>
-          </div>
+      <div class="inline-grid-2">
+        <div class="form-group">
+          <label for="assistantNom">Nom et prénom de l'assistant familial</label>
+          <input type="text" id="assistantNom" placeholder="Ex : John Rombert" />
         </div>
 
-        <div class="card">
-          <h2>Préparer le trajet</h2>
+        <div class="form-group">
+          <label for="moisEtat">Mois de l'état</label>
+          <input type="month" id="moisEtat" />
+        </div>
+      </div>
 
-          <div class="check-line">
-            <input type="checkbox" id="departDomicile" />
-            <label for="departDomicile">Départ depuis le domicile</label>
-          </div>
+      <div class="form-group">
+        <label for="domicile">Adresse du domicile</label>
+        <input type="text" id="domicile" placeholder="Adresse complète du domicile" />
+        <small id="domicileSaved" class="saved-msg"></small>
+      </div>
 
-          <div class="form-group">
-            <label for="depart">Lieu de départ</label>
-            <input type="text" id="depart" placeholder="Adresse de départ" />
-          </div>
+      <div class="actions-row">
+        <button type="button" class="btn btn-secondary" id="btnSaveDomicile">Enregistrer le domicile</button>
+      </div>
+    </div>
 
-          <div class="check-line">
-            <input type="checkbox" id="retourDomicile" checked />
-            <label for="retourDomicile">Retour au domicile</label>
-          </div>
+    <div class="card">
+      <h2 class="section-title">Calcul du trajet</h2>
 
-          <div class="form-group">
-            <label>Destinations / rendez-vous</label>
-            <div id="destinations"></div>
-            <button type="button" class="btn btn-secondary" id="btnAddDestination">Ajouter une destination</button>
-          </div>
+      <div class="check-line">
+        <input type="checkbox" id="departDomicile" />
+        <label for="departDomicile">Départ depuis le domicile</label>
+      </div>
 
-          <div class="actions-row">
-            <button type="button" class="btn btn-primary" id="btnCalculer">Calculer le trajet</button>
-          </div>
+      <div class="form-group">
+        <label for="depart">Lieu de départ</label>
+        <input type="text" id="depart" placeholder="Adresse de départ" />
+      </div>
 
-          <div class="summary-boxes">
-            <div class="summary-box">
-              <div class="label">Distance totale</div>
-              <div class="value" id="distanceTotale">0 km</div>
-            </div>
-            <div class="summary-box">
-              <div class="label">Temps total</div>
-              <div class="value" id="tempsTotal">0 min</div>
-            </div>
-            <div class="summary-box">
-              <div class="label">Montant estimé</div>
-              <div class="value" id="montantTotal">0,00 €</div>
-            </div>
-          </div>
+      <div class="check-line">
+        <input type="checkbox" id="retourDomicile" checked />
+        <label for="retourDomicile">Retour au domicile</label>
+      </div>
 
-          <div style="margin-top:16px;">
-            <div id="map"></div>
-          </div>
+      <div class="form-group">
+        <label>Destinations / rendez-vous</label>
+        <div id="destinations"></div>
+        <button type="button" class="btn btn-secondary" id="btnAddDestination">Ajouter une destination</button>
+      </div>
+
+      <div class="actions-row">
+        <button type="button" class="btn btn-primary" id="btnCalculer">Calculer le trajet</button>
+      </div>
+
+      <div class="summary-boxes">
+        <div class="summary-box">
+          <div class="label">Distance totale</div>
+          <div class="value" id="distanceTotale">0 km</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">Temps total</div>
+          <div class="value" id="tempsTotal">0 min</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">Montant estimé</div>
+          <div class="value" id="montantTotal">0,00 €</div>
+        </div>
+      </div>
+
+      <details class="optional-map">
+        <summary>Aperçu carte du trajet (optionnel)</summary>
+        <div id="map"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">Informations du déplacement</h2>
+
+      <div class="inline-grid-3">
+        <div class="form-group">
+          <label for="dateTrajet">Date</label>
+          <input type="date" id="dateTrajet" />
         </div>
 
-        <div class="card">
-          <h2>Informations du déplacement</h2>
-
-          <div class="inline-grid-3">
-            <div class="form-group">
-              <label for="dateTrajet">Date</label>
-              <input type="date" id="dateTrajet" />
-            </div>
-
-            <div class="form-group">
-              <label for="heureDebut">Heure début</label>
-              <input type="time" id="heureDebut" />
-            </div>
-
-            <div class="form-group">
-              <label for="heureFin">Heure fin</label>
-              <input type="time" id="heureFin" />
-            </div>
-          </div>
-
-          <div class="inline-grid-3">
-            <div class="form-group">
-              <label for="enfant">Enfant concerné</label>
-              <input type="text" id="enfant" placeholder="Nom / prénom" />
-            </div>
-
-            <div class="form-group">
-              <label for="professionnel">Professionnel rencontré</label>
-              <input type="text" id="professionnel" placeholder="Nom du professionnel" />
-            </div>
-
-            <div class="form-group">
-              <label for="cv">Puissance fiscale</label>
-              <select id="cv">
-                <option value="3">3 CV</option>
-                <option value="4">4 CV</option>
-                <option value="5">5 CV</option>
-                <option value="6">6 CV</option>
-                <option value="7" selected>7 CV et +</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="motif">Motif</label>
-            <input type="text" id="motif" placeholder="Ex : rendez-vous médecin, visite, école..." />
-          </div>
-
-          <div class="actions-row">
-            <button type="button" class="btn btn-success" id="btnAjouterDeplacement">Ajouter le déplacement</button>
-            <button type="button" class="btn btn-secondary" id="btnReset">Réinitialiser</button>
-          </div>
+        <div class="form-group">
+          <label for="heureDebut">Heure début</label>
+          <input type="time" id="heureDebut" />
         </div>
 
-        <div class="card">
-          <h2>Signature</h2>
+        <div class="form-group">
+          <label for="heureFin">Heure fin</label>
+          <input type="time" id="heureFin" />
+        </div>
+      </div>
+
+      <div class="inline-grid-3">
+        <div class="form-group">
+          <label for="enfant">Enfant concerné</label>
+          <input type="text" id="enfant" placeholder="Nom / prénom" />
+        </div>
+
+        <div class="form-group">
+          <label for="professionnel">Professionnel rencontré</label>
+          <input type="text" id="professionnel" placeholder="Nom du professionnel" />
+        </div>
+
+        <div class="form-group">
+          <label for="cv">Puissance fiscale</label>
+          <select id="cv">
+            <option value="3">3 CV</option>
+            <option value="4">4 CV</option>
+            <option value="5">5 CV</option>
+            <option value="6">6 CV</option>
+            <option value="7" selected>7 CV et +</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="motif">Motif</label>
+        <input type="text" id="motif" placeholder="Ex : rendez-vous médecin, visite, école..." />
+      </div>
+
+      <div class="actions-row">
+        <button type="button" class="btn btn-success" id="btnAjouterDeplacement">Ajouter le déplacement</button>
+        <button type="button" class="btn btn-secondary" id="btnReset">Réinitialiser</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">Signature</h2>
+
+      <div class="form-group">
+        <label>Signature (photo ou scan)</label>
+        <div class="actions-row">
+          <button type="button" class="btn btn-secondary" id="btnSignature">Ajouter une signature</button>
+          <button type="button" class="btn btn-danger" id="btnClearSignature">Supprimer la signature</button>
+        </div>
+
+        <input
+          type="file"
+          id="signatureFile"
+          accept=".jpg,.jpeg,.png,image/*"
+          style="display:none;"
+        />
+
+        <small id="signatureInfo" class="saved-msg"></small>
+
+        <div style="margin-top:10px;">
+          <img
+            id="signaturePreview"
+            alt="Aperçu signature"
+            style="max-height:80px; max-width:220px; display:none; border:1px solid #ddd; padding:6px; background:#fff;"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">Barèmes kilométriques</h2>
+
+      <div class="actions-row">
+        <button type="button" class="btn btn-secondary" id="btnToggleBaremes">✏️ Modifier</button>
+      </div>
+
+      <div id="baremesWrapper" class="baremes-locked" style="margin-top:14px;">
+        <div class="inline-grid-3">
+          <div class="form-group">
+            <label for="bareme3cv">3 CV</label>
+            <input type="number" step="0.001" id="bareme3cv" />
+          </div>
 
           <div class="form-group">
-            <label>Signature (photo ou scan)</label>
-            <div class="actions-row">
-              <button type="button" class="btn btn-secondary" id="btnSignature">Ajouter une signature</button>
-              <button type="button" class="btn btn-danger" id="btnClearSignature">Supprimer la signature</button>
-            </div>
+            <label for="bareme4cv">4 CV</label>
+            <input type="number" step="0.001" id="bareme4cv" />
+          </div>
 
-            <input
-              type="file"
-              id="signatureFile"
-              accept=".jpg,.jpeg,.png,image/*"
-              style="display:none;"
-            />
+          <div class="form-group">
+            <label for="bareme5cv">5 CV</label>
+            <input type="number" step="0.001" id="bareme5cv" />
+          </div>
 
-            <small id="signatureInfo" class="saved-msg"></small>
+          <div class="form-group">
+            <label for="bareme6cv">6 CV</label>
+            <input type="number" step="0.001" id="bareme6cv" />
+          </div>
 
-            <div style="margin-top:10px;">
-              <img
-                id="signaturePreview"
-                alt="Aperçu signature"
-                style="max-height:80px; max-width:220px; display:none; border:1px solid #ddd; padding:6px; background:#fff;"
-              />
-            </div>
+          <div class="form-group">
+            <label for="bareme7cv">7 CV et +</label>
+            <input type="number" step="0.001" id="bareme7cv" />
           </div>
         </div>
       </div>
 
-      <div>
-        <div class="card">
-          <h2>Barèmes kilométriques</h2>
+      <div class="actions-row">
+        <button type="button" class="btn btn-success" id="btnSaveBaremes">Enregistrer les barèmes</button>
+        <button type="button" class="btn btn-danger" id="btnResetBaremes">Réinitialiser</button>
+      </div>
+    </div>
 
-          <div class="actions-row">
-            <button type="button" class="btn btn-secondary" id="btnToggleBaremes">✏️ Modifier</button>
-          </div>
+    <div class="card">
+      <h2 class="section-title">Déplacements du mois</h2>
 
-          <div id="baremesWrapper" class="baremes-locked" style="margin-top:14px;">
-            <div class="inline-grid-2">
-              <div class="form-group">
-                <label for="bareme3cv">3 CV</label>
-                <input type="number" step="0.001" id="bareme3cv" />
-              </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Enfant</th>
+              <th>Motif</th>
+              <th>Date</th>
+              <th>Début</th>
+              <th>Fin</th>
+              <th>Départ</th>
+              <th>Lieu RDV</th>
+              <th>KM A/R</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="deplacementsBody">
+            <tr id="emptyRow">
+              <td colspan="9" class="empty-cell">Aucun déplacement enregistré</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-              <div class="form-group">
-                <label for="bareme4cv">4 CV</label>
-                <input type="number" step="0.001" id="bareme4cv" />
-              </div>
+      <div class="stats-footer">
+        <div>Total KM mois : <span id="totalKmMois">0 km</span></div>
+        <div>Total montant mois : <span id="totalMontantMois">0,00 €</span></div>
+      </div>
 
-              <div class="form-group">
-                <label for="bareme5cv">5 CV</label>
-                <input type="number" step="0.001" id="bareme5cv" />
-              </div>
-
-              <div class="form-group">
-                <label for="bareme6cv">6 CV</label>
-                <input type="number" step="0.001" id="bareme6cv" />
-              </div>
-
-              <div class="form-group">
-                <label for="bareme7cv">7 CV et +</label>
-                <input type="number" step="0.001" id="bareme7cv" />
-              </div>
-            </div>
-          </div>
-
-          <div class="actions-row">
-            <button type="button" class="btn btn-success" id="btnSaveBaremes">Enregistrer les barèmes</button>
-            <button type="button" class="btn btn-danger" id="btnResetBaremes">Réinitialiser</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>Déplacements du mois</h2>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Enfant</th>
-                  <th>Motif</th>
-                  <th>Date</th>
-                  <th>Début</th>
-                  <th>Fin</th>
-                  <th>Départ</th>
-                  <th>Lieu RDV</th>
-                  <th>KM A/R</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="deplacementsBody">
-                <tr id="emptyRow">
-                  <td colspan="9" class="empty-cell">Aucun déplacement enregistré</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="stats-footer">
-            <div>Total KM mois : <span id="totalKmMois">0 km</span></div>
-            <div>Total montant mois : <span id="totalMontantMois">0,00 €</span></div>
-          </div>
-
-          <div class="actions-row">
-            <button type="button" class="btn btn-primary" id="btnPdfMensuel">Générer le PDF mensuel</button>
-            <button type="button" class="btn btn-danger" id="btnViderListe">Vider la liste</button>
-          </div>
-        </div>
+      <div class="actions-row">
+        <button type="button" class="btn btn-primary" id="btnPdfMensuel">Générer le PDF mensuel</button>
+        <button type="button" class="btn btn-danger" id="btnViderListe">Vider la liste</button>
       </div>
     </div>
   </div>
@@ -533,7 +546,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="module" src="script.js"></script>
 
-  <!-- Remplace YOUR_GOOGLE_MAPS_API_KEY par ta vraie clé -->
   <script
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places&callback=initMap"
     async
