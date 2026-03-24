@@ -1,243 +1,372 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Frais kilométriques - EasyFrais</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frais kilométriques</title>
+  <link rel="stylesheet" href="style.css" />
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f7fb;
-      margin: 0;
-      padding: 20px;
-    }
-
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-
-    input, select {
-      padding: 8px;
-      margin: 5px;
-      width: 250px;
-    }
-
-    button {
-      padding: 10px 15px;
-      margin: 5px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .btn-blue { background: #2d6cdf; color: white; }
-    .btn-green { background: #27ae60; color: white; }
-    .btn-red { background: #e74c3c; color: white; }
-    .btn-grey { background: #bdc3c7; }
-
-    #map {
-      width: 100%;
-      height: 300px;
-      margin-top: 10px;
-      border-radius: 10px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: center;
-    }
-
-    th {
-      background: #f0f0f0;
-    }
-
-    .stats {
+    .baremes-header {
       display: flex;
-      gap: 20px;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .baremes-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .baremes-badge {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-weight: 600;
+    }
+
+    .baremes-wrapper {
+      margin-top: 16px;
+      border-radius: 16px;
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      transition: 0.2s ease;
+    }
+
+    .baremes-locked {
+      opacity: 0.55;
+      pointer-events: none;
+      filter: grayscale(0.12);
+    }
+
+    .baremes-unlocked {
+      opacity: 1;
+      pointer-events: auto;
+      filter: none;
+    }
+
+    .baremes-helper {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .btn-inline-lock {
+      white-space: nowrap;
+    }
+
+    .service-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
       margin-top: 10px;
     }
 
-    .stat-box {
-      background: #eef2ff;
-      padding: 10px;
-      border-radius: 8px;
-      width: 150px;
-      text-align: center;
-      font-weight: bold;
+    .signature-box {
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      border-radius: 16px;
     }
 
-    #toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #333;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 6px;
+    .signature-preview {
       display: none;
+      max-width: 220px;
+      max-height: 90px;
+      margin-top: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: white;
+      padding: 6px;
     }
 
-    #toast.show {
-      display: block;
+    .signature-info {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #16a34a;
+      font-weight: 600;
     }
   </style>
 </head>
-
 <body>
-
-<h1>Frais kilométriques</h1>
-
-<div class="card">
-  <h3>Informations</h3>
-
-  <input type="text" id="assistantNom" placeholder="Nom assistant familial">
-  <input type="month" id="moisEtat">
-
-  <br>
-
-  <input type="text" id="domicile" placeholder="Adresse domicile">
-  <button id="btnSaveDomicile">Enregistrer domicile</button>
-  <span id="domicileSaved"></span>
-
-  <br>
-
-  <label><input type="checkbox" id="departDomicile"> Départ domicile</label>
-  <label><input type="checkbox" id="retourDomicile" checked> Retour domicile</label>
-
-  <br>
-
-  <input type="text" id="depart" placeholder="Adresse départ">
-
-  <div id="destinations"></div>
-  <button id="btnAddDestination">Ajouter une destination</button>
-  <button id="btnUseServiceDestination">Utiliser l'adresse du service</button>
-
-  <br><br>
-
-  <input type="text" id="enfant" placeholder="Nom de l'enfant" list="childrenSuggestions">
-  <datalist id="childrenSuggestions"></datalist>
-
-  <input type="text" id="professionnel" placeholder="Professionnel">
-  <input type="text" id="motif" placeholder="Motif">
-
-  <br>
-
-  <input type="date" id="dateTrajet">
-  <input type="time" id="heureDebut">
-  <input type="time" id="heureFin">
-
-  <br>
-
-  <select id="cv">
-    <option value="3">3 CV</option>
-    <option value="4">4 CV</option>
-    <option value="5">5 CV</option>
-    <option value="6">6 CV</option>
-    <option value="7">7 CV</option>
-  </select>
-
-  <br><br>
-
-  <button class="btn-blue" id="btnCalculer">Calculer le trajet</button>
-  <button class="btn-green" id="btnAjouterDeplacement">Ajouter le déplacement</button>
-  <button class="btn-grey" id="btnReset">Réinitialiser</button>
-
-  <div class="stats">
-    <div class="stat-box">
-      Distance totale<br>
-      <span id="distanceTotale">0 km</span>
+  <div class="container">
+    <div class="top-bar">
+      <a href="index.html" class="back-link">← Accueil</a>
+      <h1 class="page-title center-title">Frais kilométriques</h1>
     </div>
 
-    <div class="stat-box">
-      Temps estimé<br>
-      <span id="tempsTotal">0 min</span>
-    </div>
+    <section class="card">
+      <h2>Informations générales</h2>
 
-    <div class="stat-box">
-      Montant estimé<br>
-      <span id="montantTotal">0,00 €</span>
-    </div>
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="moisEtat">Mois de l'état de frais</label>
+          <input type="month" id="moisEtat" />
+        </div>
+
+        <div class="field">
+          <label for="assistantNom">Nom et prénom de l'assistant familial</label>
+          <input type="text" id="assistantNom" placeholder="Ex. Catherine Martin" />
+        </div>
+
+        <div class="field">
+          <label for="dateTrajet">Date</label>
+          <input type="date" id="dateTrajet" />
+        </div>
+
+        <div class="field">
+          <label for="enfant">Nom de l’enfant</label>
+          <input type="text" id="enfant" list="childrenSuggestions" placeholder="Ex. Zoé" />
+          <datalist id="childrenSuggestions"></datalist>
+        </div>
+
+        <div class="field">
+          <label for="professionnel">Nom du professionnel / lieu du RDV</label>
+          <input type="text" id="professionnel" placeholder="Ex. Service SPF ROUEN" />
+        </div>
+
+        <div class="field">
+          <label for="motif">Motif du déplacement</label>
+          <input type="text" id="motif" placeholder="Ex. RDV psychologue" />
+        </div>
+      </div>
+
+      <div class="grid grid-3 mt-16">
+        <div class="field">
+          <label for="heureDebut">Heure début</label>
+          <input type="time" id="heureDebut" />
+        </div>
+
+        <div class="field">
+          <label for="heureFin">Heure fin</label>
+          <input type="time" id="heureFin" />
+        </div>
+
+        <div class="field">
+          <label for="cv">Chevaux fiscaux</label>
+          <select id="cv">
+            <option value="3">3 CV et moins</option>
+            <option value="4">4 CV</option>
+            <option value="5">5 CV</option>
+            <option value="6">6 CV</option>
+            <option value="7" selected>7 CV et plus</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="baremes-header">
+        <div class="baremes-title-wrap">
+          <h2 style="margin:0;">Barèmes de remboursement</h2>
+          <span class="baremes-badge">Modifiables si besoin</span>
+        </div>
+
+        <button class="btn btn-secondary btn-inline-lock" type="button" id="btnToggleBaremes">
+          ✏️ Modifier
+        </button>
+      </div>
+
+      <div id="baremesWrapper" class="baremes-wrapper baremes-locked">
+        <div class="grid grid-3">
+          <div class="field">
+            <label for="bareme3cv">3 CV et moins</label>
+            <input type="number" id="bareme3cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme4cv">4 CV</label>
+            <input type="number" id="bareme4cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme5cv">5 CV</label>
+            <input type="number" id="bareme5cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme6cv">6 CV</label>
+            <input type="number" id="bareme6cv" step="0.001" min="0" />
+          </div>
+
+          <div class="field">
+            <label for="bareme7cv">7 CV et plus</label>
+            <input type="number" id="bareme7cv" step="0.001" min="0" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" type="button" id="btnSaveBaremes">
+            Enregistrer les barèmes
+          </button>
+          <button class="btn btn-danger" type="button" id="btnResetBaremes">
+            Remettre les barèmes par défaut
+          </button>
+        </div>
+      </div>
+
+      <div class="baremes-helper">
+        Les valeurs par défaut sont déjà remplies. Clique sur “Modifier” pour les déverrouiller.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Domicile</h2>
+
+      <div class="field">
+        <label for="domicile">Adresse du domicile</label>
+        <input type="text" id="domicile" placeholder="Ex. 12 rue ..., 76400 Fécamp" />
+        <small id="domicileSaved" class="saved-msg"></small>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" type="button" id="btnSaveDomicile">
+          Enregistrer le domicile
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Trajet</h2>
+
+      <div class="field">
+        <label for="depart">Adresse de départ</label>
+        <input type="text" id="depart" placeholder="Adresse de départ" />
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="departDomicile" />
+        <label for="departDomicile">Départ du domicile</label>
+      </div>
+
+      <div class="field mt-16">
+        <label>Destinations</label>
+        <div id="destinations"></div>
+
+        <div class="service-actions">
+          <button class="btn btn-secondary" type="button" id="btnAddDestination">
+            + Ajouter une destination
+          </button>
+          <button class="btn btn-secondary" type="button" id="btnUseServiceDestination">
+            Utiliser l'adresse du service
+          </button>
+        </div>
+      </div>
+
+      <div class="checkbox-row mt-16">
+        <input type="checkbox" id="retourDomicile" checked />
+        <label for="retourDomicile">Retour au domicile</label>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" type="button" id="btnCalculer">Calculer le trajet</button>
+        <button class="btn btn-success" type="button" id="btnAjouterDeplacement">Ajouter le déplacement</button>
+        <button class="btn btn-secondary" type="button" id="btnReset">Réinitialiser</button>
+      </div>
+    </section>
+
+    <section class="card result-box">
+      <h2>Résultat du trajet</h2>
+
+      <div class="result-grid">
+        <div class="result-card">
+          <div class="result-title">Distance totale</div>
+          <div class="result-value" id="distanceTotale">0 km</div>
+        </div>
+
+        <div class="result-card">
+          <div class="result-title">Temps total</div>
+          <div class="result-value" id="tempsTotal">0 min</div>
+        </div>
+
+        <div class="result-card">
+          <div class="result-title">Montant estimé</div>
+          <div class="result-value" id="montantTotal">0,00 €</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Liste des déplacements du mois</h2>
+
+      <div class="table-wrap">
+        <table class="deplacements-table">
+          <thead>
+            <tr>
+              <th>Enfant</th>
+              <th>Motif</th>
+              <th>Date</th>
+              <th>Heure début</th>
+              <th>Heure fin</th>
+              <th>Lieu départ</th>
+              <th>Lieu RDV</th>
+              <th>KM A/R</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="deplacementsBody">
+            <tr id="emptyRow">
+              <td colspan="9" class="empty-cell">Aucun déplacement enregistré</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="monthly-summary">
+        <div class="summary-box">
+          <span>Total kilomètres</span>
+          <strong id="totalKmMois">0 km</strong>
+        </div>
+        <div class="summary-box">
+          <span>Total montant estimé</span>
+          <strong id="totalMontantMois">0,00 €</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-success" type="button" id="btnPdfMensuel">Générer PDF mensuel</button>
+        <button class="btn btn-danger" type="button" id="btnViderListe">Vider la liste</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Signature locale</h2>
+      <p style="margin-top:0;color:#6b7280;">
+        Cette signature est utilisée pour le PDF kilométrique sur cet appareil.
+      </p>
+
+      <div class="actions">
+        <button class="btn btn-secondary" type="button" id="btnSignature">Importer une signature</button>
+        <button class="btn btn-danger" type="button" id="btnClearSignature">Supprimer la signature</button>
+      </div>
+
+      <input type="file" id="signatureFile" accept="image/*" style="display:none;" />
+      <div id="signatureInfo" class="signature-info"></div>
+      <img id="signaturePreview" class="signature-preview" alt="Aperçu signature" />
+    </section>
+
+    <section class="card">
+      <h2>Carte</h2>
+      <div id="map"></div>
+    </section>
   </div>
 
-  <div id="map"></div>
-</div>
+  <div id="toast" class="toast">Action effectuée avec succès</div>
 
-<!-- BARÈMES -->
-<div class="card">
-  <h3>Barèmes kilométriques</h3>
-
-  3 CV <input type="number" step="0.001" id="bareme3cv">
-  4 CV <input type="number" step="0.001" id="bareme4cv">
-  5 CV <input type="number" step="0.001" id="bareme5cv">
-  6 CV <input type="number" step="0.001" id="bareme6cv">
-  7 CV <input type="number" step="0.001" id="bareme7cv">
-
-  <br>
-
-  <button id="btnToggleBaremes">Modifier</button>
-  <button id="btnSaveBaremes">Enregistrer</button>
-  <button id="btnResetBaremes">Réinitialiser</button>
-</div>
-
-<div class="card">
-  <h3>Déplacements enregistrés</h3>
-
-  <button class="btn-blue" id="btnPdfMensuel">Générer le PDF mensuel</button>
-  <button class="btn-red" id="btnViderListe">Vider la liste</button>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Enfant</th>
-        <th>Motif</th>
-        <th>Date</th>
-        <th>H. début</th>
-        <th>H. fin</th>
-        <th>Lieu départ</th>
-        <th>Lieu RDV</th>
-        <th>KM A/R</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="deplacementsBody">
-      <tr id="emptyRow">
-        <td colspan="9">Aucun déplacement</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div style="margin-top:10px;">
-    Total mois :
-    <span id="totalKmMois">0 km</span> |
-    <span id="totalMontantMois">0 €</span>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script type="module" src="script.js"></script>
-
-<script
-  async
-  defer
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places&callback=initMap">
-</script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="script.js"></script>
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places&callback=initMap"
+    async
+    defer
+  ></script>
 </body>
 </html>
