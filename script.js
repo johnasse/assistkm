@@ -127,7 +127,6 @@ async function loadProfileData() {
     }
 
     currentProfile = snap.data() || {};
-
     applyProfileToKilometrique();
   } catch (error) {
     console.error("Erreur chargement profil :", error);
@@ -215,8 +214,8 @@ function useServiceAddressAsDestination() {
   }
 
   const destinationInputs = [...document.querySelectorAll(".destination-input")];
-
   const emptyInput = destinationInputs.find((input) => !input.value.trim());
+
   if (emptyInput) {
     emptyInput.value = serviceAddress;
     return;
