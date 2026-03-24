@@ -17,7 +17,7 @@
     }
 
     .page {
-      max-width: 1150px;
+      max-width: 1280px;
       margin: 0 auto;
       padding: 24px;
     }
@@ -54,7 +54,7 @@
 
     .brand h1 {
       margin: 0;
-      font-size: 30px;
+      font-size: 32px;
       color: #111827;
     }
 
@@ -79,7 +79,11 @@
       cursor: pointer;
       display: inline-block;
       transition: 0.2s ease;
-      font-size: 15px;
+      font-size: 14px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
     }
 
     .btn-home {
@@ -100,6 +104,42 @@
       background: #1f2937;
     }
 
+    .btn-green {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-green:hover {
+      background: #15803d;
+    }
+
+    .btn-orange {
+      background: #ea580c;
+      color: white;
+    }
+
+    .btn-orange:hover {
+      background: #c2410c;
+    }
+
+    .btn-red {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-red:hover {
+      background: #b91c1c;
+    }
+
+    .btn-gray {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-gray:hover {
+      background: #d1d5db;
+    }
+
     .card {
       background: white;
       border-radius: 22px;
@@ -108,10 +148,9 @@
       margin-bottom: 20px;
     }
 
-    .card h2 {
+    .card h2, .card h3 {
       margin: 0 0 10px;
       color: #111827;
-      font-size: 22px;
     }
 
     .card p {
@@ -144,7 +183,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 18px;
       margin-top: 20px;
     }
@@ -154,18 +193,20 @@
       border-radius: 20px;
       padding: 20px;
       box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      min-height: 135px;
     }
 
     .stat-box .label {
       font-size: 14px;
       color: #6b7280;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     .stat-box .value {
-      font-size: 32px;
+      font-size: 34px;
       font-weight: 800;
       color: #111827;
+      line-height: 1.1;
     }
 
     .stat-box .small {
@@ -174,23 +215,49 @@
       font-size: 13px;
     }
 
-    .section-title {
-      margin: 0 0 14px;
-      font-size: 20px;
-      color: #111827;
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1.4fr 220px auto;
+      gap: 12px;
+      margin: 18px 0 16px;
+      align-items: center;
+    }
+
+    .input,
+    .select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      outline: none;
+      background: white;
+    }
+
+    .input:focus,
+    .select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .table-wrap {
       overflow-x: auto;
       border-radius: 16px;
       border: 1px solid #e5e7eb;
+      background: white;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      background: white;
-      min-width: 760px;
+      min-width: 1160px;
     }
 
     th, td {
@@ -198,12 +265,16 @@
       text-align: left;
       border-bottom: 1px solid #e5e7eb;
       font-size: 14px;
+      vertical-align: middle;
     }
 
     th {
       background: #f8fafc;
       color: #334155;
       font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
     td {
@@ -228,18 +299,34 @@
       color: #374151;
     }
 
+    .row-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .row-actions .btn {
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .empty-state {
+      padding: 18px 14px;
+      color: #6b7280;
+    }
+
     .debug-box {
       margin-top: 22px;
       background: white;
       border-radius: 18px;
       padding: 18px 20px;
       box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-    }
-
-    .debug-box h3 {
-      margin: 0 0 12px;
-      font-size: 18px;
-      color: #111827;
     }
 
     .debug-box pre {
@@ -251,20 +338,30 @@
       line-height: 1.5;
     }
 
-    .muted {
-      color: #6b7280;
-      font-size: 14px;
-    }
-
-    @media (max-width: 980px) {
+    @media (max-width: 1180px) {
       .stats {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
       }
     }
 
-    @media (max-width: 700px) {
-      .stats {
+    @media (max-width: 900px) {
+      .toolbar {
         grid-template-columns: 1fr;
+      }
+
+      .toolbar-actions {
+        justify-content: stretch;
+      }
+
+      .toolbar-actions .btn {
+        flex: 1;
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
@@ -287,9 +384,13 @@
         width: 100%;
       }
 
-      .btn {
+      .actions .btn {
         flex: 1;
         text-align: center;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -313,8 +414,7 @@
 
     <section class="card">
       <h2>Bienvenue dans l’espace administrateur</h2>
-      <p>Cette page affiche les statistiques globales de l’application.</p>
-
+      <p>Cette page affiche les statistiques globales de l’application et permet de gérer les comptes.</p>
       <div class="status" id="statusMsg">Vérification de l’accès administrateur...</div>
       <div class="error" id="errorMsg"></div>
     </section>
@@ -329,7 +429,13 @@
       <div class="stat-box">
         <div class="label">Abonnés premium</div>
         <div class="value" id="premiumCount">--</div>
-        <div class="small">Statuts Stripe actifs / essai</div>
+        <div class="small">Statuts actifs / essai / admin</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Comptes gratuits</div>
+        <div class="value" id="freeCount">--</div>
+        <div class="small">Utilisateurs non premium</div>
       </div>
 
       <div class="stat-box">
@@ -339,15 +445,77 @@
       </div>
 
       <div class="stat-box">
+        <div class="label">PDF du mois</div>
+        <div class="value" id="monthPdfCount">--</div>
+        <div class="small">Sur le mois courant</div>
+      </div>
+
+      <div class="stat-box">
         <div class="label">Revenu mensuel estimé</div>
         <div class="value" id="revenueCount">--</div>
         <div class="small">Base 2 € / premium</div>
       </div>
+
+      <div class="stat-box">
+        <div class="label">Nouveaux ce mois</div>
+        <div class="value" id="newUsersCount">--</div>
+        <div class="small">Selon created / createdAt</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Comptes avec email</div>
+        <div class="value" id="emailCount">--</div>
+        <div class="small">Emails trouvés dans customers</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Comptes sans email</div>
+        <div class="value" id="missingEmailCount">--</div>
+        <div class="small">À compléter si besoin</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Moyenne PDF / user</div>
+        <div class="value" id="avgPdfCount">--</div>
+        <div class="small">Calcul automatique</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Premium du mois</div>
+        <div class="value" id="monthPremiumCount">--</div>
+        <div class="small">Lecture statuts actifs</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Revenu annuel estimé</div>
+        <div class="value" id="yearRevenueCount">--</div>
+        <div class="small">Estimation simple</div>
+      </div>
     </section>
 
     <section class="card">
-      <h3 class="section-title">Utilisateurs</h3>
-      <p class="muted" style="margin-bottom:16px;">Aperçu des comptes trouvés dans Firestore.</p>
+      <h3>Utilisateurs</h3>
+      <p class="muted">Recherche, filtre, export CSV et gestion rapide des comptes.</p>
+
+      <div class="toolbar">
+        <input
+          id="searchInput"
+          class="input"
+          type="text"
+          placeholder="Rechercher par email ou UID..."
+        />
+
+        <select id="filterSelect" class="select">
+          <option value="all">Tous les comptes</option>
+          <option value="premium">Premium uniquement</option>
+          <option value="free">Gratuits uniquement</option>
+        </select>
+
+        <div class="toolbar-actions">
+          <button id="refreshBtn" class="btn btn-gray" type="button">Actualiser</button>
+          <button id="exportBtn" class="btn btn-home" type="button">Exporter CSV</button>
+        </div>
+      </div>
 
       <div class="table-wrap">
         <table>
@@ -356,12 +524,15 @@
               <th>Email</th>
               <th>UID</th>
               <th>Premium</th>
-              <th>PDF</th>
+              <th>PDF total</th>
+              <th>PDF mois</th>
+              <th>Créé le</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
             <tr>
-              <td colspan="4">Chargement...</td>
+              <td colspan="7" class="empty-state">Chargement...</td>
             </tr>
           </tbody>
         </table>
@@ -384,20 +555,42 @@
     import {
       doc,
       getDoc,
+      setDoc,
+      getDocs,
+      deleteDoc,
       collection,
       collectionGroup,
-      getDocs
+      serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
+    const PREMIUM_PRICE = 2;
+
     const logoutBtn = document.getElementById("logoutBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const searchInput = document.getElementById("searchInput");
+    const filterSelect = document.getElementById("filterSelect");
+    const usersTableBody = document.getElementById("usersTableBody");
+
     const usersCountEl = document.getElementById("usersCount");
     const premiumCountEl = document.getElementById("premiumCount");
+    const freeCountEl = document.getElementById("freeCount");
     const pdfCountEl = document.getElementById("pdfCount");
+    const monthPdfCountEl = document.getElementById("monthPdfCount");
     const revenueCountEl = document.getElementById("revenueCount");
+    const newUsersCountEl = document.getElementById("newUsersCount");
+    const emailCountEl = document.getElementById("emailCount");
+    const missingEmailCountEl = document.getElementById("missingEmailCount");
+    const avgPdfCountEl = document.getElementById("avgPdfCount");
+    const monthPremiumCountEl = document.getElementById("monthPremiumCount");
+    const yearRevenueCountEl = document.getElementById("yearRevenueCount");
+
     const statusMsg = document.getElementById("statusMsg");
     const errorMsg = document.getElementById("errorMsg");
     const debugOutput = document.getElementById("debugOutput");
-    const usersTableBody = document.getElementById("usersTableBody");
+
+    let allUsers = [];
+    let currentAdminUid = null;
 
     function showError(message) {
       errorMsg.style.display = "block";
@@ -409,6 +602,10 @@
       errorMsg.textContent = "";
     }
 
+    function setStatus(message) {
+      statusMsg.textContent = message;
+    }
+
     function setDebug(lines) {
       debugOutput.textContent = lines.join("\n");
       console.log("ADMIN DEBUG\n" + lines.join("\n"));
@@ -418,7 +615,83 @@
       return new Intl.NumberFormat("fr-FR", {
         style: "currency",
         currency: "EUR"
-      }).format(value);
+      }).format(Number(value || 0));
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat("fr-FR").format(Number(value || 0));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function getMonthKey() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      return `${year}-${month}`;
+    }
+
+    function formatDateValue(value) {
+      if (!value) return "-";
+
+      try {
+        if (typeof value?.toDate === "function") {
+          return value.toDate().toLocaleDateString("fr-FR");
+        }
+
+        if (value instanceof Date) {
+          return value.toLocaleDateString("fr-FR");
+        }
+
+        if (typeof value === "number") {
+          return new Date(value).toLocaleDateString("fr-FR");
+        }
+
+        const parsed = new Date(value);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString("fr-FR");
+        }
+      } catch (e) {
+        console.warn("formatDateValue error", e);
+      }
+
+      return "-";
+    }
+
+    function isCurrentMonth(value) {
+      if (!value) return false;
+
+      let dateObj = null;
+
+      try {
+        if (typeof value?.toDate === "function") {
+          dateObj = value.toDate();
+        } else if (value instanceof Date) {
+          dateObj = value;
+        } else if (typeof value === "number") {
+          dateObj = new Date(value);
+        } else {
+          const parsed = new Date(value);
+          if (!Number.isNaN(parsed.getTime())) dateObj = parsed;
+        }
+      } catch (e) {
+        return false;
+      }
+
+      if (!dateObj) return false;
+
+      const now = new Date();
+      return (
+        dateObj.getFullYear() === now.getFullYear() &&
+        dateObj.getMonth() === now.getMonth()
+      );
     }
 
     async function isAdmin(uid) {
@@ -427,57 +700,243 @@
       return adminSnap.exists();
     }
 
-    function renderUsersTable(usersMap) {
-      const rows = Array.from(usersMap.values()).sort((a, b) => {
-        const emailA = (a.email || "").toLowerCase();
-        const emailB = (b.email || "").toLowerCase();
-        return emailA.localeCompare(emailB);
-      });
+    function renderStats(users) {
+      const usersTotal = users.length;
+      const premiumTotal = users.filter(u => u.premium).length;
+      const freeTotal = usersTotal - premiumTotal;
+      const pdfTotal = users.reduce((sum, u) => sum + (u.pdfCount || 0), 0);
+      const monthPdfTotal = users.reduce((sum, u) => sum + (u.monthPdfCount || 0), 0);
+      const newUsersTotal = users.filter(u => u.isNewThisMonth).length;
+      const emailTotal = users.filter(u => !!u.email).length;
+      const missingEmailTotal = users.filter(u => !u.email).length;
+      const avgPdf = usersTotal ? (pdfTotal / usersTotal) : 0;
+      const revenue = premiumTotal * PREMIUM_PRICE;
+      const yearRevenue = revenue * 12;
+      const monthPremium = premiumTotal;
 
-      if (!rows.length) {
+      usersCountEl.textContent = formatNumber(usersTotal);
+      premiumCountEl.textContent = formatNumber(premiumTotal);
+      freeCountEl.textContent = formatNumber(freeTotal);
+      pdfCountEl.textContent = formatNumber(pdfTotal);
+      monthPdfCountEl.textContent = formatNumber(monthPdfTotal);
+      revenueCountEl.textContent = formatMoney(revenue);
+      newUsersCountEl.textContent = formatNumber(newUsersTotal);
+      emailCountEl.textContent = formatNumber(emailTotal);
+      missingEmailCountEl.textContent = formatNumber(missingEmailTotal);
+      avgPdfCountEl.textContent = avgPdf.toFixed(1);
+      monthPremiumCountEl.textContent = formatNumber(monthPremium);
+      yearRevenueCountEl.textContent = formatMoney(yearRevenue);
+    }
+
+    function getFilteredUsers() {
+      const query = searchInput.value.trim().toLowerCase();
+      const filter = filterSelect.value;
+
+      return allUsers.filter((user) => {
+        const matchSearch =
+          !query ||
+          (user.email || "").toLowerCase().includes(query) ||
+          (user.uid || "").toLowerCase().includes(query);
+
+        const matchFilter =
+          filter === "all" ||
+          (filter === "premium" && user.premium) ||
+          (filter === "free" && !user.premium);
+
+        return matchSearch && matchFilter;
+      });
+    }
+
+    function renderUsersTable() {
+      const users = getFilteredUsers();
+
+      if (!users.length) {
         usersTableBody.innerHTML = `
           <tr>
-            <td colspan="4">Aucun utilisateur trouvé.</td>
+            <td colspan="7" class="empty-state">Aucun utilisateur trouvé.</td>
           </tr>
         `;
         return;
       }
 
-      usersTableBody.innerHTML = rows.map((user) => {
+      usersTableBody.innerHTML = users.map((user) => {
         const premiumBadge = user.premium
           ? '<span class="badge badge-premium">Premium</span>'
           : '<span class="badge badge-free">Gratuit</span>';
 
+        const premiumBtn = user.premium
+          ? `<button class="btn btn-orange action-remove-premium" data-uid="${escapeHtml(user.uid)}" type="button">Retirer Premium</button>`
+          : `<button class="btn btn-green action-set-premium" data-uid="${escapeHtml(user.uid)}" type="button">Passer Premium</button>`;
+
+        const deleteBtn = user.uid === currentAdminUid
+          ? `<button class="btn btn-gray" type="button" disabled>Compte admin</button>`
+          : `<button class="btn btn-red action-delete-user" data-uid="${escapeHtml(user.uid)}" type="button">Supprimer données</button>`;
+
         return `
           <tr>
-            <td>${user.email || "-"}</td>
-            <td>${user.uid || "-"}</td>
+            <td>${escapeHtml(user.email || "-")}</td>
+            <td>${escapeHtml(user.uid || "-")}</td>
             <td>${premiumBadge}</td>
-            <td>${user.pdfCount ?? 0}</td>
+            <td>${formatNumber(user.pdfCount || 0)}</td>
+            <td>${formatNumber(user.monthPdfCount || 0)}</td>
+            <td>${escapeHtml(formatDateValue(user.createdAt))}</td>
+            <td>
+              <div class="row-actions">
+                ${premiumBtn}
+                ${deleteBtn}
+              </div>
+            </td>
           </tr>
         `;
       }).join("");
     }
 
+    function exportCsv() {
+      const users = getFilteredUsers();
+
+      const header = [
+        "email",
+        "uid",
+        "premium",
+        "pdf_total",
+        "pdf_mois",
+        "created_at"
+      ];
+
+      const rows = users.map((user) => [
+        user.email || "",
+        user.uid || "",
+        user.premium ? "premium" : "gratuit",
+        String(user.pdfCount || 0),
+        String(user.monthPdfCount || 0),
+        formatDateValue(user.createdAt)
+      ]);
+
+      const csvContent = [header, ...rows]
+        .map(row =>
+          row.map(cell => `"${String(cell).replaceAll('"', '""')}"`).join(";")
+        )
+        .join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+
+      link.href = url;
+      link.download = `easyfrais_admin_${date}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    async function setPremiumForUser(uid) {
+      if (!uid) return;
+      if (!confirm("Passer cet utilisateur en premium ?")) return;
+
+      try {
+        setStatus("Mise à jour premium...");
+        hideError();
+
+        await setDoc(
+          doc(db, "customers", uid, "subscriptions", "admin"),
+          {
+            status: "active",
+            source: "admin",
+            role: "premium",
+            updatedAt: serverTimestamp(),
+            createdAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        await loadAdminStats();
+        setStatus("Utilisateur passé en premium.");
+      } catch (error) {
+        console.error(error);
+        showError("Impossible de passer cet utilisateur en premium.");
+        setStatus("Erreur lors du passage en premium.");
+      }
+    }
+
+    async function removePremiumForUser(uid) {
+      if (!uid) return;
+      if (!confirm("Retirer le premium de cet utilisateur ?")) return;
+
+      try {
+        setStatus("Retrait du premium...");
+        hideError();
+
+        await setDoc(
+          doc(db, "customers", uid, "subscriptions", "admin"),
+          {
+            status: "canceled",
+            source: "admin",
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        await loadAdminStats();
+        setStatus("Premium retiré.");
+      } catch (error) {
+        console.error(error);
+        showError("Impossible de retirer le premium.");
+        setStatus("Erreur lors du retrait du premium.");
+      }
+    }
+
+    async function deleteUserData(uid) {
+      if (!uid) return;
+      if (uid === currentAdminUid) {
+        alert("Tu ne peux pas supprimer les données de ton propre compte admin.");
+        return;
+      }
+
+      if (!confirm("Supprimer les données Firestore de cet utilisateur ?")) return;
+
+      try {
+        setStatus("Suppression des données...");
+        hideError();
+
+        const usageSnap = await getDocs(collection(db, "customers", uid, "usage"));
+        for (const usageDoc of usageSnap.docs) {
+          await deleteDoc(doc(db, "customers", uid, "usage", usageDoc.id));
+        }
+
+        const subSnap = await getDocs(collection(db, "customers", uid, "subscriptions"));
+        for (const subDoc of subSnap.docs) {
+          await deleteDoc(doc(db, "customers", uid, "subscriptions", subDoc.id));
+        }
+
+        await deleteDoc(doc(db, "customers", uid));
+
+        await loadAdminStats();
+        setStatus("Données utilisateur supprimées.");
+      } catch (error) {
+        console.error(error);
+        showError("Impossible de supprimer les données de cet utilisateur.");
+        setStatus("Erreur lors de la suppression.");
+      }
+    }
+
     async function loadAdminStats() {
       hideError();
-      statusMsg.textContent = "Chargement des statistiques...";
+      setStatus("Chargement des statistiques...");
 
       const debugLines = [];
-      let usersTotal = 0;
-      let premiumTotal = 0;
-      let pdfTotal = 0;
-      let estimatedRevenue = 0;
+      const monthKey = getMonthKey();
 
       try {
         debugLines.push("Initialisation OK");
         debugLines.push(`DB présent : ${!!db}`);
         debugLines.push(`Auth présent : ${!!auth}`);
+        debugLines.push(`Mois courant : ${monthKey}`);
 
         const usersMap = new Map();
 
         const customersSnap = await getDocs(collection(db, "customers"));
-        usersTotal = customersSnap.size;
         debugLines.push(`customers trouvés : ${customersSnap.size}`);
 
         customersSnap.forEach((docSnap) => {
@@ -486,14 +945,15 @@
             uid: docSnap.id,
             email: data.email || data.customer_email || data.userEmail || "",
             premium: false,
-            pdfCount: 0
+            pdfCount: 0,
+            monthPdfCount: 0,
+            createdAt: data.createdAt || data.created || data.created_on || null,
+            isNewThisMonth: false
           });
         });
 
         const subsSnap = await getDocs(collectionGroup(db, "subscriptions"));
-        debugLines.push(`documents subscriptions trouvés : ${subsSnap.size}`);
-
-        const premiumUsersSet = new Set();
+        debugLines.push(`subscriptions trouvées : ${subsSnap.size}`);
 
         subsSnap.forEach((docSnap) => {
           const data = docSnap.data() || {};
@@ -501,7 +961,19 @@
           const pathParts = docSnap.ref.path.split("/");
           const uid = pathParts[1] || "";
 
-          debugLines.push(`subscription ${docSnap.id} → uid: ${uid} → status: ${status || "(vide)"}`);
+          if (!uid) return;
+
+          if (!usersMap.has(uid)) {
+            usersMap.set(uid, {
+              uid,
+              email: "",
+              premium: false,
+              pdfCount: 0,
+              monthPdfCount: 0,
+              createdAt: null,
+              isNewThisMonth: false
+            });
+          }
 
           if (
             status === "active" ||
@@ -509,31 +981,33 @@
             status === "trial" ||
             status === "paid"
           ) {
-            premiumUsersSet.add(uid);
-
-            if (!usersMap.has(uid)) {
-              usersMap.set(uid, {
-                uid,
-                email: "",
-                premium: true,
-                pdfCount: 0
-              });
-            } else {
-              usersMap.get(uid).premium = true;
-            }
+            usersMap.get(uid).premium = true;
           }
         });
 
-        premiumTotal = premiumUsersSet.size;
-        estimatedRevenue = premiumTotal * 2;
-
         const usageSnap = await getDocs(collectionGroup(db, "usage"));
-        debugLines.push(`documents usage trouvés : ${usageSnap.size}`);
+        debugLines.push(`usage trouvées : ${usageSnap.size}`);
 
         usageSnap.forEach((docSnap) => {
           const data = docSnap.data() || {};
           const pathParts = docSnap.ref.path.split("/");
           const uid = pathParts[1] || "";
+          const usageDocId = docSnap.id;
+
+          if (!uid) return;
+
+          if (!usersMap.has(uid)) {
+            usersMap.set(uid, {
+              uid,
+              email: "",
+              premium: false,
+              pdfCount: 0,
+              monthPdfCount: 0,
+              createdAt: null,
+              isNewThisMonth: false
+            });
+          }
+
           let currentCount = 0;
 
           if (typeof data.pdfCount === "number") {
@@ -552,42 +1026,67 @@
             currentCount = 1;
           }
 
-          pdfTotal += currentCount;
+          usersMap.get(uid).pdfCount += currentCount;
 
-          if (!usersMap.has(uid)) {
-            usersMap.set(uid, {
-              uid,
-              email: "",
-              premium: false,
-              pdfCount: currentCount
-            });
-          } else {
-            usersMap.get(uid).pdfCount += currentCount;
+          if (usageDocId === monthKey) {
+            usersMap.get(uid).monthPdfCount += currentCount;
           }
         });
 
-        usersCountEl.textContent = usersTotal;
-        premiumCountEl.textContent = premiumTotal;
-        pdfCountEl.textContent = pdfTotal;
-        revenueCountEl.textContent = formatMoney(estimatedRevenue);
+        const users = Array.from(usersMap.values())
+          .map((user) => ({
+            ...user,
+            isNewThisMonth: isCurrentMonth(user.createdAt)
+          }))
+          .sort((a, b) => {
+            const emailA = (a.email || "").toLowerCase();
+            const emailB = (b.email || "").toLowerCase();
+            return emailA.localeCompare(emailB);
+          });
 
-        renderUsersTable(usersMap);
+        allUsers = users;
 
-        debugLines.push(`total utilisateurs affiché : ${usersTotal}`);
-        debugLines.push(`total premium affiché : ${premiumTotal}`);
-        debugLines.push(`total pdf affiché : ${pdfTotal}`);
-        debugLines.push(`revenu estimé affiché : ${estimatedRevenue} €`);
+        renderStats(allUsers);
+        renderUsersTable();
+
+        debugLines.push(`utilisateurs finaux : ${allUsers.length}`);
+        debugLines.push(`premium finaux : ${allUsers.filter(u => u.premium).length}`);
+        debugLines.push(`pdf totaux : ${allUsers.reduce((s, u) => s + (u.pdfCount || 0), 0)}`);
+        debugLines.push(`pdf mois : ${allUsers.reduce((s, u) => s + (u.monthPdfCount || 0), 0)}`);
 
         setDebug(debugLines);
-        statusMsg.textContent = "Statistiques chargées avec succès.";
+        setStatus("Statistiques chargées avec succès.");
       } catch (error) {
         console.error("Erreur admin :", error);
-        statusMsg.textContent = "Erreur de chargement des statistiques.";
+        setStatus("Erreur de chargement des statistiques.");
         showError("Impossible de charger les données administrateur.\nVérifie Firestore, les règles et la collection admins.");
         debugLines.push(`erreur : ${error.message || error}`);
         setDebug(debugLines);
       }
     }
+
+    usersTableBody.addEventListener("click", async (event) => {
+      const premiumBtn = event.target.closest(".action-set-premium");
+      const removePremiumBtn = event.target.closest(".action-remove-premium");
+      const deleteBtn = event.target.closest(".action-delete-user");
+
+      if (premiumBtn) {
+        await setPremiumForUser(premiumBtn.dataset.uid);
+      }
+
+      if (removePremiumBtn) {
+        await removePremiumForUser(removePremiumBtn.dataset.uid);
+      }
+
+      if (deleteBtn) {
+        await deleteUserData(deleteBtn.dataset.uid);
+      }
+    });
+
+    searchInput.addEventListener("input", renderUsersTable);
+    filterSelect.addEventListener("change", renderUsersTable);
+    exportBtn.addEventListener("click", exportCsv);
+    refreshBtn.addEventListener("click", loadAdminStats);
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -596,7 +1095,8 @@
       }
 
       try {
-        statusMsg.textContent = "Vérification des droits administrateur...";
+        currentAdminUid = user.uid;
+        setStatus("Vérification des droits administrateur...");
 
         const admin = await isAdmin(user.uid);
 
@@ -609,7 +1109,7 @@
         await loadAdminStats();
       } catch (error) {
         console.error("Erreur vérification admin :", error);
-        statusMsg.textContent = "Erreur de vérification administrateur.";
+        setStatus("Erreur de vérification administrateur.");
         showError("Impossible de vérifier les droits administrateur.");
         setDebug([`erreur admin : ${error.message || error}`]);
       }
