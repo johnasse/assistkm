@@ -79,49 +79,75 @@ function saveEnfants() {
 }
 
 function saveRevenuReference() {
-  const input = el("revenuTotalReference");
-  if (!input) return;
-  localStorage.setItem(getRevenuReferenceKey(), input.value || "0");
+  localStorage.setItem(getRevenuReferenceKey(), el("revenuTotalReference")?.value || "0");
 }
 
 function loadData() {
   lignesAbattement = JSON.parse(localStorage.getItem(getLignesKey()) || "[]");
   listeEnfantsAbattementMemo = JSON.parse(localStorage.getItem(getEnfantsKey()) || "[]");
-
-  const savedRevenuRef = localStorage.getItem(getRevenuReferenceKey());
   if (el("revenuTotalReference")) {
-    el("revenuTotalReference").value = savedRevenuRef || "0";
+    el("revenuTotalReference").value = localStorage.getItem(getRevenuReferenceKey()) || "0";
   }
 }
 
 function updateSmicFields() {
   const annee = el("anneeAbattement")?.value || "2025";
   const data = SMIC_DATA[annee] || SMIC_DATA["2025"];
-
   if (el("smicAvantNov")) el("smicAvantNov").value = data.avant;
   if (el("smicApresNov")) el("smicApresNov").value = data.apres;
 }
 
-function updateAccueilPermanentState() {
-  const checkbox = el("accueilPermanent");
+function getSmicForMonth(mois) {
+  const smicAvant = Number(el("smicAvantNov")?.value || 0);
+  const smicApres = Number(el("smicApresNov")?.value || 0);
+  return Number(mois) >= 11 ? smicApres : smicAvant;
+}
+
+function getCoefficient(mode, majoration) {
+  if (mode === "permanent") {
+    return majoration ? 5 : 4;
+  }
+  return majoration ? 4 : 3;
+}
+
+function updateHeuresFieldState() {
+  const mode = el("modeAccueilLigne")?.value || "non_permanent";
   const heuresInput = el("heuresParJour");
+  if (!heuresInput) return;
 
-  if (!checkbox || !heuresInput) return;
-
-  if (checkbox.checked) {
+  if (mode === "permanent") {
     heuresInput.value = "24";
     heuresInput.disabled = true;
     heuresInput.classList.add("readonly-style");
   } else {
     heuresInput.disabled = false;
     heuresInput.classList.remove("readonly-style");
+    if (!heuresInput.value || Number(heuresInput.value) <= 0) {
+      heuresInput.value = "8";
+    }
   }
+}
+
+function calculerAbattementLigne(ligne) {
+  const smic = getSmicForMonth(ligne.mois);
+  const coefficient = getCoefficient(ligne.modeAccueil, ligne.majoration);
+
+  if (ligne.modeAccueil === "permanent") {
+    return Number(ligne.jours || 0) * smic * coefficient;
+  }
+
+  const heures = Number(ligne.heuresParJour || 0);
+
+  if (heures >= 8) {
+    return Number(ligne.jours || 0) * smic * coefficient;
+  }
+
+  return Number(ligne.jours || 0) * (heures / 8) * smic * coefficient;
 }
 
 function renderListeEnfantsAbattement() {
   const container = el("listeEnfantsAbattement");
   const select = el("enfantLigne");
-
   if (!container || !select) return;
 
   if (!listeEnfantsAbattementMemo.length) {
@@ -150,11 +176,7 @@ function renderLignesAbattement() {
   if (!tbody) return;
 
   if (!lignesAbattement.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8" class="muted">Aucune ligne enregistrée.</td>
-      </tr>
-    `;
+    tbody.innerHTML = `<tr><td colspan="9" class="muted">Aucune ligne enregistrée.</td></tr>`;
     return;
   }
 
@@ -164,31 +186,13 @@ function renderLignesAbattement() {
       <td>${MOIS_LABELS[ligne.mois] || ligne.mois}</td>
       <td>${Number(ligne.jours || 0)}</td>
       <td>${Number(ligne.heuresParJour || 0).toFixed(2)}</td>
-      <td>${ligne.permanent ? "Permanent 24h/24" : "Heures réelles"}</td>
+      <td>${ligne.modeAccueil === "permanent" ? "Permanent 24h" : "Non permanent"}</td>
+      <td>${ligne.majoration ? "Oui" : "Non"}</td>
       <td>${formatCurrency(ligne.revenu)}</td>
       <td>${formatCurrency(ligne.abattement)}</td>
-      <td>
-        <button class="btn btn-light" type="button" data-remove-ligne="${index}" style="padding:8px 12px;">Supprimer</button>
-      </td>
+      <td><button class="btn btn-light" type="button" data-remove-ligne="${index}" style="padding:8px 12px;">Supprimer</button></td>
     </tr>
   `).join("");
-}
-
-function getAbattementMultiplier() {
-  const type = el("typeAccueil")?.value || "classique";
-  return type === "handicap" ? 5 : 4;
-}
-
-function getSmicForMonth(mois) {
-  const smicAvant = Number(el("smicAvantNov")?.value || 0);
-  const smicApres = Number(el("smicApresNov")?.value || 0);
-  return Number(mois) >= 11 ? smicApres : smicAvant;
-}
-
-function calculerAbattementLigne({ mois, jours, heuresParJour }) {
-  const smic = getSmicForMonth(mois);
-  const coefficient = getAbattementMultiplier();
-  return Number(jours || 0) * Number(heuresParJour || 0) * smic * coefficient;
 }
 
 function renderDetailCalcul() {
@@ -196,8 +200,6 @@ function renderDetailCalcul() {
   if (!container) return;
 
   const revenuReference = Number(el("revenuTotalReference")?.value || 0);
-  const typeAccueil = el("typeAccueil")?.value || "classique";
-  const coefficient = getAbattementMultiplier();
 
   if (!lignesAbattement.length) {
     container.innerHTML = `<div class="muted">Aucune ligne enregistrée pour détailler le calcul.</div>`;
@@ -209,22 +211,27 @@ function renderDetailCalcul() {
 
   const details = lignesAbattement.map((ligne, index) => {
     const smic = getSmicForMonth(ligne.mois);
+    const coefficient = getCoefficient(ligne.modeAccueil, ligne.majoration);
     const abattement = Number(ligne.abattement || 0);
 
     totalAbattement += abattement;
     totalRevenusLignes += Number(ligne.revenu || 0);
 
+    let formule = "";
+    if (ligne.modeAccueil === "permanent") {
+      formule = `${ligne.jours} jour(s) × ${smic.toFixed(2)} € × coefficient ${coefficient}`;
+    } else if (Number(ligne.heuresParJour || 0) >= 8) {
+      formule = `${ligne.jours} jour(s) × ${smic.toFixed(2)} € × coefficient ${coefficient}`;
+    } else {
+      formule = `${ligne.jours} jour(s) × (${Number(ligne.heuresParJour).toFixed(2)} / 8) × ${smic.toFixed(2)} € × coefficient ${coefficient}`;
+    }
+
     return `
       <div class="detail-block">
         <div><strong>Ligne ${index + 1}</strong> — ${escapeHtml(ligne.enfant)} (${MOIS_LABELS[ligne.mois] || ligne.mois})</div>
         <div style="margin-top:6px; color:#475569;">
-          ${Number(ligne.jours || 0)} jour(s) ×
-          ${Number(ligne.heuresParJour || 0).toFixed(2)} h/j ×
-          ${Number(smic).toFixed(2)} € ×
-          coefficient ${coefficient}
-          = <strong>${abattement.toFixed(2)} €</strong>
-          <br>
-          <em>Mode : ${ligne.permanent ? "accueil permanent 24h/24" : "heures réelles"}</em>
+          ${formule} = <strong>${abattement.toFixed(2)} €</strong><br>
+          <em>Mode : ${ligne.modeAccueil === "permanent" ? "permanent 24h" : "non permanent"}${ligne.majoration ? " • majoré" : ""}</em>
         </div>
       </div>
     `;
@@ -233,14 +240,6 @@ function renderDetailCalcul() {
   const imposable = Math.max(0, revenuReference - totalAbattement);
 
   container.innerHTML = `
-    <div class="result-line">
-      <span>Type d'accueil</span>
-      <span class="strong">${typeAccueil === "handicap" ? "Handicap / majoré" : "Classique"}</span>
-    </div>
-    <div class="result-line">
-      <span>Coefficient appliqué</span>
-      <span class="strong">${coefficient}</span>
-    </div>
     <div class="result-line">
       <span>Total revenus des lignes</span>
       <span class="strong">${formatCurrency(totalRevenusLignes)}</span>
@@ -267,14 +266,9 @@ function calculerAbattement() {
 
   lignesAbattement = lignesAbattement.map((ligne) => {
     const abattement = calculerAbattementLigne(ligne);
-
     totalRevenusLignes += Number(ligne.revenu || 0);
     totalAbattement += abattement;
-
-    return {
-      ...ligne,
-      abattement
-    };
+    return { ...ligne, abattement };
   });
 
   saveLignes();
@@ -285,21 +279,10 @@ function calculerAbattement() {
 
   const imposable = Math.max(0, revenuReference - totalAbattement);
 
-  if (el("resultTotalRevenus")) {
-    el("resultTotalRevenus").textContent = formatCurrency(totalRevenusLignes);
-  }
-
-  if (el("resultRevenuReference")) {
-    el("resultRevenuReference").textContent = formatCurrency(revenuReference);
-  }
-
-  if (el("resultTotalAbattement")) {
-    el("resultTotalAbattement").textContent = formatCurrency(totalAbattement);
-  }
-
-  if (el("resultMontantImposable")) {
-    el("resultMontantImposable").textContent = formatCurrency(imposable);
-  }
+  if (el("resultTotalRevenus")) el("resultTotalRevenus").textContent = formatCurrency(totalRevenusLignes);
+  if (el("resultRevenuReference")) el("resultRevenuReference").textContent = formatCurrency(revenuReference);
+  if (el("resultTotalAbattement")) el("resultTotalAbattement").textContent = formatCurrency(totalAbattement);
+  if (el("resultMontantImposable")) el("resultMontantImposable").textContent = formatCurrency(imposable);
 
   renderDetailCalcul();
 }
@@ -307,10 +290,11 @@ function calculerAbattement() {
 function resetSaisieLigne() {
   if (el("moisLigne")) el("moisLigne").value = "1";
   if (el("joursAccueil")) el("joursAccueil").value = "0";
-  if (el("heuresParJour")) el("heuresParJour").value = "0";
+  if (el("heuresParJour")) el("heuresParJour").value = "8";
   if (el("revenuLigne")) el("revenuLigne").value = "0";
-  if (el("accueilPermanent")) el("accueilPermanent").checked = false;
-  updateAccueilPermanentState();
+  if (el("modeAccueilLigne")) el("modeAccueilLigne").value = "non_permanent";
+  if (el("majorationLigne")) el("majorationLigne").value = "non";
+  updateHeuresFieldState();
 }
 
 function ajouterEnfant() {
@@ -318,7 +302,6 @@ function ajouterEnfant() {
   if (!input) return;
 
   const nom = (input.value || "").trim();
-
   if (!nom) {
     alert("Entre un prénom d'enfant.");
     return;
@@ -332,11 +315,7 @@ function ajouterEnfant() {
   listeEnfantsAbattementMemo.push(nom);
   saveEnfants();
   renderListeEnfantsAbattement();
-
-  if (el("enfantLigne")) {
-    el("enfantLigne").value = nom;
-  }
-
+  if (el("enfantLigne")) el("enfantLigne").value = nom;
   input.value = "";
 }
 
@@ -357,8 +336,9 @@ function ajouterLigneAbattement() {
   const enfant = el("enfantLigne")?.value || "";
   const mois = Number(el("moisLigne")?.value || 1);
   const jours = Number(el("joursAccueil")?.value || 0);
-  const permanent = Boolean(el("accueilPermanent")?.checked);
-  const heuresParJour = permanent ? 24 : Number(el("heuresParJour")?.value || 0);
+  const modeAccueil = el("modeAccueilLigne")?.value || "non_permanent";
+  const majoration = (el("majorationLigne")?.value || "non") === "oui";
+  const heuresParJour = modeAccueil === "permanent" ? 24 : Number(el("heuresParJour")?.value || 0);
   const revenu = Number(el("revenuLigne")?.value || 0);
 
   if (!enfant) {
@@ -371,13 +351,8 @@ function ajouterLigneAbattement() {
     return;
   }
 
-  if (heuresParJour <= 0) {
-    alert("Le nombre d'heures par jour doit être supérieur à 0.");
-    return;
-  }
-
-  if (revenu < 0) {
-    alert("Le revenu ne peut pas être négatif.");
+  if (modeAccueil === "non_permanent" && heuresParJour <= 0) {
+    alert("Le nombre d'heures doit être supérieur à 0.");
     return;
   }
 
@@ -386,12 +361,15 @@ function ajouterLigneAbattement() {
     mois,
     jours,
     heuresParJour,
-    permanent,
+    modeAccueil,
+    majoration,
     revenu,
-    abattement: calculerAbattementLigne({ mois, jours, heuresParJour })
+    abattement: 0
   };
 
+  ligne.abattement = calculerAbattementLigne(ligne);
   lignesAbattement.push(ligne);
+
   saveLignes();
   renderLignesAbattement();
   calculerAbattement();
@@ -406,7 +384,6 @@ function supprimerLigne(index) {
 
 function viderToutesLesLignes() {
   if (!confirm("Voulez-vous vraiment vider toutes les lignes ?")) return;
-
   lignesAbattement = [];
   saveLignes();
   calculerAbattement();
@@ -422,10 +399,6 @@ function exportPdfAbattement() {
   const pdf = new jsPDF();
 
   const annee = el("anneeAbattement")?.value || "";
-  const typeAccueil = (el("typeAccueil")?.value || "classique") === "handicap"
-    ? "Handicap / majoré"
-    : "Classique";
-
   let y = 15;
 
   pdf.setFontSize(18);
@@ -434,9 +407,6 @@ function exportPdfAbattement() {
 
   pdf.setFontSize(11);
   pdf.text(`Année : ${annee}`, 14, y); y += 7;
-  pdf.text(`Type d'accueil : ${typeAccueil}`, 14, y); y += 7;
-  pdf.text(`SMIC avant novembre : ${el("smicAvantNov")?.value || "0"}`, 14, y); y += 7;
-  pdf.text(`SMIC après novembre : ${el("smicApresNov")?.value || "0"}`, 14, y); y += 7;
   pdf.text(`Revenu total de référence : ${Number(el("revenuTotalReference")?.value || 0).toFixed(2)} €`, 14, y); y += 10;
 
   pdf.setFontSize(12);
@@ -449,13 +419,11 @@ function exportPdfAbattement() {
     y += 8;
   } else {
     lignesAbattement.forEach((ligne, index) => {
-      const texte = `${index + 1}. ${ligne.enfant} - ${MOIS_LABELS[ligne.mois]} - ${ligne.jours} jour(s) - ${Number(ligne.heuresParJour).toFixed(2)} h/j - ${ligne.permanent ? "Accueil permanent" : "Heures réelles"} - revenu ${Number(ligne.revenu).toFixed(2)} € - abattement ${Number(ligne.abattement).toFixed(2)} €`;
-
+      const texte = `${index + 1}. ${ligne.enfant} - ${MOIS_LABELS[ligne.mois]} - ${ligne.jours} jour(s) - mode ${ligne.modeAccueil === "permanent" ? "permanent 24h" : "non permanent"} - ${ligne.majoration ? "majoré" : "non majoré"} - revenu ${Number(ligne.revenu).toFixed(2)} € - abattement ${Number(ligne.abattement).toFixed(2)} €`;
       const lignesTexte = pdf.splitTextToSize(texte, 180);
       pdf.setFontSize(10);
       pdf.text(lignesTexte, 14, y);
       y += lignesTexte.length * 6 + 2;
-
       if (y > 270) {
         pdf.addPage();
         y = 15;
@@ -464,7 +432,6 @@ function exportPdfAbattement() {
   }
 
   y += 6;
-
   const totalRevenus = lignesAbattement.reduce((sum, ligne) => sum + Number(ligne.revenu || 0), 0);
   const totalAbattement = lignesAbattement.reduce((sum, ligne) => sum + Number(ligne.abattement || 0), 0);
   const revenuReference = Number(el("revenuTotalReference")?.value || 0);
@@ -488,12 +455,17 @@ function bindEvents() {
     calculerAbattement();
   });
 
-  el("typeAccueil")?.addEventListener("change", calculerAbattement);
   el("smicAvantNov")?.addEventListener("input", calculerAbattement);
   el("smicApresNov")?.addEventListener("input", calculerAbattement);
   el("revenuTotalReference")?.addEventListener("input", calculerAbattement);
 
-  el("accueilPermanent")?.addEventListener("change", updateAccueilPermanentState);
+  el("modeAccueilLigne")?.addEventListener("change", () => {
+    updateHeuresFieldState();
+    calculerAbattement();
+  });
+
+  el("heuresParJour")?.addEventListener("input", calculerAbattement);
+  el("majorationLigne")?.addEventListener("change", calculerAbattement);
 
   el("btnAjouterEnfant")?.addEventListener("click", ajouterEnfant);
   el("btnAjouterLigneAbattement")?.addEventListener("click", ajouterLigneAbattement);
@@ -505,21 +477,15 @@ function bindEvents() {
   el("listeEnfantsAbattement")?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-
     const index = target.getAttribute("data-remove-enfant");
-    if (index !== null) {
-      supprimerEnfant(Number(index));
-    }
+    if (index !== null) supprimerEnfant(Number(index));
   });
 
   el("tbodyLignesAbattement")?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-
     const index = target.getAttribute("data-remove-ligne");
-    if (index !== null) {
-      supprimerLigne(Number(index));
-    }
+    if (index !== null) supprimerLigne(Number(index));
   });
 }
 
@@ -535,7 +501,7 @@ async function initModule() {
   updateSmicFields();
   loadData();
   bindEvents();
-  updateAccueilPermanentState();
+  updateHeuresFieldState();
   renderListeEnfantsAbattement();
   renderLignesAbattement();
   calculerAbattement();
