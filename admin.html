@@ -17,7 +17,7 @@
     }
 
     .page {
-      max-width: 1100px;
+      max-width: 1150px;
       margin: 0 auto;
       padding: 24px;
     }
@@ -26,7 +26,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
       flex-wrap: wrap;
       margin-bottom: 24px;
     }
@@ -38,8 +38,8 @@
     }
 
     .brand-logo {
-      width: 54px;
-      height: 54px;
+      width: 56px;
+      height: 56px;
       border-radius: 16px;
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       color: white;
@@ -75,10 +75,11 @@
       border: none;
       border-radius: 12px;
       padding: 12px 16px;
-      font-weight: bold;
+      font-weight: 700;
       cursor: pointer;
       display: inline-block;
-      transition: 0.2s;
+      transition: 0.2s ease;
+      font-size: 15px;
     }
 
     .btn-home {
@@ -143,7 +144,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 18px;
       margin-top: 20px;
     }
@@ -165,6 +166,66 @@
       font-size: 32px;
       font-weight: 800;
       color: #111827;
+    }
+
+    .stat-box .small {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 20px;
+      color: #111827;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      min-width: 760px;
+    }
+
+    th, td {
+      padding: 14px 12px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
+    }
+
+    td {
+      color: #111827;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge-premium {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-free {
+      background: #e5e7eb;
+      color: #374151;
     }
 
     .debug-box {
@@ -190,7 +251,18 @@
       line-height: 1.5;
     }
 
-    @media (max-width: 850px) {
+    .muted {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    @media (max-width: 980px) {
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 700px) {
       .stats {
         grid-template-columns: 1fr;
       }
@@ -243,7 +315,7 @@
       <h2>Bienvenue dans l’espace administrateur</h2>
       <p>Cette page affiche les statistiques globales de l’application.</p>
 
-      <div class="status" id="statusMsg">Chargement des statistiques...</div>
+      <div class="status" id="statusMsg">Vérification de l’accès administrateur...</div>
       <div class="error" id="errorMsg"></div>
     </section>
 
@@ -251,16 +323,48 @@
       <div class="stat-box">
         <div class="label">Utilisateurs</div>
         <div class="value" id="usersCount">--</div>
+        <div class="small">Nombre de comptes détectés</div>
       </div>
 
       <div class="stat-box">
         <div class="label">Abonnés premium</div>
         <div class="value" id="premiumCount">--</div>
+        <div class="small">Statuts Stripe actifs / essai</div>
       </div>
 
       <div class="stat-box">
         <div class="label">PDF générés</div>
         <div class="value" id="pdfCount">--</div>
+        <div class="small">Total cumulé relevé</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="label">Revenu mensuel estimé</div>
+        <div class="value" id="revenueCount">--</div>
+        <div class="small">Base 2 € / premium</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="section-title">Utilisateurs</h3>
+      <p class="muted" style="margin-bottom:16px;">Aperçu des comptes trouvés dans Firestore.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>UID</th>
+              <th>Premium</th>
+              <th>PDF</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="4">Chargement...</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -275,23 +379,25 @@
     import {
       onAuthStateChanged,
       signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
     import {
+      doc,
+      getDoc,
       collection,
       collectionGroup,
       getDocs
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    const ADMIN_EMAIL = "john.rombert.76@gmail.com";
+    } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
     const logoutBtn = document.getElementById("logoutBtn");
     const usersCountEl = document.getElementById("usersCount");
     const premiumCountEl = document.getElementById("premiumCount");
     const pdfCountEl = document.getElementById("pdfCount");
+    const revenueCountEl = document.getElementById("revenueCount");
     const statusMsg = document.getElementById("statusMsg");
     const errorMsg = document.getElementById("errorMsg");
     const debugOutput = document.getElementById("debugOutput");
+    const usersTableBody = document.getElementById("usersTableBody");
 
     function showError(message) {
       errorMsg.style.display = "block";
@@ -308,27 +414,94 @@
       console.log("ADMIN DEBUG\n" + lines.join("\n"));
     }
 
+    function formatMoney(value) {
+      return new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR"
+      }).format(value);
+    }
+
+    async function isAdmin(uid) {
+      const adminRef = doc(db, "admins", uid);
+      const adminSnap = await getDoc(adminRef);
+      return adminSnap.exists();
+    }
+
+    function renderUsersTable(usersMap) {
+      const rows = Array.from(usersMap.values()).sort((a, b) => {
+        const emailA = (a.email || "").toLowerCase();
+        const emailB = (b.email || "").toLowerCase();
+        return emailA.localeCompare(emailB);
+      });
+
+      if (!rows.length) {
+        usersTableBody.innerHTML = `
+          <tr>
+            <td colspan="4">Aucun utilisateur trouvé.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      usersTableBody.innerHTML = rows.map((user) => {
+        const premiumBadge = user.premium
+          ? '<span class="badge badge-premium">Premium</span>'
+          : '<span class="badge badge-free">Gratuit</span>';
+
+        return `
+          <tr>
+            <td>${user.email || "-"}</td>
+            <td>${user.uid || "-"}</td>
+            <td>${premiumBadge}</td>
+            <td>${user.pdfCount ?? 0}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
     async function loadAdminStats() {
       hideError();
       statusMsg.textContent = "Chargement des statistiques...";
 
+      const debugLines = [];
       let usersTotal = 0;
       let premiumTotal = 0;
       let pdfTotal = 0;
-      const debugLines = [];
+      let estimatedRevenue = 0;
 
       try {
+        debugLines.push("Initialisation OK");
+        debugLines.push(`DB présent : ${!!db}`);
+        debugLines.push(`Auth présent : ${!!auth}`);
+
+        const usersMap = new Map();
+
         const customersSnap = await getDocs(collection(db, "customers"));
         usersTotal = customersSnap.size;
         debugLines.push(`customers trouvés : ${customersSnap.size}`);
 
+        customersSnap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          usersMap.set(docSnap.id, {
+            uid: docSnap.id,
+            email: data.email || data.customer_email || data.userEmail || "",
+            premium: false,
+            pdfCount: 0
+          });
+        });
+
         const subsSnap = await getDocs(collectionGroup(db, "subscriptions"));
         debugLines.push(`documents subscriptions trouvés : ${subsSnap.size}`);
+
+        const premiumUsersSet = new Set();
 
         subsSnap.forEach((docSnap) => {
           const data = docSnap.data() || {};
           const status = String(data.status || "").toLowerCase();
-          debugLines.push(`subscription ${docSnap.id} → status: ${status || "(vide)"}`);
+          const pathParts = docSnap.ref.path.split("/");
+          const uid = pathParts[1] || "";
+
+          debugLines.push(`subscription ${docSnap.id} → uid: ${uid} → status: ${status || "(vide)"}`);
 
           if (
             status === "active" ||
@@ -336,50 +509,81 @@
             status === "trial" ||
             status === "paid"
           ) {
-            premiumTotal++;
+            premiumUsersSet.add(uid);
+
+            if (!usersMap.has(uid)) {
+              usersMap.set(uid, {
+                uid,
+                email: "",
+                premium: true,
+                pdfCount: 0
+              });
+            } else {
+              usersMap.get(uid).premium = true;
+            }
           }
         });
+
+        premiumTotal = premiumUsersSet.size;
+        estimatedRevenue = premiumTotal * 2;
 
         const usageSnap = await getDocs(collectionGroup(db, "usage"));
         debugLines.push(`documents usage trouvés : ${usageSnap.size}`);
 
         usageSnap.forEach((docSnap) => {
           const data = docSnap.data() || {};
+          const pathParts = docSnap.ref.path.split("/");
+          const uid = pathParts[1] || "";
+          let currentCount = 0;
 
           if (typeof data.pdfCount === "number") {
-            pdfTotal += data.pdfCount;
+            currentCount = data.pdfCount;
           } else if (typeof data.count === "number") {
-            pdfTotal += data.count;
+            currentCount = data.count;
           } else if (typeof data.total === "number") {
-            pdfTotal += data.total;
+            currentCount = data.total;
           } else if (typeof data.used === "number") {
-            pdfTotal += data.used;
+            currentCount = data.used;
           } else if (typeof data.generated === "number") {
-            pdfTotal += data.generated;
+            currentCount = data.generated;
           } else if (typeof data.pdfGenerated === "number") {
-            pdfTotal += data.pdfGenerated;
+            currentCount = data.pdfGenerated;
           } else {
-            pdfTotal += 1;
+            currentCount = 1;
+          }
+
+          pdfTotal += currentCount;
+
+          if (!usersMap.has(uid)) {
+            usersMap.set(uid, {
+              uid,
+              email: "",
+              premium: false,
+              pdfCount: currentCount
+            });
+          } else {
+            usersMap.get(uid).pdfCount += currentCount;
           }
         });
 
         usersCountEl.textContent = usersTotal;
         premiumCountEl.textContent = premiumTotal;
         pdfCountEl.textContent = pdfTotal;
+        revenueCountEl.textContent = formatMoney(estimatedRevenue);
+
+        renderUsersTable(usersMap);
 
         debugLines.push(`total utilisateurs affiché : ${usersTotal}`);
         debugLines.push(`total premium affiché : ${premiumTotal}`);
         debugLines.push(`total pdf affiché : ${pdfTotal}`);
+        debugLines.push(`revenu estimé affiché : ${estimatedRevenue} €`);
 
         setDebug(debugLines);
         statusMsg.textContent = "Statistiques chargées avec succès.";
       } catch (error) {
         console.error("Erreur admin :", error);
-        usersCountEl.textContent = usersTotal;
-        premiumCountEl.textContent = premiumTotal;
-        pdfCountEl.textContent = pdfTotal;
-        statusMsg.textContent = "Chargement partiel des statistiques.";
-        showError("Impossible de charger toutes les données.\nVérifie Firestore et les permissions.");
+        statusMsg.textContent = "Erreur de chargement des statistiques.";
+        showError("Impossible de charger les données administrateur.\nVérifie Firestore, les règles et la collection admins.");
         debugLines.push(`erreur : ${error.message || error}`);
         setDebug(debugLines);
       }
@@ -391,13 +595,24 @@
         return;
       }
 
-      if ((user.email || "").toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-        alert("Accès administrateur refusé.");
-        window.location.href = "index.html";
-        return;
-      }
+      try {
+        statusMsg.textContent = "Vérification des droits administrateur...";
 
-      await loadAdminStats();
+        const admin = await isAdmin(user.uid);
+
+        if (!admin) {
+          alert("Accès administrateur refusé.");
+          window.location.href = "index.html";
+          return;
+        }
+
+        await loadAdminStats();
+      } catch (error) {
+        console.error("Erreur vérification admin :", error);
+        statusMsg.textContent = "Erreur de vérification administrateur.";
+        showError("Impossible de vérifier les droits administrateur.");
+        setDebug([`erreur admin : ${error.message || error}`]);
+      }
     });
 
     logoutBtn.addEventListener("click", async () => {
