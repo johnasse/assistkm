@@ -59,6 +59,14 @@ function getSignatureNameKey() {
   return `signatureKilometriqueName_${getUid()}`;
 }
 
+function getCarteGriseDataKey() {
+  return `carteGriseKilometriqueData_${getUid()}`;
+}
+
+function getCarteGriseNameKey() {
+  return `carteGriseKilometriqueName_${getUid()}`;
+}
+
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 49.7579, lng: 0.3746 },
@@ -106,6 +114,7 @@ async function loadUserDataIfReady() {
   loadSavedInfos();
   loadBaremes();
   loadSignatureInfo();
+  loadCarteGriseInfo();
   await loadProfileData();
 
   renderDeplacements();
@@ -247,6 +256,13 @@ function bindEvents() {
 
   document.getElementById("signatureFile")?.addEventListener("change", handleSignatureChange);
   document.getElementById("btnClearSignature")?.addEventListener("click", clearSignature);
+
+  document.getElementById("btnCarteGrise")?.addEventListener("click", () => {
+    document.getElementById("carteGriseFile")?.click();
+  });
+
+  document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
+  document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
 }
 
 function updateBaremesLockUI() {
@@ -593,7 +609,7 @@ function renderDeplacements() {
       <td>${escapeHtml(item.depart)}</td>
       <td>${escapeHtml(item.lieuRdv)}</td>
       <td>${item.km.toFixed(1).replace(".", ",")}</td>
-      <td><button class="table-action-btn" data-id="${item.id}">Supprimer</button></td>
+      <td><button class="btn btn-danger table-action-btn" data-id="${item.id}">Supprimer</button></td>
     `;
     body.appendChild(tr);
   });
@@ -1086,6 +1102,56 @@ function clearSignature() {
   localStorage.removeItem(getSignatureNameKey());
   loadSignatureInfo();
   showToast("Signature supprimée");
+}
+
+function loadCarteGriseInfo() {
+  const carteData = localStorage.getItem(getCarteGriseDataKey());
+  const carteName = localStorage.getItem(getCarteGriseNameKey()) || "";
+  const info = document.getElementById("carteGriseInfo");
+  const preview = document.getElementById("carteGrisePreview");
+
+  if (!info || !preview) return;
+
+  if (carteData) {
+    info.textContent = carteName ? `Carte grise enregistrée : ${carteName}` : "Carte grise enregistrée";
+
+    if (isImageDataUrl(carteData)) {
+      preview.src = carteData;
+      preview.style.display = "block";
+    } else {
+      preview.src = "";
+      preview.style.display = "none";
+    }
+  } else {
+    info.textContent = "";
+    preview.src = "";
+    preview.style.display = "none";
+  }
+}
+
+async function handleCarteGriseChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const data = await fileToBase64(file);
+    localStorage.setItem(getCarteGriseDataKey(), data);
+    localStorage.setItem(getCarteGriseNameKey(), file.name);
+    loadCarteGriseInfo();
+    showToast("Carte grise enregistrée");
+  } catch (error) {
+    console.error("Erreur lecture carte grise :", error);
+    alert("Impossible de lire le fichier de carte grise.");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function clearCarteGrise() {
+  localStorage.removeItem(getCarteGriseDataKey());
+  localStorage.removeItem(getCarteGriseNameKey());
+  loadCarteGriseInfo();
+  showToast("Carte grise supprimée");
 }
 
 window.initMap = initMap;
