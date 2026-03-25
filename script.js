@@ -14,10 +14,10 @@ let totalAmount = 0;
 
 let deplacements = [];
 let currentUid = null;
+let currentProfile = null;
 let mapReady = false;
 let eventsBound = false;
 let baremesUnlocked = false;
-let currentProfile = null;
 
 const DEFAULT_BAREMES = {
   3: 0.529,
@@ -96,6 +96,8 @@ function initMap() {
   loadUserDataIfReady();
 }
 
+window.initMap = initMap;
+
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = "connexion.html";
@@ -138,7 +140,7 @@ async function loadProfileData() {
     currentProfile = snap.data() || {};
     applyProfileToKilometrique();
   } catch (error) {
-    console.error("Erreur chargement profil :", error);
+    console.error("Erreur chargement profil kilométrique :", error);
   }
 }
 
@@ -206,7 +208,6 @@ function populateChildrenSuggestions(children) {
   if (!datalist) return;
 
   datalist.innerHTML = "";
-
   children.forEach((child) => {
     const option = document.createElement("option");
     option.value = child;
@@ -253,14 +254,12 @@ function bindEvents() {
   document.getElementById("btnSignature")?.addEventListener("click", () => {
     document.getElementById("signatureFile")?.click();
   });
-
   document.getElementById("signatureFile")?.addEventListener("change", handleSignatureChange);
   document.getElementById("btnClearSignature")?.addEventListener("click", clearSignature);
 
   document.getElementById("btnCarteGrise")?.addEventListener("click", () => {
     document.getElementById("carteGriseFile")?.click();
   });
-
   document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
   document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
 }
@@ -301,12 +300,15 @@ function loadSavedInfos() {
   const assistantNom = localStorage.getItem(getAssistantNomKey());
   const moisEtat = localStorage.getItem(getMoisEtatKey());
 
+  const domicileInput = document.getElementById("domicile");
+  const savedMsg = document.getElementById("domicileSaved");
+
   if (domicile) {
-    document.getElementById("domicile").value = domicile;
-    document.getElementById("domicileSaved").textContent = "Domicile chargé automatiquement.";
+    domicileInput.value = domicile;
+    if (savedMsg) savedMsg.textContent = "Domicile chargé automatiquement.";
   } else {
-    document.getElementById("domicile").value = "";
-    document.getElementById("domicileSaved").textContent = "";
+    domicileInput.value = "";
+    if (savedMsg) savedMsg.textContent = "";
   }
 
   document.getElementById("assistantNom").value = assistantNom || "";
@@ -491,8 +493,7 @@ function calculerTrajet() {
     document.getElementById("distanceTotale").textContent =
       totalDistanceKm.toFixed(1).replace(".", ",") + " km";
 
-    document.getElementById("tempsTotal").textContent =
-      formatDuration(totalDurationSeconds);
+    document.getElementById("tempsTotal").textContent = formatDuration(totalDurationSeconds);
 
     document.getElementById("montantTotal").textContent =
       totalAmount.toFixed(2).replace(".", ",") + " €";
@@ -551,7 +552,6 @@ function ajouterDeplacement() {
   const heureDebut = document.getElementById("heureDebut").value;
   const heureFin = document.getElementById("heureFin").value;
   const depart = document.getElementById("depart").value.trim();
-  const professionnel = document.getElementById("professionnel").value.trim();
 
   const destinations = [...document.querySelectorAll(".destination-input")]
     .map((input) => input.value.trim())
@@ -572,7 +572,7 @@ function ajouterDeplacement() {
     heureDebut,
     heureFin,
     depart,
-    professionnel,
+    professionnel: document.getElementById("professionnel").value.trim(),
     lieuRdv,
     km: Number(totalDistanceKm.toFixed(1)),
     montant: Number(totalAmount.toFixed(2))
@@ -665,11 +665,6 @@ async function genererPDFMensuel() {
 
   const allowed = await requirePdfAccess();
   if (!allowed) return;
-
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    alert("La librairie PDF n'est pas chargée.");
-    return;
-  }
 
   const { jsPDF } = window.jspdf;
   const docPdf = new jsPDF("landscape", "mm", "a4");
@@ -1045,17 +1040,6 @@ function escapeHtmlAttr(str) {
     .replaceAll(">", "&gt;");
 }
 
-function ouvrirCamera() {
-  const justificatif = document.getElementById("justificatif");
-  if (justificatif) {
-    justificatif.click();
-  }
-}
-
-function isImageFile(file) {
-  return Boolean(file && file.type && file.type.startsWith("image/"));
-}
-
 function isImageDataUrl(data) {
   return typeof data === "string" && data.startsWith("data:image/");
 }
@@ -1117,7 +1101,7 @@ async function handleSignatureChange(event) {
   const file = event.target.files?.[0];
   if (!file) return;
 
-  if (!isImageFile(file)) {
+  if (!(file.type && file.type.startsWith("image/"))) {
     alert("Merci de choisir une image JPG ou PNG pour la signature.");
     event.target.value = "";
     return;
@@ -1193,6 +1177,3 @@ function clearCarteGrise() {
   loadCarteGriseInfo();
   showToast("Carte grise supprimée");
 }
-
-window.initMap = initMap;
-window.ouvrirCamera = ouvrirCamera;
