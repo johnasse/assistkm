@@ -40,7 +40,7 @@
 
         <div class="field">
           <label for="enfantScolaire">Nom de l’enfant</label>
-          <input type="text" id="enfantScolaire" placeholder="Ex. Rudy" />
+          <input type="text" id="enfantScolaire" list="profileChildrenList" placeholder="Ex. Rudy" />
         </div>
 
         <div class="field">
@@ -89,6 +89,8 @@
           <small id="nomJustificatifScolaire" class="saved-msg"></small>
         </div>
       </div>
+
+      <datalist id="profileChildrenList"></datalist>
 
       <div class="actions">
         <button class="btn btn-success" type="button" id="btnAjouterScolaire">Ajouter la dépense</button>
