@@ -680,6 +680,7 @@ async function genererPDFMensuel() {
   const baremes = getBaremesFromInputs();
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const signatureData = localStorage.getItem(getSignatureDataKey());
+  const carteGriseData = localStorage.getItem(getCarteGriseDataKey());
 
   const margin = 10;
   let y = 14;
@@ -834,7 +835,46 @@ async function genererPDFMensuel() {
     }
   }
 
-  y += 18;
+  y += 22;
+
+  if (carteGriseData && isImageDataUrl(carteGriseData)) {
+    if (y > 150) {
+      docPdf.addPage("landscape", "a4");
+      y = 20;
+    }
+
+    docPdf.setFont("helvetica", "bold");
+    docPdf.setFontSize(10);
+    docPdf.text("Carte grise du véhicule :", margin, y);
+
+    y += 6;
+
+    try {
+      const convertedCarte = await convertImageDataUrlToJpeg(carteGriseData, 0.92);
+
+      let imgWidth = 90;
+      let imgHeight = (convertedCarte.height / convertedCarte.width) * imgWidth;
+
+      if (imgHeight > 55) {
+        imgHeight = 55;
+        imgWidth = (convertedCarte.width / convertedCarte.height) * imgHeight;
+      }
+
+      docPdf.addImage(
+        convertedCarte.dataUrl,
+        "JPEG",
+        margin,
+        y,
+        imgWidth,
+        imgHeight
+      );
+
+      y += imgHeight + 8;
+    } catch (error) {
+      console.error("Erreur ajout carte grise PDF :", error);
+    }
+  }
+
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Barèmes kilométriques utilisés", margin, y);
 
