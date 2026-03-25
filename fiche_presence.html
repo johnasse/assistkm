@@ -297,32 +297,6 @@
       font-size: 24px;
     }
 
-    .history-box {
-      margin-top: 16px;
-      border: 1px solid #e5e7eb;
-      border-radius: 14px;
-      overflow: hidden;
-    }
-
-    .history-item {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px 12px;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 13px;
-    }
-
-    .history-item:last-child {
-      border-bottom: none;
-    }
-
-    .history-empty {
-      padding: 14px;
-      color: #6b7280;
-      font-size: 13px;
-    }
-
     .signature-preview-wrap {
       margin-top: 10px;
       display: none;
@@ -399,7 +373,6 @@
       .legend,
       .small-note,
       .toast,
-      #historySection,
       .signature-preview-wrap,
       .signature-controls,
       .remove-child-btn {
@@ -448,7 +421,7 @@
         <div class="logo">EF</div>
         <div>
           <h1>Fiche de présence</h1>
-          <p>Présence au domicile + relais + PDF + profil + signature + enfants dynamiques</p>
+          <p>Présence au domicile + relais + PDF + historique + signature</p>
         </div>
       </div>
 
@@ -462,7 +435,6 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="presence">Présence au domicile</button>
       <button class="tab-btn" data-tab="relais">Relais mois précédent</button>
-      <button class="tab-btn" data-tab="history">Historique local</button>
     </div>
 
     <section id="tab-presence" class="tab-panel active">
@@ -513,11 +485,7 @@
             </div>
 
             <div id="signaturePreviewWrap" class="signature-preview-wrap">
-              <img
-                id="signaturePreview"
-                class="signature-preview"
-                alt="Aperçu signature"
-              />
+              <img id="signaturePreview" class="signature-preview" alt="Aperçu signature" />
             </div>
           </div>
         </div>
@@ -589,19 +557,6 @@
         </div>
       </div>
     </section>
-
-    <section id="tab-history" class="tab-panel">
-      <div class="card" id="historySection">
-        <h2>Historique local</h2>
-        <p>Les PDF générés sont enregistrés localement dans le navigateur.</p>
-
-        <div class="toolbar">
-          <button type="button" class="btn btn-danger" id="btnClearHistory">Vider l’historique</button>
-        </div>
-
-        <div class="history-box" id="historyList"></div>
-      </div>
-    </section>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -614,7 +569,6 @@
     import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
     const STORAGE_KEY = "presenceModuleEasyFrais";
-    const HISTORY_KEY = "easyfraisHistory";
     const MIN_PRESENCE_ROWS = 4;
     const MAX_PRESENCE_ROWS = 12;
 
@@ -1073,7 +1027,6 @@
 
       document.getElementById("btnSaveModule").addEventListener("click", saveModule);
       document.getElementById("btnPdfPresence").addEventListener("click", generatePresencePdf);
-      document.getElementById("btnClearHistory").addEventListener("click", clearHistory);
     }
 
     function fillFromState() {
@@ -1200,52 +1153,6 @@
       }
     }
 
-    function getHistory() {
-      try {
-        return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-      } catch {
-        return [];
-      }
-    }
-
-    function addToHistory(entry) {
-      const history = getHistory();
-      history.unshift(entry);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 50)));
-      renderHistory();
-    }
-
-    function clearHistory() {
-      localStorage.removeItem(HISTORY_KEY);
-      renderHistory();
-      showToast("Historique vidé");
-    }
-
-    function renderHistory() {
-      const box = document.getElementById("historyList");
-      if (!box) return;
-
-      const history = getHistory();
-
-      if (!history.length) {
-        box.innerHTML = '<div class="history-empty">Aucun PDF enregistré pour le moment.</div>';
-        return;
-      }
-
-      box.innerHTML = history.map((item) => `
-        <div class="history-item">
-          <div>
-            <strong>${escapeHtml(item.module || "Module")}</strong><br>
-            Mois : ${escapeHtml(item.mois || "")}
-          </div>
-          <div style="text-align:right;">
-            ${escapeHtml(item.date || "")}<br>
-            ${escapeHtml(item.fileName || "")}
-          </div>
-        </div>
-      `).join("");
-    }
-
     function formatMonthLabel(monthValue) {
       if (!monthValue) return "";
       const [year, month] = monthValue.split("-");
@@ -1275,6 +1182,28 @@
       } catch (error) {
         console.error("Erreur ajout signature PDF :", error);
       }
+    }
+
+    function addPdfToGlobalHistory(blob, fileName, monthLabel) {
+      if (!currentUser) return;
+
+      const storageKey = `historiquePDF_${currentUser.uid}`;
+      const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        historique.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          mois: monthLabel,
+          nom: fileName,
+          data: reader.result,
+          dateGeneration: new Date().toLocaleString("fr-FR"),
+          type: "Fiche de présence"
+        });
+
+        localStorage.setItem(storageKey, JSON.stringify(historique));
+      };
+      reader.readAsDataURL(blob);
     }
 
     function generatePresencePdf() {
@@ -1399,14 +1328,10 @@
       addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, relayBottomY + 20, 55, 18);
 
       const fileName = `fiche_presence_${state.presence.month || "sans_mois"}.pdf`;
-      pdf.save(fileName);
+      const pdfBlob = pdf.output("blob");
 
-      addToHistory({
-        module: "Fiche présence",
-        mois: monthLabel,
-        date: new Date().toLocaleDateString("fr-FR"),
-        fileName
-      });
+      addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
+      pdf.save(fileName);
 
       showToast("PDF généré et ajouté à l’historique");
     }
@@ -1424,6 +1349,11 @@
     onAuthStateChanged(auth, async (user) => {
       currentUser = user || null;
 
+      if (!currentUser) {
+        window.location.href = "connexion.html";
+        return;
+      }
+
       loadModule();
       normalizeStateShape();
       initDefaults();
@@ -1432,7 +1362,6 @@
       bindLegendsOnce();
       bindFields();
       fillFromState();
-      renderHistory();
 
       await loadProfile();
     });
