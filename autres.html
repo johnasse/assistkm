@@ -41,7 +41,7 @@
 
         <div class="field">
           <label for="enfantAutres">Nom de l’enfant</label>
-          <input type="text" id="enfantAutres" placeholder="Ex. Rudy" />
+          <input type="text" id="enfantAutres" list="profileChildrenList" placeholder="Ex. Rudy" />
         </div>
 
         <div class="field">
@@ -75,13 +75,15 @@
             style="display:none;"
           />
 
-         <label for="justificatifAutres" class="btn btn-secondary" id="btnPhotoAutres">
-  📷 Ajouter photo ou facture
-</label>
+          <label for="justificatifAutres" class="btn btn-secondary" id="btnPhotoAutres">
+            📷 Ajouter photo ou facture
+          </label>
 
           <small id="nomJustificatifAutres" class="saved-msg"></small>
         </div>
       </div>
+
+      <datalist id="profileChildrenList"></datalist>
 
       <div class="actions">
         <button class="btn btn-success" type="button" id="btnAjouterAutres">Ajouter la dépense</button>

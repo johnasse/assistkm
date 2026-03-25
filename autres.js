@@ -1,10 +1,11 @@
-import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
-import { auth } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 let fraisAutres = [];
 let uid = null;
+let currentUser = null;
 let eventsBound = false;
 
 const $ = (id) => document.getElementById(id);
@@ -17,6 +18,13 @@ function getDefaultMonthValue() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${now.getFullYear()}-${month}`;
+}
+
+function formatMonthLabel(monthValue) {
+  if (!monthValue) return "";
+  const [year, month] = monthValue.split("-");
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
 function saveData() {
@@ -280,6 +288,29 @@ async function ajouterImagesAuPdf(pdf) {
   }
 }
 
+function addPdfToGlobalHistory(blob, fileName, monthLabel) {
+  if (!currentUser) return;
+
+  const storageKey = `historiquePDF_${currentUser.uid}`;
+  const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+  const reader = new FileReader();
+  reader.onloadend = function () {
+    historique.push({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      mois: monthLabel,
+      nom: fileName,
+      data: reader.result,
+      dateGeneration: new Date().toLocaleString("fr-FR"),
+      type: "Autres frais"
+    });
+
+    localStorage.setItem(storageKey, JSON.stringify(historique));
+  };
+
+  reader.readAsDataURL(blob);
+}
+
 async function genererPDF() {
   if (!fraisAutres.length) {
     alert("Aucune dépense à exporter.");
@@ -325,15 +356,46 @@ async function genererPDF() {
 
   await ajouterImagesAuPdf(pdf);
 
-  const filename = `autres_${new Date().toISOString().slice(0, 10)}.pdf`;
+  const fileName = `autres_${new Date().toISOString().slice(0, 10)}.pdf`;
+  const pdfBlob = pdf.output("blob");
 
-  savePdfToHistory(pdf, {
-    mois: formatMonthLabel(mois),
-    nom: filename,
-    type: "Autres frais"
-  });
+  addPdfToGlobalHistory(pdfBlob, fileName, formatMonthLabel(mois));
+  pdf.save(fileName);
+}
 
-  pdf.save(filename);
+async function loadProfileAutres() {
+  if (!currentUser) return;
+
+  try {
+    const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
+    const snap = await getDoc(profileRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data() || {};
+    const profileName = String(data.fullName || "").trim();
+    const children = String(data.childrenList || "")
+      .split(/\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const assistantInput = $("assistantNomAutres");
+    if (assistantInput && !assistantInput.value.trim() && profileName) {
+      assistantInput.value = profileName;
+      localStorage.setItem(`assistantNomAutres_${uid}`, assistantInput.value.trim());
+    }
+
+    const datalist = $("profileChildrenList");
+    if (datalist) {
+      datalist.innerHTML = "";
+      children.forEach((child) => {
+        const option = document.createElement("option");
+        option.value = child;
+        datalist.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error("Erreur chargement profil autres :", error);
+  }
 }
 
 function bindEvents() {
@@ -355,12 +417,13 @@ function bindEvents() {
   });
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = "login.html";
+    window.location.href = "connexion.html";
     return;
   }
 
+  currentUser = user;
   uid = user.uid;
 
   $("assistantNomAutres").value =
@@ -374,4 +437,5 @@ onAuthStateChanged(auth, (user) => {
   loadData();
   bindEvents();
   render();
+  await loadProfileAutres();
 });
