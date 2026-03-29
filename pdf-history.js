@@ -1,70 +1,30 @@
-import { auth } from "./firebase-config.js";
-
-function getUid(){
-  return auth.currentUser?.uid || "guest";
-}
-
-function getHistoryKey(){
-  return `historiquePDF_${getUid()}`;
-}
-
-export function formatMonthLabel(value){
-
-  if(!value) return "-";
-
-  if(/^\d{4}$/.test(value)){
-    return value;
-  }
-
-  const match=String(value).match(/^(\d{4})-(\d{2})$/);
-  if(!match) return value;
-
-  const[,year,month]=match;
-
-  const months=[
-  "janvier","février","mars","avril","mai","juin",
-  "juillet","août","septembre","octobre","novembre","décembre"
+export function formatMonthLabel(monthStr) {
+  if (!monthStr) return "-";
+  const [year, month] = monthStr.split("-");
+  const months = [
+    "Janvier","Février","Mars","Avril","Mai","Juin",
+    "Juillet","Août","Septembre","Octobre","Novembre","Décembre"
   ];
-
-  return `${months[Number(month)-1]} ${year}`;
-
+  return `${months[Number(month) - 1]} ${year}`;
 }
 
-export function savePdfToHistory(doc,options={}){
+export async function savePdfToHistory(docPdf, info) {
+  try {
+    const historiqueKey = "historiquePDF";
 
-  try{
+    let historique = JSON.parse(localStorage.getItem(historiqueKey) || "[]");
 
-    const historique=JSON.parse(
-      localStorage.getItem(getHistoryKey())||"[]"
-    );
+    historique.push({
+      nom: info.nom,
+      mois: info.mois,
+      type: info.type,
+      date: new Date().toLocaleDateString("fr-FR")
+    });
 
-    const item={
+    localStorage.setItem(historiqueKey, JSON.stringify(historique));
 
-      id:Date.now()+Math.floor(Math.random()*1000),
-      mois:options.mois||"-",
-      nom:options.nom||"document.pdf",
-      type:options.type||"Non classé",
-
-      data:doc.output("datauristring"),
-
-      dateGeneration:new Date().toLocaleString("fr-FR")
-
-    };
-
-    historique.push(item);
-
-    localStorage.setItem(
-      getHistoryKey(),
-      JSON.stringify(historique)
-    );
-
-    return true;
-
-  }catch(error){
-
-    console.error("Erreur historique PDF :",error);
-    return false;
-
+    console.log("PDF enregistré dans historique");
+  } catch (error) {
+    console.error("Erreur historique PDF :", error);
   }
-
 }
