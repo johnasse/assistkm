@@ -96,7 +96,9 @@ function initGoogleServicesIfAvailable() {
 
     bindAutocomplete(document.getElementById("domicile"));
     bindAutocomplete(document.getElementById("depart"));
-    document.querySelectorAll(".destination-input").forEach((input) => bindAutocomplete(input));
+    document.querySelectorAll(".destination-input").forEach((input) => {
+      bindAutocomplete(input);
+    });
 
     return true;
   } catch (error) {
@@ -928,11 +930,15 @@ async function genererPDFMensuel() {
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
 
-  savePdfToHistory(docPdf, {
-    mois: formatMonthLabel(moisEtat),
-    nom: fileName,
-    type: "Frais kilométriques"
-  });
+  try {
+    await savePdfToHistory(docPdf, {
+      mois: formatMonthLabel(moisEtat),
+      nom: fileName,
+      type: "Frais kilométriques"
+    });
+  } catch (error) {
+    console.error("Erreur enregistrement historique :", error);
+  }
 
   docPdf.save(fileName);
   showToast("PDF mensuel généré et enregistré");
