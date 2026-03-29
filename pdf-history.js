@@ -1,3 +1,5 @@
+import { auth } from "./firebase-config.js";
+
 export function formatMonthLabel(monthStr) {
   if (!monthStr) return "-";
   const [year, month] = monthStr.split("-");
@@ -10,20 +12,24 @@ export function formatMonthLabel(monthStr) {
 
 export async function savePdfToHistory(docPdf, info) {
   try {
-    const historiqueKey = "historiquePDF";
+    const user = auth.currentUser;
+    const uid = user ? user.uid : "guest";
+
+    const historiqueKey = `historiquePDF_${uid}`;
 
     let historique = JSON.parse(localStorage.getItem(historiqueKey) || "[]");
 
     historique.push({
+      id: Date.now(),
       nom: info.nom,
       mois: info.mois,
       type: info.type,
-      date: new Date().toLocaleDateString("fr-FR")
+      dateGeneration: new Date().toLocaleString("fr-FR")
     });
 
     localStorage.setItem(historiqueKey, JSON.stringify(historique));
 
-    console.log("PDF enregistré dans historique");
+    console.log("PDF enregistré dans historique :", historiqueKey);
   } catch (error) {
     console.error("Erreur historique PDF :", error);
   }
