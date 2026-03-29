@@ -319,7 +319,7 @@
     .signature-preview {
       display: none;
       max-width: 220px;
-      max-height: 90px;
+      max-height: 120px;
       margin-top: 12px;
       border: 1px solid #d1d5db;
       border-radius: 10px;
@@ -355,6 +355,12 @@
 
     .mt-16 {
       margin-top: 16px;
+    }
+
+    #map {
+      display: none;
+      width: 100%;
+      height: 1px;
     }
 
     @media (max-width: 900px) {
@@ -545,6 +551,8 @@
         <button class="btn btn-success" type="button" id="btnAjouterDeplacement">Ajouter le déplacement</button>
         <button class="btn btn-secondary" type="button" id="btnReset">Réinitialiser</button>
       </div>
+
+      <div id="map"></div>
     </section>
 
     <section class="card result-box">

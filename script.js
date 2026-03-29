@@ -4,9 +4,9 @@ import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-let map;
-let directionsService;
-let directionsRenderer;
+let map = null;
+let directionsService = null;
+let directionsRenderer = null;
 
 let totalDistanceKm = 0;
 let totalDurationSeconds = 0;
@@ -15,9 +15,9 @@ let totalAmount = 0;
 let deplacements = [];
 let currentUid = null;
 let currentProfile = null;
-let mapReady = false;
 let eventsBound = false;
 let baremesUnlocked = false;
+let googleInitAttempted = false;
 
 const DEFAULT_BAREMES = {
   3: 0.529,
@@ -67,23 +67,45 @@ function getCarteGriseNameKey() {
   return `carteGriseKilometriqueName_${getUid()}`;
 }
 
-function initMap() {
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 49.7579, lng: 0.3746 },
-    zoom: 10
-  });
+function isGoogleMapsAvailable() {
+  return !!(window.google && google.maps && google.maps.DirectionsService);
+}
 
-  directionsService = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({
-    map,
-    suppressMarkers: false
-  });
+function initGoogleServicesIfAvailable() {
+  if (!isGoogleMapsAvailable()) return false;
+  if (googleInitAttempted && directionsService) return true;
 
-  mapReady = true;
+  googleInitAttempted = true;
 
-  bindAutocomplete(document.getElementById("domicile"));
-  bindAutocomplete(document.getElementById("depart"));
+  try {
+    const mapElement = document.getElementById("map");
 
+    if (mapElement) {
+      map = new google.maps.Map(mapElement, {
+        center: { lat: 49.7579, lng: 0.3746 },
+        zoom: 10
+      });
+
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map,
+        suppressMarkers: false
+      });
+    }
+
+    directionsService = new google.maps.DirectionsService();
+
+    bindAutocomplete(document.getElementById("domicile"));
+    bindAutocomplete(document.getElementById("depart"));
+    document.querySelectorAll(".destination-input").forEach((input) => bindAutocomplete(input));
+
+    return true;
+  } catch (error) {
+    console.error("Erreur initialisation Google Maps :", error);
+    return false;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
   if (document.querySelectorAll(".destination-input").length === 0) {
     addDestination();
   }
@@ -93,10 +115,8 @@ function initMap() {
     eventsBound = true;
   }
 
-  loadUserDataIfReady();
-}
-
-window.initMap = initMap;
+  initGoogleServicesIfAvailable();
+});
 
 onAuthStateChanged(auth, (user) => {
   if (!user) {
@@ -105,11 +125,11 @@ onAuthStateChanged(auth, (user) => {
   }
 
   currentUid = user.uid;
-  loadUserDataIfReady();
+  loadUserData();
 });
 
-async function loadUserDataIfReady() {
-  if (!mapReady || !currentUid) return;
+async function loadUserData() {
+  if (!currentUid) return;
 
   deplacements = JSON.parse(localStorage.getItem(getDeplacementsKey()) || "[]");
 
@@ -124,6 +144,8 @@ async function loadUserDataIfReady() {
 
   baremesUnlocked = false;
   updateBaremesLockUI();
+
+  initGoogleServicesIfAvailable();
 }
 
 async function loadProfileData() {
@@ -187,6 +209,7 @@ function applyProfileToKilometrique() {
 
 function parseFiscalPower(value) {
   if (!value) return 7;
+
   const match = String(value).match(/\d+/);
   if (!match) return 7;
 
@@ -244,7 +267,11 @@ function bindEvents() {
   document.getElementById("btnPdfMensuel")?.addEventListener("click", genererPDFMensuel);
   document.getElementById("btnViderListe")?.addEventListener("click", viderListe);
   document.getElementById("departDomicile")?.addEventListener("change", toggleDepartDomicile);
-  document.getElementById("domicile")?.addEventListener("input", syncDepartIfNeeded);
+  document.getElementById("domicile")?.addEventListener("input", () => {
+    syncDepartIfNeeded();
+    initGoogleServicesIfAvailable();
+    bindAutocomplete(document.getElementById("domicile"));
+  });
   document.getElementById("assistantNom")?.addEventListener("input", saveAssistantNom);
   document.getElementById("moisEtat")?.addEventListener("change", saveMoisEtat);
   document.getElementById("btnSaveBaremes")?.addEventListener("click", saveBaremes);
@@ -289,10 +316,14 @@ function toggleBaremesLock() {
 function bindAutocomplete(input) {
   if (!input || !window.google?.maps?.places) return;
 
-  new google.maps.places.Autocomplete(input, {
-    types: ["geocode"],
-    componentRestrictions: { country: "fr" }
-  });
+  try {
+    new google.maps.places.Autocomplete(input, {
+      types: ["geocode"],
+      componentRestrictions: { country: "fr" }
+    });
+  } catch (error) {
+    console.error("Erreur autocomplete :", error);
+  }
 }
 
 function loadSavedInfos() {
@@ -327,6 +358,7 @@ function loadSavedInfos() {
 
 function loadBaremes() {
   const saved = JSON.parse(localStorage.getItem(getBaremesKey()) || "null");
+
   const baremes = {
     3: Number(saved?.[3] ?? DEFAULT_BAREMES[3]),
     4: Number(saved?.[4] ?? DEFAULT_BAREMES[4]),
@@ -451,55 +483,6 @@ function syncDepartIfNeeded() {
   }
 }
 
-function calculerTrajet() {
-  const depart = document.getElementById("depart").value.trim();
-  const domicile = document.getElementById("domicile").value.trim();
-  const retourDomicile = document.getElementById("retourDomicile").checked;
-  const destinations = [...document.querySelectorAll(".destination-input")]
-    .map((input) => input.value.trim())
-    .filter(Boolean);
-
-  if (!depart) {
-    alert("Merci de renseigner l'adresse de départ.");
-    return;
-  }
-
-  if (destinations.length === 0) {
-    alert("Merci d'ajouter au moins une destination.");
-    return;
-  }
-
-  const request = buildRouteRequest(depart, destinations, retourDomicile, domicile);
-  if (!request) return;
-
-  directionsService.route(request, (result, status) => {
-    if (status !== "OK") {
-      alert("Impossible de calculer le trajet : " + status);
-      return;
-    }
-
-    directionsRenderer.setDirections(result);
-
-    totalDistanceKm = 0;
-    totalDurationSeconds = 0;
-
-    result.routes[0].legs.forEach((leg) => {
-      totalDistanceKm += leg.distance.value / 1000;
-      totalDurationSeconds += leg.duration.value;
-    });
-
-    totalAmount = calculBareme(totalDistanceKm, Number(document.getElementById("cv").value));
-
-    document.getElementById("distanceTotale").textContent =
-      totalDistanceKm.toFixed(1).replace(".", ",") + " km";
-
-    document.getElementById("tempsTotal").textContent = formatDuration(totalDurationSeconds);
-
-    document.getElementById("montantTotal").textContent =
-      totalAmount.toFixed(2).replace(".", ",") + " €";
-  });
-}
-
 function buildRouteRequest(depart, destinations, retourDomicile, domicile) {
   if (retourDomicile) {
     if (!domicile) {
@@ -538,6 +521,64 @@ function buildRouteRequest(depart, destinations, retourDomicile, domicile) {
     travelMode: google.maps.TravelMode.DRIVING,
     optimizeWaypoints: false
   };
+}
+
+function calculerTrajet() {
+  initGoogleServicesIfAvailable();
+
+  if (!directionsService) {
+    alert("Le calcul d’itinéraire Google Maps n’est pas disponible sur cette page.");
+    return;
+  }
+
+  const depart = document.getElementById("depart").value.trim();
+  const domicile = document.getElementById("domicile").value.trim();
+  const retourDomicile = document.getElementById("retourDomicile").checked;
+  const destinations = [...document.querySelectorAll(".destination-input")]
+    .map((input) => input.value.trim())
+    .filter(Boolean);
+
+  if (!depart) {
+    alert("Merci de renseigner l'adresse de départ.");
+    return;
+  }
+
+  if (destinations.length === 0) {
+    alert("Merci d'ajouter au moins une destination.");
+    return;
+  }
+
+  const request = buildRouteRequest(depart, destinations, retourDomicile, domicile);
+  if (!request) return;
+
+  directionsService.route(request, (result, status) => {
+    if (status !== "OK") {
+      alert("Impossible de calculer le trajet : " + status);
+      return;
+    }
+
+    if (directionsRenderer) {
+      directionsRenderer.setDirections(result);
+    }
+
+    totalDistanceKm = 0;
+    totalDurationSeconds = 0;
+
+    result.routes[0].legs.forEach((leg) => {
+      totalDistanceKm += leg.distance.value / 1000;
+      totalDurationSeconds += leg.duration.value;
+    });
+
+    totalAmount = calculBareme(totalDistanceKm, Number(document.getElementById("cv").value));
+
+    document.getElementById("distanceTotale").textContent =
+      totalDistanceKm.toFixed(1).replace(".", ",") + " km";
+
+    document.getElementById("tempsTotal").textContent = formatDuration(totalDurationSeconds);
+
+    document.getElementById("montantTotal").textContent =
+      totalAmount.toFixed(2).replace(".", ",") + " €";
+  });
 }
 
 function ajouterDeplacement() {
