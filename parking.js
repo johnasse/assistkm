@@ -1,40 +1,44 @@
-import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
-import { auth } from "./firebase-config.js";
-import { requirePdfAccess } from "./premium.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-let fraisFormation = [];
-let uid = null;
-let eventsBound = false;
+const STORAGE_KEY = "parkingModuleEasyFrais";
 
-const $ = (id) => document.getElementById(id);
+let currentUser = null;
+let entries = [];
+let justificatifDataUrl = "";
 
-function getStorageKey() {
-  return `formation_${uid}`;
+const moisInput = document.getElementById("moisParking");
+const assistantInput = document.getElementById("assistantNomParking");
+const dateInput = document.getElementById("dateParking");
+const enfantInput = document.getElementById("enfantParking");
+const typeInput = document.getElementById("typeParking");
+const lieuInput = document.getElementById("lieuParking");
+const objetInput = document.getElementById("objetParking");
+const montantInput = document.getElementById("montantParking");
+const justificatifInput = document.getElementById("justificatifParking");
+const btnPhoto = document.getElementById("btnPhotoParking");
+const nomJustificatif = document.getElementById("nomJustificatifParking");
+
+const btnAjouter = document.getElementById("btnAjouterParking");
+const btnReset = document.getElementById("btnResetParking");
+const btnPdf = document.getElementById("btnPdfParking");
+const btnVider = document.getElementById("btnViderParking");
+
+const body = document.getElementById("parkingBody");
+const totalLignes = document.getElementById("totalLignesParking");
+const totalMontant = document.getElementById("totalMontantParking");
+const toast = document.getElementById("toastParking");
+
+function showToast(message) {
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2200);
 }
 
-function getDefaultMonthValue() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  return `${now.getFullYear()}-${month}`;
-}
-
-function saveData() {
-  localStorage.setItem(getStorageKey(), JSON.stringify(fraisFormation));
-}
-
-function loadData() {
-  fraisFormation = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
-}
-
-function formatDateFr(dateStr) {
-  if (!dateStr) return "-";
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function escapeHtml(str) {
-  return String(str || "")
+function escapeHtml(value) {
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -42,336 +46,385 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+function formatMoney(value) {
+  return `${Number(value || 0).toFixed(2).replace(".", ",")} €`;
 }
 
-function isImageFile(file) {
-  return Boolean(file && file.type && file.type.startsWith("image/"));
+function getCurrentMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function updateNomJustificatif() {
-  const file = $("justificatifFormation").files[0];
-  $("nomJustificatifFormation").textContent = file ? `Fichier sélectionné : ${file.name}` : "";
+function getMonthLabel(monthValue) {
+  if (!monthValue) return "";
+  const [year, month] = monthValue.split("-");
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+}
+
+function getFileNameMonth(monthValue) {
+  return monthValue || getCurrentMonthValue();
+}
+
+function saveModule() {
+  const payload = {
+    mois: moisInput?.value || "",
+    assistantNom: assistantInput?.value || "",
+    entries
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadModule() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+    entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
+
+    if (moisInput && parsed?.mois) moisInput.value = parsed.mois;
+    if (assistantInput && parsed?.assistantNom) assistantInput.value = parsed.assistantNom;
+  } catch (error) {
+    console.error("Erreur chargement parking :", error);
+  }
 }
 
 function resetForm() {
-  $("dateFormation").value = "";
-  $("organismeFormation").value = "";
-  $("typeFormation").value = "";
-  $("lieuFormation").value = "";
-  $("objetFormation").value = "";
-  $("montantFormation").value = "";
-  $("justificatifFormation").value = "";
-  $("nomJustificatifFormation").textContent = "";
+  if (dateInput) dateInput.value = "";
+  if (enfantInput) enfantInput.value = "";
+  if (typeInput) typeInput.value = "";
+  if (lieuInput) lieuInput.value = "";
+  if (objetInput) objetInput.value = "";
+  if (montantInput) montantInput.value = "";
+  if (justificatifInput) justificatifInput.value = "";
+  justificatifDataUrl = "";
+  if (nomJustificatif) nomJustificatif.textContent = "";
 }
 
 function getTotal() {
-  return fraisFormation.reduce((sum, item) => sum + Number(item.montant || 0), 0);
+  return entries.reduce((sum, item) => sum + Number(item.montant || 0), 0);
 }
 
-async function ajouterFrais() {
-  const date = $("dateFormation").value;
-  const organisme = $("organismeFormation").value.trim();
-  const type = $("typeFormation").value;
-  const lieu = $("lieuFormation").value.trim();
-  const objet = $("objetFormation").value.trim();
-  const montant = parseFloat($("montantFormation").value);
-  const file = $("justificatifFormation").files[0] || null;
+function renderTable() {
+  if (!body) return;
 
-  if (!date || !organisme || !type || !lieu || !objet || Number.isNaN(montant) || montant <= 0) {
-    alert("Merci de remplir tous les champs correctement.");
-    return;
-  }
-
-  let justificatif = null;
-
-  if (file) {
-    if (!isImageFile(file)) {
-      alert("Pour le moment, seuls les justificatifs image sont acceptés.");
-      return;
-    }
-
-    try {
-      justificatif = {
-        name: file.name,
-        type: file.type,
-        data: await fileToBase64(file)
-      };
-    } catch (error) {
-      console.error("Erreur lecture justificatif formation :", error);
-      alert("Impossible de lire le justificatif image.");
-      return;
-    }
-  }
-
-  fraisFormation.push({
-    id: Date.now(),
-    date,
-    organisme,
-    type,
-    lieu,
-    objet,
-    montant: Number(montant.toFixed(2)),
-    justificatif
-  });
-
-  saveData();
-  render();
-  resetForm();
-}
-
-function voirJustificatif(id) {
-  const item = fraisFormation.find((x) => x.id === id);
-
-  if (!item?.justificatif?.data) {
-    alert("Justificatif introuvable.");
-    return;
-  }
-
-  const win = window.open();
-  if (!win) {
-    alert("Impossible d’ouvrir le justificatif.");
-    return;
-  }
-
-  win.document.write(`
-    <html>
-      <head><title>${escapeHtml(item.justificatif.name || "Justificatif")}</title></head>
-      <body style="margin:0;display:flex;justify-content:center;align-items:center;background:#111;">
-        <img src="${item.justificatif.data}" style="max-width:100%;max-height:100vh;" />
-      </body>
-    </html>
-  `);
-  win.document.close();
-}
-
-function supprimerFrais(id) {
-  fraisFormation = fraisFormation.filter((x) => x.id !== id);
-  saveData();
-  render();
-}
-
-function viderListe() {
-  if (!fraisFormation.length) return;
-  if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
-
-  fraisFormation = [];
-  saveData();
-  render();
-}
-
-function render() {
-  const body = $("formationBody");
-  body.innerHTML = "";
-
-  if (!fraisFormation.length) {
-    body.innerHTML = `<tr><td colspan="8" class="empty-cell">Aucune dépense enregistrée</td></tr>`;
-    $("totalLignesFormation").textContent = "0";
-    $("totalMontantFormation").textContent = "0,00 €";
-    return;
-  }
-
-  fraisFormation.forEach((item) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${formatDateFr(item.date)}</td>
-      <td>${escapeHtml(item.type)}</td>
-      <td>${escapeHtml(item.organisme)}</td>
-      <td>${escapeHtml(item.lieu)}</td>
-      <td>${escapeHtml(item.objet)}</td>
-      <td>${item.montant.toFixed(2).replace(".", ",")} €</td>
-      <td>
-        ${item.justificatif?.data
-          ? `<button class="table-action-btn btn-view" data-id="${item.id}">Voir</button>`
-          : "Aucun"}
-      </td>
-      <td>
-        <button class="table-action-btn btn-delete" data-id="${item.id}">Supprimer</button>
-      </td>
+  if (!entries.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="8" class="empty-cell">Aucune dépense enregistrée</td>
+      </tr>
     `;
-    body.appendChild(tr);
-  });
-
-  body.querySelectorAll(".btn-delete").forEach((btn) => {
-    btn.addEventListener("click", () => supprimerFrais(Number(btn.dataset.id)));
-  });
-
-  body.querySelectorAll(".btn-view").forEach((btn) => {
-    btn.addEventListener("click", () => voirJustificatif(Number(btn.dataset.id)));
-  });
-
-  $("totalLignesFormation").textContent = String(fraisFormation.length);
-  $("totalMontantFormation").textContent = `${getTotal().toFixed(2).replace(".", ",")} €`;
-}
-
-async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
-  const img = new Image();
-  img.src = dataUrl;
-
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-  });
-
-  const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth || img.width;
-  canvas.height = img.naturalHeight || img.height;
-
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0);
-
-  return {
-    dataUrl: canvas.toDataURL("image/jpeg", quality),
-    width: canvas.width,
-    height: canvas.height
-  };
-}
-
-async function ajouterImagesAuPdf(pdf) {
-  for (const item of fraisFormation) {
-    if (!item.justificatif?.data) continue;
-
-    try {
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-
-      pdf.addPage();
-      pdf.setFontSize(13);
-      pdf.text("Justificatif", margin, 12);
-
-      pdf.setFontSize(10);
-      const meta = `${formatDateFr(item.date)} - ${item.type} - ${item.organisme} - ${item.lieu} - ${item.objet}`;
-      const lines = pdf.splitTextToSize(meta, pageWidth - margin * 2);
-      pdf.text(lines, margin, 22);
-
-      const startY = 22 + lines.length * 5 + 6;
-      const converted = await convertImageDataUrlToJpeg(item.justificatif.data);
-
-      const maxWidth = pageWidth - margin * 2;
-      const maxHeight = pageHeight - startY - margin;
-
-      let imgWidth = converted.width;
-      let imgHeight = converted.height;
-
-      const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
-      imgWidth *= ratio;
-      imgHeight *= ratio;
-
-      pdf.addImage(
-        converted.dataUrl,
-        "JPEG",
-        (pageWidth - imgWidth) / 2,
-        startY,
-        imgWidth,
-        imgHeight
-      );
-    } catch (error) {
-      console.error("Erreur ajout image PDF formation :", error);
-    }
+  } else {
+    body.innerHTML = entries.map((item) => `
+      <tr>
+        <td>${escapeHtml(item.date || "-")}</td>
+        <td>${escapeHtml(item.enfant || "-")}</td>
+        <td>${escapeHtml(item.type || "-")}</td>
+        <td>${escapeHtml(item.lieu || "-")}</td>
+        <td>${escapeHtml(item.objet || "-")}</td>
+        <td>${formatMoney(item.montant)}</td>
+        <td>${item.justificatifName ? "Oui" : "-"}</td>
+        <td>
+          <button type="button" class="table-action-btn btn-delete-entry" data-id="${escapeHtml(String(item.id))}">
+            Supprimer
+          </button>
+        </td>
+      </tr>
+    `).join("");
   }
+
+  if (totalLignes) totalLignes.textContent = String(entries.length);
+  if (totalMontant) totalMontant.textContent = formatMoney(getTotal());
+
+  document.querySelectorAll(".btn-delete-entry").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = Number(btn.dataset.id);
+      entries = entries.filter((item) => item.id !== id);
+      saveModule();
+      renderTable();
+      showToast("Dépense supprimée");
+    });
+  });
 }
 
-async function genererPDF() {
-  if (!fraisFormation.length) {
-    alert("Aucune dépense à exporter.");
+function validateForm() {
+  if (!dateInput?.value) {
+    alert("Merci de renseigner la date.");
+    return false;
+  }
+
+  if (!enfantInput?.value.trim()) {
+    alert("Merci de renseigner le nom de l’enfant.");
+    return false;
+  }
+
+  if (!typeInput?.value.trim()) {
+    alert("Merci de choisir le type de frais.");
+    return false;
+  }
+
+  if (!lieuInput?.value.trim()) {
+    alert("Merci de renseigner le lieu.");
+    return false;
+  }
+
+  if (!objetInput?.value.trim()) {
+    alert("Merci de renseigner l’objet / description.");
+    return false;
+  }
+
+  if (!montantInput?.value || Number(montantInput.value) <= 0) {
+    alert("Merci de renseigner un montant valide.");
+    return false;
+  }
+
+  return true;
+}
+
+function addEntry() {
+  if (!validateForm()) return;
+
+  const entry = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    date: dateInput.value,
+    enfant: enfantInput.value.trim(),
+    type: typeInput.value.trim(),
+    lieu: lieuInput.value.trim(),
+    objet: objetInput.value.trim(),
+    montant: Number(montantInput.value),
+    justificatifDataUrl,
+    justificatifName: justificatifInput?.files?.[0]?.name || ""
+  };
+
+  entries.push(entry);
+  saveModule();
+  renderTable();
+  resetForm();
+  showToast("Dépense ajoutée");
+}
+
+function clearAllEntries() {
+  if (!entries.length) {
+    showToast("Aucune dépense à supprimer");
     return;
   }
 
-  const allowed = await requirePdfAccess();
-  if (!allowed) return;
+  const ok = confirm("Voulez-vous vraiment vider toute la liste des frais de parking ?");
+  if (!ok) return;
+
+  entries = [];
+  saveModule();
+  renderTable();
+  showToast("Liste vidée");
+}
+
+function dataUriToUint8Array(dataUri) {
+  const parts = String(dataUri || "").split(",");
+  if (parts.length < 2) {
+    throw new Error("Data URI invalide");
+  }
+
+  const base64 = parts[1];
+  const raw = atob(base64);
+  const uint8Array = new Uint8Array(raw.length);
+
+  for (let i = 0; i < raw.length; i += 1) {
+    uint8Array[i] = raw.charCodeAt(i);
+  }
+
+  return uint8Array;
+}
+
+function addPdfToGlobalHistory(blob, fileName, monthLabel) {
+  if (!currentUser) return;
+
+  const historyKey = `historiquePDF_${currentUser.uid}`;
+  const historique = JSON.parse(localStorage.getItem(historyKey) || "[]");
+
+  const reader = new FileReader();
+  reader.onloadend = function () {
+    historique.push({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      mois: monthLabel,
+      nom: fileName,
+      data: reader.result,
+      dateGeneration: new Date().toLocaleString("fr-FR"),
+      type: "Frais de parking"
+    });
+
+    localStorage.setItem(historyKey, JSON.stringify(historique));
+  };
+  reader.readAsDataURL(blob);
+}
+
+async function generatePdf() {
+  if (!entries.length) {
+    alert("Ajoute au moins une dépense avant de générer le PDF.");
+    return;
+  }
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF();
+  const pdf = new jsPDF("p", "mm", "a4");
 
-  const assistant = $("assistantNomFormation").value.trim() || "-";
-  const mois = $("moisFormation").value || "";
+  const moisValue = moisInput?.value || getCurrentMonthValue();
+  const moisLabel = getMonthLabel(moisValue);
+  const assistantNom = assistantInput?.value?.trim() || "";
   const total = getTotal();
 
-  let y = 12;
+  let y = 15;
 
-  pdf.setFontSize(14);
-  pdf.text("Frais de formation", 10, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(16);
+  pdf.text("ETAT DE FRAIS - PARKING", 105, y, { align: "center" });
+
   y += 10;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(11);
+  pdf.text(`Mois : ${moisLabel}`, 14, y);
+  pdf.text(`Assistant familial : ${assistantNom || "-"}`, 14, y + 7);
 
-  pdf.setFontSize(10);
-  pdf.text(`Assistant : ${assistant}`, 10, y);
-  y += 6;
-  pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
+  y += 18;
+
+  const colX = {
+    date: 10,
+    enfant: 32,
+    type: 64,
+    lieu: 95,
+    objet: 126,
+    montant: 170
+  };
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFillColor(230, 235, 245);
+  pdf.rect(10, y, 190, 8, "F");
+  pdf.text("Date", colX.date + 2, y + 5.5);
+  pdf.text("Enfant", colX.enfant + 2, y + 5.5);
+  pdf.text("Type", colX.type + 2, y + 5.5);
+  pdf.text("Lieu", colX.lieu + 2, y + 5.5);
+  pdf.text("Objet", colX.objet + 2, y + 5.5);
+  pdf.text("Montant", colX.montant + 2, y + 5.5);
+
   y += 10;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
 
-  fraisFormation.forEach((item) => {
-    const line = `${formatDateFr(item.date)} - ${item.type} - ${item.organisme} - ${item.lieu} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`;
-    const lines = pdf.splitTextToSize(line, 180);
-    pdf.text(lines, 10, y);
-    y += lines.length * 6 + 2;
-
+  for (const item of entries) {
     if (y > 270) {
       pdf.addPage();
-      y = 12;
+      y = 15;
     }
-  });
+
+    pdf.text(String(item.date || "-"), colX.date + 2, y);
+    pdf.text(String(item.enfant || "-").slice(0, 18), colX.enfant + 2, y);
+    pdf.text(String(item.type || "-").slice(0, 18), colX.type + 2, y);
+    pdf.text(String(item.lieu || "-").slice(0, 18), colX.lieu + 2, y);
+    pdf.text(String(item.objet || "-").slice(0, 22), colX.objet + 2, y);
+    pdf.text(formatMoney(item.montant), colX.montant + 2, y);
+
+    y += 7;
+  }
 
   y += 4;
-  pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(11);
+  pdf.text(`Nombre de dépenses : ${entries.length}`, 14, y);
+  pdf.text(`Total : ${formatMoney(total)}`, 140, y);
 
-  await ajouterImagesAuPdf(pdf);
+  const fileName = `parking_${getFileNameMonth(moisValue)}.pdf`;
+  const pdfBlob = pdf.output("blob");
 
-  const filename = `formation_${new Date().toISOString().slice(0, 10)}.pdf`;
+  addPdfToGlobalHistory(pdfBlob, fileName, moisLabel);
+  pdf.save(fileName);
+  showToast("PDF généré et ajouté à l’historique");
+}
 
-  savePdfToHistory(pdf, {
-    mois: formatMonthLabel(mois),
-    nom: filename,
-    type: "Formation"
-  });
+async function loadProfileParking() {
+  if (!currentUser) return;
 
-  pdf.save(filename);
+  try {
+    const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
+    const snap = await getDoc(profileRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data() || {};
+    const profileName = String(data.fullName || "").trim();
+    const children = String(data.childrenList || "")
+      .split(/\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (assistantInput && !assistantInput.value.trim() && profileName) {
+      assistantInput.value = profileName;
+      saveModule();
+    }
+
+    const datalist = document.getElementById("profileChildrenList");
+    if (datalist) {
+      datalist.innerHTML = "";
+      children.forEach((child) => {
+        const option = document.createElement("option");
+        option.value = child;
+        datalist.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error("Erreur chargement profil parking :", error);
+  }
 }
 
 function bindEvents() {
-  if (eventsBound) return;
-  eventsBound = true;
+  if (btnPhoto && justificatifInput) {
+    btnPhoto.addEventListener("click", () => justificatifInput.click());
+  }
 
-  $("btnAjouterFormation").addEventListener("click", ajouterFrais);
-  $("btnResetFormation").addEventListener("click", resetForm);
-  $("btnPdfFormation").addEventListener("click", genererPDF);
-  $("btnViderFormation").addEventListener("click", viderListe);
-  $("justificatifFormation").addEventListener("change", updateNomJustificatif);
+  if (justificatifInput) {
+    justificatifInput.addEventListener("change", () => {
+      const file = justificatifInput.files?.[0];
+      if (!file) {
+        justificatifDataUrl = "";
+        if (nomJustificatif) nomJustificatif.textContent = "";
+        return;
+      }
 
-  $("assistantNomFormation").addEventListener("input", () => {
-    localStorage.setItem(`assistantNomFormation_${uid}`, $("assistantNomFormation").value.trim());
-  });
+      if (nomJustificatif) nomJustificatif.textContent = file.name;
 
-  $("moisFormation").addEventListener("change", () => {
-    localStorage.setItem(`moisFormation_${uid}`, $("moisFormation").value);
-  });
+      const reader = new FileReader();
+      reader.onload = () => {
+        justificatifDataUrl = reader.result || "";
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (btnAjouter) btnAjouter.addEventListener("click", addEntry);
+  if (btnReset) btnReset.addEventListener("click", resetForm);
+  if (btnPdf) btnPdf.addEventListener("click", generatePdf);
+  if (btnVider) btnVider.addEventListener("click", clearAllEntries);
+
+  if (moisInput) {
+    moisInput.addEventListener("change", saveModule);
+  }
+
+  if (assistantInput) {
+    assistantInput.addEventListener("input", saveModule);
+  }
 }
 
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.href = "login.html";
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user || null;
+
+  if (!currentUser) {
+    window.location.href = "connexion.html";
     return;
   }
 
-  uid = user.uid;
+  if (moisInput && !moisInput.value) {
+    moisInput.value = getCurrentMonthValue();
+  }
 
-  $("assistantNomFormation").value =
-    localStorage.getItem(`assistantNomFormation_${uid}`) ||
-    localStorage.getItem(`assistantNom_${uid}`) ||
-    "";
-
-  $("moisFormation").value =
-    localStorage.getItem(`moisFormation_${uid}`) || getDefaultMonthValue();
-
-  loadData();
+  loadModule();
+  renderTable();
   bindEvents();
-  render();
+  await loadProfileParking();
 });

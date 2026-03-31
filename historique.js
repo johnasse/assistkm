@@ -18,7 +18,7 @@ bindHistoriqueEvents();
 
 onAuthStateChanged(auth, (user) => {
   if (!user) {
-    window.location.href = "login.html";
+    window.location.href = "connexion.html";
     return;
   }
 
@@ -28,33 +28,13 @@ onAuthStateChanged(auth, (user) => {
 });
 
 function bindHistoriqueEvents() {
-  if (filtreType) {
-    filtreType.addEventListener("change", renderHistorique);
-  }
-
-  if (filtreMois) {
-    filtreMois.addEventListener("input", renderHistorique);
-  }
-
-  if (filtreRecherche) {
-    filtreRecherche.addEventListener("input", renderHistorique);
-  }
-
-  if (btnResetFiltres) {
-    btnResetFiltres.addEventListener("click", resetFiltres);
-  }
-
-  if (btnMergeSelected) {
-    btnMergeSelected.addEventListener("click", fusionnerSelection);
-  }
-
-  if (btnSelectAll) {
-    btnSelectAll.addEventListener("click", cocherToutVisible);
-  }
-
-  if (btnUnselectAll) {
-    btnUnselectAll.addEventListener("click", decocherToutVisible);
-  }
+  if (filtreType) filtreType.addEventListener("change", renderHistorique);
+  if (filtreMois) filtreMois.addEventListener("input", renderHistorique);
+  if (filtreRecherche) filtreRecherche.addEventListener("input", renderHistorique);
+  if (btnResetFiltres) btnResetFiltres.addEventListener("click", resetFiltres);
+  if (btnMergeSelected) btnMergeSelected.addEventListener("click", fusionnerSelection);
+  if (btnSelectAll) btnSelectAll.addEventListener("click", cocherToutVisible);
+  if (btnUnselectAll) btnUnselectAll.addEventListener("click", decocherToutVisible);
 }
 
 function resetFiltres() {
@@ -66,51 +46,45 @@ function resetFiltres() {
 
 function getDocumentType(item) {
   if (item.type && String(item.type).trim() !== "") {
+    if (String(item.type).startsWith("Fusion")) return "Fusion";
     return item.type;
   }
 
   const nom = String(item.nom || "").toLowerCase();
 
+  if (nom.includes("fiche_presence") || nom.includes("presence")) {
+    return "Fiche de présence";
+  }
   if (nom.includes("kilometrique") || nom.includes("deplacements")) {
     return "Frais kilométriques";
   }
-
   if (nom.includes("parking")) {
     return "Frais de parking";
   }
-
   if (nom.includes("habillement")) {
     return "Habillement";
   }
-
   if (nom.includes("abattement")) {
     return "Abattement";
   }
-
   if (nom.includes("formation")) {
     return "Formation";
   }
-
   if (nom.includes("noel")) {
     return "Frais de Noël";
   }
-
   if (nom.includes("scolaire")) {
     return "Frais scolaires";
   }
-
   if (nom.includes("loisir") || nom.includes("sports")) {
     return "Sports et loisirs";
   }
-
   if (nom.includes("autres")) {
     return "Autres frais";
   }
-
   if (nom.includes("note")) {
     return "Note de frais";
   }
-
   if (nom.includes("fusion")) {
     return "Fusion";
   }
@@ -236,7 +210,6 @@ function decocherToutVisible() {
 
 function getSelectedItems() {
   const checkedIds = [...document.querySelectorAll(".pdf-checkbox:checked")].map((cb) => String(cb.dataset.id));
-
   return getHistoriqueFiltre().filter((item) => checkedIds.includes(String(item.id)) && item.data);
 }
 
@@ -261,7 +234,6 @@ async function fusionnerSelection() {
       const bytes = dataUriToUint8Array(item.data);
       const pdf = await PDFDocument.load(bytes);
       const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-
       pages.forEach((page) => mergedPdf.addPage(page));
     }
 

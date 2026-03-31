@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vacances avec enfants confiés</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #111827;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 800;
+    }
+
+    .center-title {
+      flex: 1;
+      text-align: center;
+    }
+
+    .back-link {
+      text-decoration: none;
+      color: #2563eb;
+      font-weight: 700;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 14px;
+      font-size: 24px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      font-size: 15px;
+    }
+
+    .field textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .children-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .child-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .child-row input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      font-size: 15px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #111827; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-danger { background: #dc2626; color: white; }
+
+    .signature-preview {
+      display: none;
+      max-width: 220px;
+      max-height: 90px;
+      margin-top: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: white;
+      padding: 6px;
+    }
+
+    .signature-info {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #16a34a;
+      font-weight: 600;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #111827;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.2s ease;
+      z-index: 9999;
+      font-weight: 600;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .center-title {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-bar">
+      <a href="index.html" class="back-link">← Accueil</a>
+      <h1 class="page-title center-title">Vacances avec enfants confiés</h1>
+    </div>
+
+    <section class="card">
+      <h2>Informations générales</h2>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="assistantNomAvec">Nom et prénom de l’assistant familial</label>
+          <input type="text" id="assistantNomAvec" placeholder="Nom / prénom" />
+        </div>
+
+        <div class="field">
+          <label for="moisAvec">Mois</label>
+          <input type="month" id="moisAvec" />
+        </div>
+
+        <div class="field">
+          <label for="dateDepartAvec">Date de départ</label>
+          <input type="date" id="dateDepartAvec" />
+        </div>
+
+        <div class="field">
+          <label for="dateRetourAvec">Date de retour</label>
+          <input type="date" id="dateRetourAvec" />
+        </div>
+
+        <div class="field">
+          <label for="destinationAvec">Lieu de destination</label>
+          <input type="text" id="destinationAvec" placeholder="Ex. Camping à Dieppe / Espagne / Bretagne..." />
+        </div>
+
+        <div class="field">
+          <label for="transportAvec">Moyen de transport</label>
+          <input type="text" id="transportAvec" placeholder="Ex. Voiture / Train / Avion..." />
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:16px;">
+        <label>Enfants concernés</label>
+        <div id="childrenListAvec" class="children-list"></div>
+        <datalist id="profileChildrenListAvec"></datalist>
+
+        <div class="actions">
+          <button class="btn btn-secondary" type="button" id="btnAddChildAvec">Ajouter un enfant</button>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:16px;">
+        <label for="commentaireAvec">Observations</label>
+        <textarea id="commentaireAvec" placeholder="Informations complémentaires..."></textarea>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Signature</h2>
+
+      <div class="actions">
+        <button class="btn btn-secondary" type="button" id="btnSignatureAvec">Importer une signature</button>
+        <button class="btn btn-danger" type="button" id="btnClearSignatureAvec">Supprimer la signature</button>
+      </div>
+
+      <input type="file" id="signatureFileAvec" accept="image/*" style="display:none;" />
+      <div id="signatureInfoAvec" class="signature-info"></div>
+      <img id="signaturePreviewAvec" class="signature-preview" alt="Aperçu signature" />
+    </section>
+
+    <section class="card">
+      <h2>Actions</h2>
+      <div class="actions">
+        <button class="btn btn-secondary" type="button" id="btnSaveAvec">Enregistrer</button>
+        <button class="btn btn-success" type="button" id="btnPdfAvec">Générer PDF</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="toastAvec" class="toast">Action effectuée</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="conges-avec-enfants.js"></script>
+</body>
+</html>

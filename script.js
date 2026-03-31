@@ -67,6 +67,66 @@ function getCarteGriseNameKey() {
   return `carteGriseKilometriqueName_${getUid()}`;
 }
 
+function getDestinationsKey() {
+  return `destinationsKilometrique_${getUid()}`;
+}
+
+function normalizeDestination(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function ensureDestinationsDatalist() {
+  let datalist = document.getElementById("destinationsSuggestions");
+
+  if (!datalist) {
+    datalist = document.createElement("datalist");
+    datalist.id = "destinationsSuggestions";
+    document.body.appendChild(datalist);
+  }
+
+  return datalist;
+}
+
+function saveDestinationToHistory(destination) {
+  const normalized = normalizeDestination(destination);
+  if (!normalized) return;
+
+  const list = JSON.parse(localStorage.getItem(getDestinationsKey()) || "[]");
+  const exists = list.some((item) => item.toLowerCase() === normalized.toLowerCase());
+
+  if (!exists) {
+    list.push(normalized);
+    list.sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+    localStorage.setItem(getDestinationsKey(), JSON.stringify(list));
+  }
+}
+
+function loadDestinationsSuggestions() {
+  const datalist = ensureDestinationsDatalist();
+  const list = JSON.parse(localStorage.getItem(getDestinationsKey()) || "[]");
+
+  datalist.innerHTML = "";
+
+  list.forEach((dest) => {
+    const option = document.createElement("option");
+    option.value = dest;
+    datalist.appendChild(option);
+  });
+
+  document.querySelectorAll(".destination-input").forEach((input) => {
+    input.setAttribute("list", "destinationsSuggestions");
+  });
+}
+
+function saveCurrentDestinationsToHistory() {
+  const destinations = [...document.querySelectorAll(".destination-input")]
+    .map((input) => normalizeDestination(input.value))
+    .filter(Boolean);
+
+  destinations.forEach(saveDestinationToHistory);
+  loadDestinationsSuggestions();
+}
+
 function isGoogleMapsAvailable() {
   return !!(window.google && google.maps && google.maps.DirectionsService);
 }
@@ -139,6 +199,7 @@ async function loadUserData() {
   loadBaremes();
   loadSignatureInfo();
   loadCarteGriseInfo();
+  loadDestinationsSuggestions();
   await loadProfileData();
 
   renderDeplacements();
@@ -248,15 +309,20 @@ function useServiceAddressAsDestination() {
     return;
   }
 
+  const normalized = normalizeDestination(serviceAddress);
   const destinationInputs = [...document.querySelectorAll(".destination-input")];
   const emptyInput = destinationInputs.find((input) => !input.value.trim());
 
   if (emptyInput) {
-    emptyInput.value = serviceAddress;
+    emptyInput.value = normalized;
+    saveDestinationToHistory(normalized);
+    loadDestinationsSuggestions();
     return;
   }
 
-  addDestination(serviceAddress);
+  addDestination(normalized);
+  saveDestinationToHistory(normalized);
+  loadDestinationsSuggestions();
 }
 
 function bindEvents() {
@@ -422,10 +488,12 @@ function addDestination(value = "") {
   const container = document.getElementById("destinations");
   const index = container.querySelectorAll(".dest-row").length + 1;
 
+  ensureDestinationsDatalist();
+
   const row = document.createElement("div");
   row.className = "dest-row";
   row.innerHTML = `
-    <input type="text" class="destination-input" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
+    <input type="text" class="destination-input" list="destinationsSuggestions" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
     <button type="button" class="btn btn-danger">Supprimer</button>
   `;
 
@@ -436,6 +504,24 @@ function addDestination(value = "") {
 
   bindAutocomplete(input);
 
+  input.addEventListener("change", () => {
+    const normalized = normalizeDestination(input.value);
+    if (normalized) {
+      input.value = normalized;
+      saveDestinationToHistory(normalized);
+      loadDestinationsSuggestions();
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    const normalized = normalizeDestination(input.value);
+    if (normalized) {
+      input.value = normalized;
+      saveDestinationToHistory(normalized);
+      loadDestinationsSuggestions();
+    }
+  });
+
   btnDelete.addEventListener("click", () => {
     row.remove();
     refreshDestinationPlaceholders();
@@ -444,6 +530,8 @@ function addDestination(value = "") {
       addDestination();
     }
   });
+
+  loadDestinationsSuggestions();
 }
 
 function refreshDestinationPlaceholders() {
@@ -537,7 +625,7 @@ function calculerTrajet() {
   const domicile = document.getElementById("domicile").value.trim();
   const retourDomicile = document.getElementById("retourDomicile").checked;
   const destinations = [...document.querySelectorAll(".destination-input")]
-    .map((input) => input.value.trim())
+    .map((input) => normalizeDestination(input.value))
     .filter(Boolean);
 
   if (!depart) {
@@ -597,13 +685,15 @@ function ajouterDeplacement() {
   const depart = document.getElementById("depart").value.trim();
 
   const destinations = [...document.querySelectorAll(".destination-input")]
-    .map((input) => input.value.trim())
+    .map((input) => normalizeDestination(input.value))
     .filter(Boolean);
 
   if (!enfant || !motif || !dateTrajet || !depart || destinations.length === 0) {
     alert("Merci de remplir les informations principales avant d'ajouter le déplacement.");
     return;
   }
+
+  saveCurrentDestinationsToHistory();
 
   const lieuRdv = destinations.join(" / ");
 

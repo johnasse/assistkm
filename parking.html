@@ -41,7 +41,12 @@
 
         <div class="field">
           <label for="enfantParking">Nom de l’enfant</label>
-          <input type="text" id="enfantParking" placeholder="Ex. Rudy" />
+          <input
+            type="text"
+            id="enfantParking"
+            list="profileChildrenList"
+            placeholder="Ex. Rudy"
+          />
         </div>
 
         <div class="field">
@@ -90,6 +95,8 @@
           <small id="nomJustificatifParking" class="saved-msg"></small>
         </div>
       </div>
+
+      <datalist id="profileChildrenList"></datalist>
 
       <div class="actions">
         <button class="btn btn-success" type="button" id="btnAjouterParking">Ajouter la dépense</button>
