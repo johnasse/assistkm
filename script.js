@@ -903,6 +903,7 @@ async function genererPDFMensuel() {
 
     const rowLines = rowValues.map((value, i) => {
       const col = cols[i];
+
       if (
         col.key === "dateTrajet" ||
         col.key === "heureDebut" ||
@@ -990,52 +991,66 @@ async function genererPDFMensuel() {
     }
   }
 
-  y += 22;
+  docPdf.setFont("helvetica", "bold");
+  docPdf.text("Barèmes kilométriques utilisés", margin, Math.min(y + 25, 185));
+
+  let yBareme = Math.min(y + 32, 192);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, margin, yBareme);
+  yBareme += 5.5;
+  docPdf.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, margin, yBareme);
+  yBareme += 5.5;
+  docPdf.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, margin, yBareme);
+  yBareme += 5.5;
+  docPdf.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, margin, yBareme);
+  yBareme += 5.5;
+  docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, yBareme);
 
   if (carteGriseData && isImageDataUrl(carteGriseData)) {
-    if (y > 150) {
-      docPdf.addPage("landscape", "a4");
-      y = 20;
-    }
-
-    docPdf.setFont("helvetica", "bold");
-    docPdf.setFontSize(10);
-    docPdf.text("Carte grise du véhicule :", margin, y);
-
-    y += 6;
-
     try {
       const convertedCarte = await convertImageDataUrlToJpeg(carteGriseData, 0.92);
 
-      let imgWidth = 90;
-      let imgHeight = (convertedCarte.height / convertedCarte.width) * imgWidth;
+      docPdf.addPage("landscape", "a4");
 
-      if (imgHeight > 55) {
-        imgHeight = 55;
-        imgWidth = (convertedCarte.width / convertedCarte.height) * imgHeight;
-      }
+      const pageWidth = docPdf.internal.pageSize.getWidth();
+      const pageHeight = docPdf.internal.pageSize.getHeight();
 
-      docPdf.addImage(convertedCarte.dataUrl, "JPEG", margin, y, imgWidth, imgHeight);
-      y += imgHeight + 8;
+      const topMargin = 12;
+      const sideMargin = 10;
+      const bottomMargin = 10;
+
+      docPdf.setFont("helvetica", "bold");
+      docPdf.setFontSize(12);
+      docPdf.text("Carte grise du véhicule", sideMargin, topMargin);
+
+      const availableWidth = pageWidth - sideMargin * 2;
+      const availableHeight = pageHeight - topMargin - bottomMargin - 10;
+
+      let imgWidth = convertedCarte.width;
+      let imgHeight = convertedCarte.height;
+
+      const widthRatio = availableWidth / imgWidth;
+      const heightRatio = availableHeight / imgHeight;
+      const scale = Math.min(widthRatio, heightRatio, 1);
+
+      imgWidth = imgWidth * scale;
+      imgHeight = imgHeight * scale;
+
+      const x = (pageWidth - imgWidth) / 2;
+      const yCarte = topMargin + 6 + ((availableHeight - imgHeight) / 2);
+
+      docPdf.addImage(
+        convertedCarte.dataUrl,
+        "JPEG",
+        x,
+        yCarte,
+        imgWidth,
+        imgHeight
+      );
     } catch (error) {
       console.error("Erreur ajout carte grise PDF :", error);
     }
   }
-
-  docPdf.setFont("helvetica", "bold");
-  docPdf.text("Barèmes kilométriques utilisés", margin, y);
-
-  y += 7;
-  docPdf.setFont("helvetica", "normal");
-  docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, margin, y);
-  y += 5.5;
-  docPdf.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, margin, y);
-  y += 5.5;
-  docPdf.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, margin, y);
-  y += 5.5;
-  docPdf.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, margin, y);
-  y += 5.5;
-  docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, y);
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
 
