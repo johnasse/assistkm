@@ -568,7 +568,10 @@
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
     import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-    const STORAGE_KEY = "presenceModuleEasyFrais";
+    function getPresenceStorageKey() {
+  const uid = currentUser?.uid || "guest";
+  return `presenceModuleEasyFrais_${uid}`;
+}
     const MIN_PRESENCE_ROWS = 4;
     const MAX_PRESENCE_ROWS = 12;
 
@@ -1069,16 +1072,16 @@
     }
 
     function saveModule() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      showToast("Fiche de présence enregistrée");
-    }
+  localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
+  showToast("Fiche de présence enregistrée");
+}
+    
 
-    function saveModuleSilently() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
+   function saveModuleSilently() {
+  localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
+}
     function loadModule() {
-      const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getPresenceStorageKey());
       if (!raw) return;
 
       try {
