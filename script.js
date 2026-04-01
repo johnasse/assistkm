@@ -67,6 +67,14 @@ function getCarteGriseNameKey() {
   return `carteGriseKilometriqueName_${getUid()}`;
 }
 
+function getLogoDataKey() {
+  return `logoKilometriqueData_${getUid()}`;
+}
+
+function getLogoNameKey() {
+  return `logoKilometriqueName_${getUid()}`;
+}
+
 function getMotifsKey() {
   return `motifsKilometriques_${getUid()}`;
 }
@@ -147,6 +155,7 @@ async function loadUserData() {
   loadBaremes();
   loadSignatureInfo();
   loadCarteGriseInfo();
+  loadLogoInfo();
   loadSavedMotifs();
   loadSavedDestinations();
   await loadProfileData();
@@ -409,6 +418,12 @@ function bindEvents() {
   });
   document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
   document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
+
+  document.getElementById("btnLogo")?.addEventListener("click", () => {
+    document.getElementById("logoFile")?.click();
+  });
+  document.getElementById("logoFile")?.addEventListener("change", handleLogoChange);
+  document.getElementById("btnClearLogo")?.addEventListener("click", clearLogo);
 }
 
 function setDefaultMonthIfNeeded() {
@@ -757,6 +772,8 @@ function ajouterDeplacement() {
   const heureDebut = document.getElementById("heureDebut").value;
   const heureFin = document.getElementById("heureFin").value;
   const depart = document.getElementById("depart").value.trim();
+  const retourDomicile = document.getElementById("retourDomicile").checked;
+  const domicile = document.getElementById("domicile").value.trim();
 
   const destinations = [...document.querySelectorAll(".destination-input")]
     .map((input) => input.value.trim())
@@ -771,6 +788,7 @@ function ajouterDeplacement() {
   memorizeDestinations(destinations);
 
   const lieuRdv = destinations.join(" / ");
+  const lieuRetour = retourDomicile ? domicile : (destinations[destinations.length - 1] || "-");
 
   deplacements.push({
     id: Date.now(),
@@ -782,6 +800,7 @@ function ajouterDeplacement() {
     depart,
     professionnel: document.getElementById("professionnel").value.trim(),
     lieuRdv,
+    lieuRetour,
     km: Number(totalDistanceKm.toFixed(1)),
     montant: Number(totalAmount.toFixed(2))
   });
@@ -799,7 +818,7 @@ function renderDeplacements() {
   if (deplacements.length === 0) {
     body.innerHTML = `
       <tr id="emptyRow">
-        <td colspan="9" class="empty-cell">Aucun déplacement enregistré</td>
+        <td colspan="10" class="empty-cell">Aucun déplacement enregistré</td>
       </tr>
     `;
     updateTotals();
@@ -816,6 +835,7 @@ function renderDeplacements() {
       <td>${escapeHtml(item.heureFin || "-")}</td>
       <td>${escapeHtml(item.depart)}</td>
       <td>${escapeHtml(item.lieuRdv)}</td>
+      <td>${escapeHtml(item.lieuRetour || "-")}</td>
       <td>${item.km.toFixed(1).replace(".", ",")}</td>
       <td><button class="btn btn-danger table-action-btn" data-id="${item.id}">Supprimer</button></td>
     `;
@@ -885,6 +905,7 @@ async function genererPDFMensuel() {
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const signatureData = localStorage.getItem(getSignatureDataKey());
   const carteGriseData = localStorage.getItem(getCarteGriseDataKey());
+  const logoData = localStorage.getItem(getLogoDataKey());
 
   const margin = 10;
   let y = 14;
@@ -902,26 +923,56 @@ async function genererPDFMensuel() {
   docPdf.setFontSize(10.5);
   docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
 
+  if (logoData && isImageDataUrl(logoData)) {
+    try {
+      const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
+      const pageWidth = docPdf.internal.pageSize.getWidth();
+
+      let logoWidth = 42;
+      let logoHeight = (convertedLogo.height / convertedLogo.width) * logoWidth;
+
+      if (logoHeight > 18) {
+        logoHeight = 18;
+        logoWidth = (convertedLogo.width / convertedLogo.height) * logoHeight;
+      }
+
+      const logoX = pageWidth - logoWidth - 12;
+      const logoY = 8;
+
+      docPdf.addImage(
+        convertedLogo.dataUrl,
+        "JPEG",
+        logoX,
+        logoY,
+        logoWidth,
+        logoHeight
+      );
+    } catch (error) {
+      console.error("Erreur ajout logo PDF :", error);
+    }
+  }
+
   y += 8;
 
   const cols = [
-    { key: "enfant", title: "Enfant", width: 35, align: "left" },
-    { key: "motif", title: "Motif", width: 40, align: "left" },
-    { key: "dateTrajet", title: "Date", width: 20, align: "center" },
-    { key: "heureDebut", title: "H. début", width: 18, align: "center" },
-    { key: "heureFin", title: "H. fin", width: 18, align: "center" },
-    { key: "depart", title: "Lieu départ", width: 60, align: "left" },
-    { key: "lieuRdv", title: "Lieu RDV", width: 60, align: "left" },
-    { key: "km", title: "KM A/R", width: 18, align: "right" }
+    { key: "enfant", title: "Enfant", width: 25, align: "left" },
+    { key: "motif", title: "Motif", width: 30, align: "left" },
+    { key: "dateTrajet", title: "Date", width: 18, align: "center" },
+    { key: "heureDebut", title: "H. début", width: 14, align: "center" },
+    { key: "heureFin", title: "H. fin", width: 14, align: "center" },
+    { key: "depart", title: "Lieu départ", width: 42, align: "left" },
+    { key: "lieuRdv", title: "Lieu RDV", width: 42, align: "left" },
+    { key: "lieuRetour", title: "Lieu retour", width: 42, align: "left" },
+    { key: "km", title: "KM A/R", width: 16, align: "right" }
   ];
 
   const headerHeight = 9;
-  const lineHeight = 4.5;
+  const lineHeight = 4.2;
 
   function drawHeader() {
     let x = margin;
     docPdf.setFont("helvetica", "bold");
-    docPdf.setFontSize(9.5);
+    docPdf.setFontSize(8.8);
 
     cols.forEach((col) => {
       docPdf.rect(x, y, col.width, headerHeight);
@@ -935,7 +986,7 @@ async function genererPDFMensuel() {
   drawHeader();
 
   docPdf.setFont("helvetica", "normal");
-  docPdf.setFontSize(9);
+  docPdf.setFontSize(8.4);
 
   deplacements.forEach((item) => {
     const rowValues = [
@@ -946,6 +997,7 @@ async function genererPDFMensuel() {
       item.heureFin || "-",
       safeText(item.depart),
       safeText(item.lieuRdv),
+      safeText(item.lieuRetour || "-"),
       item.km.toFixed(1).replace(".", ",")
     ];
 
@@ -961,13 +1013,13 @@ async function genererPDFMensuel() {
         return [String(value)];
       }
 
-      return docPdf.splitTextToSize(String(value), col.width - 3);
+      return docPdf.splitTextToSize(String(value), col.width - 2.5);
     });
 
     const maxLines = Math.max(...rowLines.map((lines) => lines.length));
     const rowHeight = Math.max(8, maxLines * lineHeight + 2);
 
-    if (y + rowHeight > 175) {
+    if (y + rowHeight > 132) {
       docPdf.addPage("landscape", "a4");
       y = 14;
 
@@ -984,10 +1036,39 @@ async function genererPDFMensuel() {
       docPdf.setFontSize(10.5);
       docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
 
+      if (logoData && isImageDataUrl(logoData)) {
+        try {
+          const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
+          const pageWidth = docPdf.internal.pageSize.getWidth();
+
+          let logoWidth = 42;
+          let logoHeight = (convertedLogo.height / convertedLogo.width) * logoWidth;
+
+          if (logoHeight > 18) {
+            logoHeight = 18;
+            logoWidth = (convertedLogo.width / convertedLogo.height) * logoHeight;
+          }
+
+          const logoX = pageWidth - logoWidth - 12;
+          const logoY = 8;
+
+          docPdf.addImage(
+            convertedLogo.dataUrl,
+            "JPEG",
+            logoX,
+            logoY,
+            logoWidth,
+            logoHeight
+          );
+        } catch (error) {
+          console.error("Erreur ajout logo PDF page suivante :", error);
+        }
+      }
+
       y += 8;
       drawHeader();
       docPdf.setFont("helvetica", "normal");
-      docPdf.setFontSize(9);
+      docPdf.setFontSize(8.4);
     }
 
     let x = margin;
@@ -1002,9 +1083,9 @@ async function genererPDFMensuel() {
     y += rowHeight;
   });
 
-  y += 10;
+  y += 8;
 
-  if (y > 170) {
+  if (y > 118) {
     docPdf.addPage("landscape", "a4");
     y = 20;
   }
@@ -1031,31 +1112,87 @@ async function genererPDFMensuel() {
       let imgWidth = 45;
       let imgHeight = (converted.height / converted.width) * imgWidth;
 
-      if (imgHeight > 22) {
-        imgHeight = 22;
+      if (imgHeight > 18) {
+        imgHeight = 18;
         imgWidth = (converted.width / converted.height) * imgHeight;
       }
 
-      docPdf.addImage(converted.dataUrl, "JPEG", margin + 55, y - 7, imgWidth, imgHeight);
+      docPdf.addImage(converted.dataUrl, "JPEG", margin + 48, y - 8, imgWidth, imgHeight);
     } catch (error) {
       console.error("Erreur ajout signature PDF :", error);
     }
   }
 
-  docPdf.setFont("helvetica", "bold");
-  docPdf.text("Barèmes kilométriques utilisés", margin, Math.min(y + 25, 185));
+  const pageWidth = docPdf.internal.pageSize.getWidth();
 
-  let yBareme = Math.min(y + 32, 192);
+  const baremeX = margin;
+  const baremeTitleY = 146;
+
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(10);
+  docPdf.text("Barèmes kilométriques utilisés", baremeX, baremeTitleY);
+
+  let yBareme = baremeTitleY + 7;
   docPdf.setFont("helvetica", "normal");
-  docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, margin, yBareme);
+  docPdf.setFontSize(9.5);
+  docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, baremeX, yBareme);
   yBareme += 5.5;
-  docPdf.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, margin, yBareme);
+  docPdf.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, baremeX, yBareme);
   yBareme += 5.5;
-  docPdf.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, margin, yBareme);
+  docPdf.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, baremeX, yBareme);
   yBareme += 5.5;
-  docPdf.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, margin, yBareme);
+  docPdf.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, baremeX, yBareme);
   yBareme += 5.5;
-  docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, yBareme);
+  docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, baremeX, yBareme);
+
+  const cadreX = 112;
+  const cadreY = 143;
+  const cadreW = pageWidth - cadreX - 10;
+  const cadreH = 60;
+
+  docPdf.setDrawColor(0, 0, 0);
+  docPdf.setLineWidth(0.4);
+  docPdf.rect(cadreX, cadreY, cadreW, cadreH);
+
+  docPdf.setFillColor(210, 228, 245);
+  docPdf.rect(cadreX, cadreY, cadreW, 16, "F");
+
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(10);
+  docPdf.setTextColor(0, 0, 0);
+  docPdf.text("Cadre réservé à la comptabilité", cadreX + cadreW / 2, cadreY + 6.5, {
+    align: "center"
+  });
+
+  docPdf.setFontSize(8.5);
+  docPdf.setTextColor(200, 0, 0);
+  docPdf.text("(ne rien inscrire)", cadreX + cadreW / 2, cadreY + 11.5, {
+    align: "center"
+  });
+
+  docPdf.setTextColor(0, 0, 0);
+
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(9);
+  docPdf.text("............................ Kms x ........................ = ........................ €", cadreX + 8, cadreY + 24);
+
+  docPdf.line(cadreX, cadreY + 30, cadreX + cadreW, cadreY + 30);
+  docPdf.line(cadreX, cadreY + 36, cadreX + cadreW, cadreY + 36);
+
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(10);
+  docPdf.text("BON A PAYER", cadreX + cadreW / 2, cadreY + 33, { align: "center" });
+
+  docPdf.line(cadreX, cadreY + 42, cadreX + cadreW, cadreY + 42);
+
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(8.5);
+
+  const leftPad = cadreX + 3;
+  docPdf.text("Date : ................................................................................................", leftPad, cadreY + 48);
+  docPdf.text("Nom du responsable : ........................................................................", leftPad, cadreY + 54);
+  docPdf.text("Imputation analytique : .....................................................................", leftPad, cadreY + 60);
+  docPdf.text("Signature : .........................................................................................", leftPad, cadreY + 66);
 
   if (carteGriseData && isImageDataUrl(carteGriseData)) {
     try {
@@ -1063,8 +1200,8 @@ async function genererPDFMensuel() {
 
       docPdf.addPage("landscape", "a4");
 
-      const pageWidth = docPdf.internal.pageSize.getWidth();
-      const pageHeight = docPdf.internal.pageSize.getHeight();
+      const pageW = docPdf.internal.pageSize.getWidth();
+      const pageH = docPdf.internal.pageSize.getHeight();
 
       const topMargin = 12;
       const sideMargin = 10;
@@ -1074,8 +1211,8 @@ async function genererPDFMensuel() {
       docPdf.setFontSize(12);
       docPdf.text("Carte grise du véhicule", sideMargin, topMargin);
 
-      const availableWidth = pageWidth - sideMargin * 2;
-      const availableHeight = pageHeight - topMargin - bottomMargin - 10;
+      const availableWidth = pageW - sideMargin * 2;
+      const availableHeight = pageH - topMargin - bottomMargin - 10;
 
       let imgWidth = convertedCarte.width;
       let imgHeight = convertedCarte.height;
@@ -1087,7 +1224,7 @@ async function genererPDFMensuel() {
       imgWidth = imgWidth * scale;
       imgHeight = imgHeight * scale;
 
-      const x = (pageWidth - imgWidth) / 2;
+      const x = (pageW - imgWidth) / 2;
       const yCarte = topMargin + 6 + ((availableHeight - imgHeight) / 2);
 
       docPdf.addImage(
@@ -1127,13 +1264,13 @@ function drawCellText(docPdf, textOrLines, x, y, width, height, align = "left") 
   let currentY = y + (height - totalTextHeight) / 2 + 2.2;
 
   lines.forEach((line) => {
-    let textX = x + 1.5;
+    let textX = x + 1.3;
 
     if (align === "center") {
       textX = x + width / 2;
       docPdf.text(line, textX, currentY, { align: "center" });
     } else if (align === "right") {
-      textX = x + width - 1.5;
+      textX = x + width - 1.3;
       docPdf.text(line, textX, currentY, { align: "right" });
     } else {
       docPdf.text(line, textX, currentY);
@@ -1421,4 +1558,71 @@ function clearCarteGrise() {
   localStorage.removeItem(getCarteGriseNameKey());
   loadCarteGriseInfo();
   showToast("Carte grise supprimée");
+}
+
+function loadLogoInfo() {
+  const logoData = localStorage.getItem(getLogoDataKey());
+  const logoName = localStorage.getItem(getLogoNameKey()) || "";
+  const info = document.getElementById("logoInfo");
+  const preview = document.getElementById("logoPreview");
+
+  if (!info || !preview) return;
+
+  if (logoData) {
+    info.textContent = logoName ? `Logo enregistré : ${logoName}` : "Logo enregistré";
+
+    if (isImageDataUrl(logoData)) {
+      preview.src = logoData;
+      preview.style.display = "block";
+    } else {
+      preview.removeAttribute("src");
+      preview.style.display = "none";
+    }
+  } else {
+    info.textContent = "";
+    preview.removeAttribute("src");
+    preview.style.display = "none";
+  }
+}
+
+async function handleLogoChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const maxSizeMo = 2;
+    const maxSizeBytes = maxSizeMo * 1024 * 1024;
+
+    if (file.size > maxSizeBytes) {
+      alert(`Le logo est trop volumineux. Choisis une image de moins de ${maxSizeMo} Mo.`);
+      event.target.value = "";
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      alert("Merci d'importer une image pour le logo.");
+      event.target.value = "";
+      return;
+    }
+
+    const data = await fileToBase64(file);
+
+    localStorage.setItem(getLogoDataKey(), data);
+    localStorage.setItem(getLogoNameKey(), file.name);
+
+    loadLogoInfo();
+    showToast("Logo enregistré");
+  } catch (error) {
+    console.error("Erreur lecture logo :", error);
+    alert("Impossible d'importer le logo.");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function clearLogo() {
+  localStorage.removeItem(getLogoDataKey());
+  localStorage.removeItem(getLogoNameKey());
+  loadLogoInfo();
+  showToast("Logo supprimé");
 }
