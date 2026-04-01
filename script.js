@@ -1266,8 +1266,10 @@ function isImageDataUrl(data) {
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
+    reader.onerror = () => reject(reader.error || new Error("Lecture du fichier impossible"));
+
     reader.readAsDataURL(file);
   });
 }
@@ -1362,12 +1364,12 @@ function loadCarteGriseInfo() {
       preview.src = carteData;
       preview.style.display = "block";
     } else {
-      preview.src = "";
+      preview.removeAttribute("src");
       preview.style.display = "none";
     }
   } else {
     info.textContent = "";
-    preview.src = "";
+    preview.removeAttribute("src");
     preview.style.display = "none";
   }
 }
@@ -1377,14 +1379,34 @@ async function handleCarteGriseChange(event) {
   if (!file) return;
 
   try {
+    const maxSizeMo = 3;
+    const maxSizeBytes = maxSizeMo * 1024 * 1024;
+
+    if (file.size > maxSizeBytes) {
+      alert(`Le fichier est trop volumineux. Choisis un fichier de moins de ${maxSizeMo} Mo.`);
+      event.target.value = "";
+      return;
+    }
+
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isImage && !isPdf) {
+      alert("Merci d'importer une image ou un PDF.");
+      event.target.value = "";
+      return;
+    }
+
     const data = await fileToBase64(file);
+
     localStorage.setItem(getCarteGriseDataKey(), data);
     localStorage.setItem(getCarteGriseNameKey(), file.name);
+
     loadCarteGriseInfo();
     showToast("Carte grise enregistrée");
   } catch (error) {
     console.error("Erreur lecture carte grise :", error);
-    alert("Impossible de lire le fichier de carte grise.");
+    alert("Impossible d'importer la carte grise. Essaie avec une image JPG/PNG plus légère.");
   } finally {
     event.target.value = "";
   }
