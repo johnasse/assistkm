@@ -1,195 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fiche de présence - EasyFrais</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f6fb;
+  margin: 0;
+  padding: 20px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 20px;
+}
+th, td {
+  border: 1px solid #ddd;
+  text-align: center;
+  padding: 5px;
+  font-size: 12px;
+}
+.day-cell {
+  cursor: pointer;
+  font-weight: bold;
+}
+.code-P { background: #dcfce7; }
+.code-I { background: #fee2e2; }
+.code-DVH { background: #fef3c7; }
+.code-A { background: #e0e7ff; }
+.code-F { background: #fce7f3; }
+.code-R { background: #ede9fe; }
+
+button {
+  padding: 8px 12px;
+  margin: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Fiche de présence</h2>
+
+<label>Mois :</label>
+<input type="month" id="presenceMonth">
+
+<button onclick="generatePresencePdf()">Générer PDF</button>
+
+<table id="presenceTable"></table>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+let selectedCode = "P";
+let daysInMonth = 31;
+
+const state = {
+  presence: {
+    month: "",
+    afName: "",
+    rectif: "",
+    signatureDataUrl: "",
+    children: ["Enfant 1","Enfant 2"],
+    grid: [
+      Array(31).fill(""),
+      Array(31).fill("")
+    ]
+  }
+};
+
+function getDaysInMonth(monthValue) {
+  if (!monthValue) return 31;
+  const [year, month] = monthValue.split("-").map(Number);
+  return new Date(year, month, 0).getDate();
+}
+
+document.getElementById("presenceMonth").addEventListener("change", (e) => {
+  state.presence.month = e.target.value;
+  daysInMonth = getDaysInMonth(state.presence.month);
+  renderTable();
+});
+
+function renderTable() {
+  const table = document.getElementById("presenceTable");
+
+  let html = "<tr><th>Enfant</th>";
+  for (let d = 1; d <= daysInMonth; d++) {
+    html += "<th>" + d + "</th>";
+  }
+  html += "<th>Total</th></tr>";
+
+  for (let row = 0; row < state.presence.children.length; row++) {
+    html += "<tr>";
+    html += "<td>" + state.presence.children[row] + "</td>";
+
+    let total = 0;
+
+    for (let d = 0; d < daysInMonth; d++) {
+      const code = state.presence.grid[row][d] || "";
+      if (code === "P") total++;
+
+      html += `<td class="day-cell code-${code}" 
+        onclick="toggleCell(${row},${d})">${code}</td>`;
+    }
+
+    html += "<td><b>" + total + "</b></td>";
+    html += "</tr>";
+  }
+
+  table.innerHTML = html;
+}
+
+function toggleCell(row, day) {
+  const current = state.presence.grid[row][day];
+  state.presence.grid[row][day] = current === "P" ? "" : "P";
+  renderTable();
+}
+
 function generatePresencePdf() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("landscape", "mm", "a4");
 
-  const monthLabel = formatMonthLabel(state.presence.month);
-  const relayMonthLabel = formatMonthLabel(state.relay.month);
-
-  const leftMargin = 8;
+  const leftMargin = 10;
   const topMargin = 10;
-  const dayW = 7.2;
+  const dayW = 7;
   const rowH = 8;
-  const nameW = 36;
+  const nameW = 40;
   const totalW = 12;
 
-  // nombre réel de jours du mois sélectionné
-  const pdfDaysInPresenceMonth = getDaysInMonth(state.presence.month);
-  const pdfDaysInRelayMonth = getDaysInMonth(state.relay.month);
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.text("FEUILLE DE PRESENCE AU DOMICILE DE L'ASSISTANT FAMILIAL", leftMargin, topMargin);
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.text(`Nom et prénom de l'assistant familial : ${state.presence.afName || ""}`, leftMargin, 18);
-  pdf.text(`Mois : ${monthLabel}`, 220, 18);
+  const pdfDays = getDaysInMonth(state.presence.month);
 
   let startX = leftMargin;
-  let startY = 25;
+  let startY = 20;
 
-  drawPdfCell(pdf, startX, startY, nameW, rowH, "ENFANT", "center", 7);
+  pdf.text("FICHE DE PRESENCE", leftMargin, 10);
 
-  for (let d = 1; d <= pdfDaysInPresenceMonth; d += 1) {
-    drawPdfCell(pdf, startX + nameW + (d - 1) * dayW, startY, dayW, rowH, d, "center", 6);
+  pdf.rect(startX, startY, nameW, rowH);
+  pdf.text("ENFANT", startX + 5, startY + 5);
+
+  for (let d = 1; d <= pdfDays; d++) {
+    pdf.rect(startX + nameW + (d - 1) * dayW, startY, dayW, rowH);
+    pdf.text(String(d), startX + nameW + (d - 1) * dayW + 2, startY + 5);
   }
 
-  drawPdfCell(
-    pdf,
-    startX + nameW + pdfDaysInPresenceMonth * dayW,
-    startY,
-    totalW,
-    rowH,
-    "Total",
-    "center",
-    7
-  );
+  pdf.rect(startX + nameW + pdfDays * dayW, startY, totalW, rowH);
+  pdf.text("Total", startX + nameW + pdfDays * dayW + 2, startY + 5);
 
-  for (let row = 0; row < state.presence.children.length; row += 1) {
+  for (let row = 0; row < state.presence.children.length; row++) {
     const y = startY + rowH * (row + 1);
-    const childName = state.presence.children[row] || `Enfant ${row + 1}`;
-    drawPdfCell(pdf, startX, y, nameW, rowH, childName, "left", 7);
+    pdf.rect(startX, y, nameW, rowH);
+    pdf.text(state.presence.children[row], startX + 2, y + 5);
 
     let total = 0;
-    for (let d = 0; d < pdfDaysInPresenceMonth; d += 1) {
+
+    for (let d = 0; d < pdfDays; d++) {
       const code = state.presence.grid[row][d] || "";
-      if (code === "P") total += 1;
-      drawPdfCell(pdf, startX + nameW + d * dayW, y, dayW, rowH, code, "center", 6);
+      if (code === "P") total++;
+
+      pdf.rect(startX + nameW + d * dayW, y, dayW, rowH);
+      pdf.text(code, startX + nameW + d * dayW + 2, y + 5);
     }
 
-    drawPdfCell(
-      pdf,
-      startX + nameW + pdfDaysInPresenceMonth * dayW,
-      y,
-      totalW,
-      rowH,
-      total,
-      "center",
-      7
-    );
+    pdf.rect(startX + nameW + pdfDays * dayW, y, totalW, rowH);
+    pdf.text(String(total), startX + nameW + pdfDays * dayW + 2, y + 5);
   }
 
-  let infoY = startY + rowH * (state.presence.children.length + 2) + 6;
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(9);
-  pdf.text("Rappel motifs :", leftMargin, infoY);
-
-  pdf.setFont("helvetica", "normal");
-  pdf.text(
-    "P = Présence   I = Internat   DVH = Droits de visite / hébergement   A = Absence   F = Fugue   R = Relais",
-    leftMargin + 22,
-    infoY
-  );
-
-  infoY += 10;
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Rectificatif :", leftMargin, infoY);
-
-  pdf.setFont("helvetica", "normal");
-  pdf.rect(leftMargin, infoY + 2, 180, 20);
-  pdf.text(state.presence.rectif || "", leftMargin + 2, infoY + 8, { maxWidth: 176 });
-
-  pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, infoY + 8);
-  pdf.text("Signature :", 220, infoY + 18);
-  pdf.rect(220, infoY + 20, 55, 18);
-  addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, infoY + 20, 55, 18);
-
-  pdf.addPage();
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.text("FICHE DE RELAIS DU MOIS PRECEDENT", leftMargin, topMargin);
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.text(`Nom et prénom de l'assistant familial signataire : ${state.relay.afName || ""}`, leftMargin, 18);
-  pdf.text(`Mois : ${relayMonthLabel}`, 220, 18);
-
-  const relayNameW = 34;
-  const relayAfW = 36;
-  const relayDayW = 5.8;
-  const relayTotalW = 12;
-  let relayY = 25;
-
-  drawPdfCell(pdf, leftMargin, relayY, relayNameW, rowH, "ENFANT", "center", 7);
-  drawPdfCell(pdf, leftMargin + relayNameW, relayY, relayAfW, rowH, "AF habituel", "center", 7);
-
-  for (let d = 1; d <= pdfDaysInRelayMonth; d += 1) {
-    drawPdfCell(
-      pdf,
-      leftMargin + relayNameW + relayAfW + (d - 1) * relayDayW,
-      relayY,
-      relayDayW,
-      rowH,
-      d,
-      "center",
-      6
-    );
-  }
-
-  drawPdfCell(
-    pdf,
-    leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
-    relayY,
-    relayTotalW,
-    rowH,
-    "Total",
-    "center",
-    7
-  );
-
-  state.relay.rows.forEach((row, index) => {
-    const y = relayY + rowH * (index + 1);
-    let total = 0;
-
-    drawPdfCell(pdf, leftMargin, y, relayNameW, rowH, row.child || "", "left", 7);
-    drawPdfCell(pdf, leftMargin + relayNameW, y, relayAfW, rowH, row.usualAf || "", "left", 7);
-
-    for (let d = 0; d < pdfDaysInRelayMonth; d += 1) {
-      const code = row.days[d] || "";
-      if (code === "P") total += 1;
-      drawPdfCell(
-        pdf,
-        leftMargin + relayNameW + relayAfW + d * relayDayW,
-        y,
-        relayDayW,
-        rowH,
-        code,
-        "center",
-        6
-      );
-    }
-
-    drawPdfCell(
-      pdf,
-      leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
-      y,
-      relayTotalW,
-      rowH,
-      total,
-      "center",
-      7
-    );
-  });
-
-  let relayBottomY = relayY + rowH * (state.relay.rows.length + 2) + 10;
-
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Remarque :", leftMargin, relayBottomY);
-  pdf.setFont("helvetica", "normal");
-  pdf.rect(leftMargin, relayBottomY + 2, 180, 18);
-  pdf.text(state.relay.notes || "", leftMargin + 2, relayBottomY + 8, { maxWidth: 176 });
-
-  pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, relayBottomY + 8);
-  pdf.text("Signature :", 220, relayBottomY + 18);
-  pdf.rect(220, relayBottomY + 20, 55, 18);
-  addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, relayBottomY + 20, 55, 18);
-
-  const fileName = `fiche_presence_${state.presence.month || "sans_mois"}.pdf`;
-  const pdfBlob = pdf.output("blob");
-
-  addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
-  pdf.save(fileName);
-
-  showToast("PDF généré et ajouté à l’historique");
+  pdf.save("fiche_presence.pdf");
 }
+
+renderTable();
+</script>
+
+</body>
+</html>
