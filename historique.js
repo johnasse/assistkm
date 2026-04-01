@@ -1,5 +1,5 @@
 import { auth } from "./firebase-config.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 let historique = [];
 let storageKey = "historiquePDF_guest";
@@ -24,6 +24,23 @@ onAuthStateChanged(auth, (user) => {
 
   storageKey = `historiquePDF_${user.uid}`;
   historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+  let modified = false;
+  historique = historique.map((item, index) => {
+    if (!item.id) {
+      modified = true;
+      return {
+        ...item,
+        id: `${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`
+      };
+    }
+    return item;
+  });
+
+  if (modified) {
+    saveHistorique();
+  }
+
   renderHistorique();
 });
 
@@ -35,6 +52,10 @@ function bindHistoriqueEvents() {
   if (btnMergeSelected) btnMergeSelected.addEventListener("click", fusionnerSelection);
   if (btnSelectAll) btnSelectAll.addEventListener("click", cocherToutVisible);
   if (btnUnselectAll) btnUnselectAll.addEventListener("click", decocherToutVisible);
+}
+
+function saveHistorique() {
+  localStorage.setItem(storageKey, JSON.stringify(historique));
 }
 
 function resetFiltres() {
@@ -52,42 +73,18 @@ function getDocumentType(item) {
 
   const nom = String(item.nom || "").toLowerCase();
 
-  if (nom.includes("fiche_presence") || nom.includes("presence")) {
-    return "Fiche de présence";
-  }
-  if (nom.includes("kilometrique") || nom.includes("deplacements")) {
-    return "Frais kilométriques";
-  }
-  if (nom.includes("parking")) {
-    return "Frais de parking";
-  }
-  if (nom.includes("habillement")) {
-    return "Habillement";
-  }
-  if (nom.includes("abattement")) {
-    return "Abattement";
-  }
-  if (nom.includes("formation")) {
-    return "Formation";
-  }
-  if (nom.includes("noel")) {
-    return "Frais de Noël";
-  }
-  if (nom.includes("scolaire")) {
-    return "Frais scolaires";
-  }
-  if (nom.includes("loisir") || nom.includes("sports")) {
-    return "Sports et loisirs";
-  }
-  if (nom.includes("autres")) {
-    return "Autres frais";
-  }
-  if (nom.includes("note")) {
-    return "Note de frais";
-  }
-  if (nom.includes("fusion")) {
-    return "Fusion";
-  }
+  if (nom.includes("fiche_presence") || nom.includes("presence")) return "Fiche de présence";
+  if (nom.includes("kilometrique") || nom.includes("deplacements")) return "Frais kilométriques";
+  if (nom.includes("parking")) return "Frais de parking";
+  if (nom.includes("habillement")) return "Habillement";
+  if (nom.includes("abattement")) return "Abattement";
+  if (nom.includes("formation")) return "Formation";
+  if (nom.includes("noel")) return "Frais de Noël";
+  if (nom.includes("scolaire")) return "Frais scolaires";
+  if (nom.includes("loisir") || nom.includes("sports")) return "Sports et loisirs";
+  if (nom.includes("autres")) return "Autres frais";
+  if (nom.includes("note")) return "Note de frais";
+  if (nom.includes("fusion")) return "Fusion";
 
   return "Non classé";
 }
@@ -104,7 +101,7 @@ function getHistoriqueFiltre() {
       const type = getDocumentType(item).toLowerCase();
       const mois = String(item.mois || "").toLowerCase();
       const nom = String(item.nom || "").toLowerCase();
-      const dateGeneration = String(item.dateGeneration || "").toLowerCase();
+      const dateGeneration = String(item.dateGeneration || item.date || "").toLowerCase();
 
       const matchType = !typeValue || type === typeValue;
       const matchMois = !moisValue || mois.includes(moisValue);
@@ -123,7 +120,6 @@ function renderHistorique() {
   if (!body || !nbResultats) return;
 
   const liste = getHistoriqueFiltre();
-
   body.innerHTML = "";
   nbResultats.textContent = String(liste.length);
 
@@ -140,20 +136,27 @@ function renderHistorique() {
     const typeAffiche = getDocumentType(item);
     const tr = document.createElement("tr");
 
+    const hasData = !!item.data;
+    const dateAffiche = item.dateGeneration || item.date || "-";
+
     tr.innerHTML = `
       <td class="checkbox-cell">
-        ${item.data ? `<input type="checkbox" class="pdf-checkbox" data-id="${escapeHtml(String(item.id))}">` : ""}
+        ${hasData ? `<input type="checkbox" class="pdf-checkbox" data-id="${escapeHtml(String(item.id))}">` : ""}
       </td>
       <td>${escapeHtml(item.mois || "-")}</td>
       <td>${escapeHtml(typeAffiche)}</td>
       <td>${escapeHtml(item.nom || "-")}</td>
-      <td>${escapeHtml(item.dateGeneration || "-")}</td>
+      <td>${escapeHtml(dateAffiche)}</td>
       <td>
-        ${item.data ? `
+        ${hasData ? `
           <button class="table-action-btn btn-download" data-id="${escapeHtml(String(item.id))}" style="background:#16a34a;">
             Télécharger
           </button>
-        ` : ""}
+        ` : `
+          <button class="table-action-btn" type="button" disabled style="background:#64748b; cursor:not-allowed;">
+            Télécharger
+          </button>
+        `}
         <button class="table-action-btn btn-delete" data-id="${escapeHtml(String(item.id))}" style="margin-left:8px;">
           Supprimer
         </button>
@@ -174,7 +177,12 @@ function renderHistorique() {
 
 function telechargerPdf(id) {
   const item = historique.find((pdf) => String(pdf.id) === String(id));
-  if (!item || !item.data) return;
+  if (!item) return;
+
+  if (!item.data) {
+    alert("Ce PDF est présent dans l’historique, mais le téléchargement local n’est pas disponible pour cette entrée.");
+    return;
+  }
 
   const link = document.createElement("a");
   link.href = item.data;
@@ -192,7 +200,7 @@ function supprimerPdf(id) {
   if (!ok) return;
 
   historique = historique.filter((pdf) => String(pdf.id) !== String(id));
-  localStorage.setItem(storageKey, JSON.stringify(historique));
+  saveHistorique();
   renderHistorique();
 }
 
@@ -217,7 +225,7 @@ async function fusionnerSelection() {
   const selectedItems = getSelectedItems();
 
   if (selectedItems.length === 0) {
-    alert("Merci de cocher au moins un PDF.");
+    alert("Merci de cocher au moins un PDF téléchargeable.");
     return;
   }
 
@@ -277,7 +285,7 @@ function ajouterFusionDansHistorique(blob, fileName, selectedItems) {
           type: `Fusion (${selectedItems.length} PDF)`
         });
 
-        localStorage.setItem(storageKey, JSON.stringify(historique));
+        saveHistorique();
         renderHistorique();
         resolve();
       } catch (error) {

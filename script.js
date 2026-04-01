@@ -67,64 +67,8 @@ function getCarteGriseNameKey() {
   return `carteGriseKilometriqueName_${getUid()}`;
 }
 
-function getDestinationsKey() {
-  return `destinationsKilometrique_${getUid()}`;
-}
-
-function normalizeDestination(value) {
-  return String(value || "").trim().replace(/\s+/g, " ");
-}
-
-function ensureDestinationsDatalist() {
-  let datalist = document.getElementById("destinationsSuggestions");
-
-  if (!datalist) {
-    datalist = document.createElement("datalist");
-    datalist.id = "destinationsSuggestions";
-    document.body.appendChild(datalist);
-  }
-
-  return datalist;
-}
-
-function saveDestinationToHistory(destination) {
-  const normalized = normalizeDestination(destination);
-  if (!normalized) return;
-
-  const list = JSON.parse(localStorage.getItem(getDestinationsKey()) || "[]");
-  const exists = list.some((item) => item.toLowerCase() === normalized.toLowerCase());
-
-  if (!exists) {
-    list.push(normalized);
-    list.sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
-    localStorage.setItem(getDestinationsKey(), JSON.stringify(list));
-  }
-}
-
-function loadDestinationsSuggestions() {
-  const datalist = ensureDestinationsDatalist();
-  const list = JSON.parse(localStorage.getItem(getDestinationsKey()) || "[]");
-
-  datalist.innerHTML = "";
-
-  list.forEach((dest) => {
-    const option = document.createElement("option");
-    option.value = dest;
-    datalist.appendChild(option);
-  });
-
-  document.querySelectorAll(".destination-input").forEach((input) => {
-    input.setAttribute("list", "destinationsSuggestions");
-  });
-}
-
-function saveCurrentDestinationsToHistory() {
-  const destinations = [...document.querySelectorAll(".destination-input")]
-    .map((input) => normalizeDestination(input.value))
-    .filter(Boolean);
-
-  destinations.forEach(saveDestinationToHistory);
-  loadDestinationsSuggestions();
+function getMotifsKey() {
+  return `motifsKilometriques_${getUid()}`;
 }
 
 function isGoogleMapsAvailable() {
@@ -156,9 +100,7 @@ function initGoogleServicesIfAvailable() {
 
     bindAutocomplete(document.getElementById("domicile"));
     bindAutocomplete(document.getElementById("depart"));
-    document.querySelectorAll(".destination-input").forEach((input) => {
-      bindAutocomplete(input);
-    });
+    document.querySelectorAll(".destination-input").forEach((input) => bindAutocomplete(input));
 
     return true;
   } catch (error) {
@@ -177,6 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
     eventsBound = true;
   }
 
+  setDefaultMonthIfNeeded();
+  syncDateWithMonth(false);
   initGoogleServicesIfAvailable();
 });
 
@@ -199,7 +143,7 @@ async function loadUserData() {
   loadBaremes();
   loadSignatureInfo();
   loadCarteGriseInfo();
-  loadDestinationsSuggestions();
+  loadSavedMotifs();
   await loadProfileData();
 
   renderDeplacements();
@@ -219,6 +163,7 @@ async function loadProfileData() {
     if (!snap.exists()) {
       currentProfile = null;
       populateChildrenSuggestions([]);
+      mergeMotifSuggestions([]);
       return;
     }
 
@@ -267,12 +212,21 @@ function applyProfileToKilometrique() {
   const children = parseChildrenList(currentProfile.childrenList || "");
   populateChildrenSuggestions(children);
 
+  const profileMotifs = parseMotifsList(
+    currentProfile.travelMotifs ||
+    currentProfile.motifsDeplacement ||
+    currentProfile.motifsKilometriques ||
+    currentProfile.deplacementMotifs ||
+    currentProfile.motifs ||
+    ""
+  );
+  mergeMotifSuggestions(profileMotifs);
+
   syncDepartIfNeeded();
 }
 
 function parseFiscalPower(value) {
   if (!value) return 7;
-
   const match = String(value).match(/\d+/);
   if (!match) return 7;
 
@@ -283,6 +237,13 @@ function parseFiscalPower(value) {
 }
 
 function parseChildrenList(value) {
+  return String(value || "")
+    .split(/\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseMotifsList(value) {
   return String(value || "")
     .split(/\n|,/)
     .map((item) => item.trim())
@@ -301,6 +262,49 @@ function populateChildrenSuggestions(children) {
   });
 }
 
+function getSavedMotifs() {
+  return JSON.parse(localStorage.getItem(getMotifsKey()) || "[]");
+}
+
+function saveMotifsList(list) {
+  const unique = [...new Set(list.map((item) => String(item).trim()).filter(Boolean))];
+  localStorage.setItem(getMotifsKey(), JSON.stringify(unique));
+}
+
+function loadSavedMotifs() {
+  mergeMotifSuggestions(getSavedMotifs());
+}
+
+function mergeMotifSuggestions(motifs) {
+  const datalist = document.getElementById("motifSuggestions");
+  if (!datalist) return;
+
+  const current = [...datalist.querySelectorAll("option")].map((opt) => opt.value);
+  const saved = getSavedMotifs();
+  const merged = [...new Set([...current, ...saved, ...motifs].map((item) => String(item).trim()).filter(Boolean))];
+
+  datalist.innerHTML = "";
+  merged.forEach((motif) => {
+    const option = document.createElement("option");
+    option.value = motif;
+    datalist.appendChild(option);
+  });
+
+  saveMotifsList(merged);
+}
+
+function memorizeMotif(motif) {
+  const clean = String(motif || "").trim();
+  if (!clean) return;
+
+  const saved = getSavedMotifs();
+  if (!saved.includes(clean)) {
+    saved.unshift(clean);
+    saveMotifsList(saved.slice(0, 100));
+    mergeMotifSuggestions(saved.slice(0, 100));
+  }
+}
+
 function useServiceAddressAsDestination() {
   const serviceAddress = String(currentProfile?.serviceAddress || "").trim();
 
@@ -309,20 +313,15 @@ function useServiceAddressAsDestination() {
     return;
   }
 
-  const normalized = normalizeDestination(serviceAddress);
   const destinationInputs = [...document.querySelectorAll(".destination-input")];
   const emptyInput = destinationInputs.find((input) => !input.value.trim());
 
   if (emptyInput) {
-    emptyInput.value = normalized;
-    saveDestinationToHistory(normalized);
-    loadDestinationsSuggestions();
+    emptyInput.value = serviceAddress;
     return;
   }
 
-  addDestination(normalized);
-  saveDestinationToHistory(normalized);
-  loadDestinationsSuggestions();
+  addDestination(serviceAddress);
 }
 
 function bindEvents() {
@@ -335,13 +334,20 @@ function bindEvents() {
   document.getElementById("btnPdfMensuel")?.addEventListener("click", genererPDFMensuel);
   document.getElementById("btnViderListe")?.addEventListener("click", viderListe);
   document.getElementById("departDomicile")?.addEventListener("change", toggleDepartDomicile);
+
   document.getElementById("domicile")?.addEventListener("input", () => {
     syncDepartIfNeeded();
     initGoogleServicesIfAvailable();
     bindAutocomplete(document.getElementById("domicile"));
   });
+
   document.getElementById("assistantNom")?.addEventListener("input", saveAssistantNom);
-  document.getElementById("moisEtat")?.addEventListener("change", saveMoisEtat);
+  document.getElementById("moisEtat")?.addEventListener("change", handleMonthChange);
+  document.getElementById("dateTrajet")?.addEventListener("change", syncMonthFromDate);
+  document.getElementById("motif")?.addEventListener("blur", () => {
+    memorizeMotif(document.getElementById("motif")?.value || "");
+  });
+
   document.getElementById("btnSaveBaremes")?.addEventListener("click", saveBaremes);
   document.getElementById("btnResetBaremes")?.addEventListener("click", resetBaremes);
   document.getElementById("btnToggleBaremes")?.addEventListener("click", toggleBaremesLock);
@@ -357,6 +363,53 @@ function bindEvents() {
   });
   document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
   document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
+}
+
+function setDefaultMonthIfNeeded() {
+  const moisInput = document.getElementById("moisEtat");
+  if (!moisInput) return;
+
+  if (!moisInput.value) {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = now.getFullYear();
+    moisInput.value = `${year}-${month}`;
+  }
+}
+
+function handleMonthChange() {
+  saveMoisEtat();
+  syncDateWithMonth(true);
+}
+
+function syncDateWithMonth(forceReplaceDay = false) {
+  const moisEtat = document.getElementById("moisEtat")?.value || "";
+  const dateInput = document.getElementById("dateTrajet");
+  if (!moisEtat || !dateInput) return;
+
+  const [year, month] = moisEtat.split("-");
+  const currentDate = dateInput.value;
+
+  if (!currentDate) {
+    dateInput.value = `${year}-${month}-01`;
+    return;
+  }
+
+  const [, currentMonth, currentDay] = currentDate.split("-");
+
+  if (forceReplaceDay || currentMonth !== month) {
+    const day = forceReplaceDay ? "01" : (currentDay || "01");
+    dateInput.value = `${year}-${month}-${day}`;
+  }
+}
+
+function syncMonthFromDate() {
+  const dateValue = document.getElementById("dateTrajet")?.value || "";
+  const moisInput = document.getElementById("moisEtat");
+  if (!dateValue || !moisInput) return;
+
+  moisInput.value = dateValue.slice(0, 7);
+  saveMoisEtat();
 }
 
 function updateBaremesLockUI() {
@@ -415,12 +468,10 @@ function loadSavedInfos() {
   if (moisEtat) {
     document.getElementById("moisEtat").value = moisEtat;
   } else {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = now.getFullYear();
-    document.getElementById("moisEtat").value = `${year}-${month}`;
+    setDefaultMonthIfNeeded();
   }
 
+  syncDateWithMonth(false);
   toggleDepartDomicile();
 }
 
@@ -488,12 +539,10 @@ function addDestination(value = "") {
   const container = document.getElementById("destinations");
   const index = container.querySelectorAll(".dest-row").length + 1;
 
-  ensureDestinationsDatalist();
-
   const row = document.createElement("div");
   row.className = "dest-row";
   row.innerHTML = `
-    <input type="text" class="destination-input" list="destinationsSuggestions" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
+    <input type="text" class="destination-input" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
     <button type="button" class="btn btn-danger">Supprimer</button>
   `;
 
@@ -504,24 +553,6 @@ function addDestination(value = "") {
 
   bindAutocomplete(input);
 
-  input.addEventListener("change", () => {
-    const normalized = normalizeDestination(input.value);
-    if (normalized) {
-      input.value = normalized;
-      saveDestinationToHistory(normalized);
-      loadDestinationsSuggestions();
-    }
-  });
-
-  input.addEventListener("blur", () => {
-    const normalized = normalizeDestination(input.value);
-    if (normalized) {
-      input.value = normalized;
-      saveDestinationToHistory(normalized);
-      loadDestinationsSuggestions();
-    }
-  });
-
   btnDelete.addEventListener("click", () => {
     row.remove();
     refreshDestinationPlaceholders();
@@ -530,8 +561,6 @@ function addDestination(value = "") {
       addDestination();
     }
   });
-
-  loadDestinationsSuggestions();
 }
 
 function refreshDestinationPlaceholders() {
@@ -558,24 +587,17 @@ function saveDomicile() {
 function toggleDepartDomicile() {
   const checkbox = document.getElementById("departDomicile");
   const departInput = document.getElementById("depart");
-  const domicile = document.getElementById("domicile").value.trim();
 
-  if (checkbox.checked && !departInput.value.trim()) {
-    departInput.value = domicile;
+  if (checkbox.checked) {
+    departInput.value = document.getElementById("domicile").value.trim();
   }
 
   departInput.disabled = false;
 }
 
 function syncDepartIfNeeded() {
-  const checkbox = document.getElementById("departDomicile");
-  const departInput = document.getElementById("depart");
-  const domicile = document.getElementById("domicile").value.trim();
-
-  if (!checkbox.checked) return;
-
-  if (!departInput.value.trim() || departInput.value.trim() === domicile) {
-    departInput.value = domicile;
+  if (document.getElementById("departDomicile").checked) {
+    document.getElementById("depart").value = document.getElementById("domicile").value.trim();
   }
 }
 
@@ -631,7 +653,7 @@ function calculerTrajet() {
   const domicile = document.getElementById("domicile").value.trim();
   const retourDomicile = document.getElementById("retourDomicile").checked;
   const destinations = [...document.querySelectorAll(".destination-input")]
-    .map((input) => normalizeDestination(input.value))
+    .map((input) => input.value.trim())
     .filter(Boolean);
 
   if (!depart) {
@@ -691,7 +713,7 @@ function ajouterDeplacement() {
   const depart = document.getElementById("depart").value.trim();
 
   const destinations = [...document.querySelectorAll(".destination-input")]
-    .map((input) => normalizeDestination(input.value))
+    .map((input) => input.value.trim())
     .filter(Boolean);
 
   if (!enfant || !motif || !dateTrajet || !depart || destinations.length === 0) {
@@ -699,7 +721,7 @@ function ajouterDeplacement() {
     return;
   }
 
-  saveCurrentDestinationsToHistory();
+  memorizeMotif(motif);
 
   const lieuRdv = destinations.join(" / ");
 
@@ -783,30 +805,6 @@ function viderListe() {
 
 function saveDeplacements() {
   localStorage.setItem(getDeplacementsKey(), JSON.stringify(deplacements));
-}
-
-function addPdfToGlobalHistory(blob, fileName, monthLabel) {
-  const uid = getUid();
-  if (!uid || uid === "guest") return;
-
-  const storageKey = `historiquePDF_${uid}`;
-  const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
-
-  const reader = new FileReader();
-  reader.onloadend = function () {
-    historique.push({
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      mois: monthLabel || "",
-      nom: fileName,
-      data: reader.result,
-      dateGeneration: new Date().toLocaleString("fr-FR"),
-      type: "Frais kilométriques"
-    });
-
-    localStorage.setItem(storageKey, JSON.stringify(historique));
-  };
-
-  reader.readAsDataURL(blob);
 }
 
 function updateTotals() {
@@ -905,7 +903,6 @@ async function genererPDFMensuel() {
 
     const rowLines = rowValues.map((value, i) => {
       const col = cols[i];
-
       if (
         col.key === "dateTrajet" ||
         col.key === "heureDebut" ||
@@ -1018,15 +1015,7 @@ async function genererPDFMensuel() {
         imgWidth = (convertedCarte.width / convertedCarte.height) * imgHeight;
       }
 
-      docPdf.addImage(
-        convertedCarte.dataUrl,
-        "JPEG",
-        margin,
-        y,
-        imgWidth,
-        imgHeight
-      );
-
+      docPdf.addImage(convertedCarte.dataUrl, "JPEG", margin, y, imgWidth, imgHeight);
       y += imgHeight + 8;
     } catch (error) {
       console.error("Erreur ajout carte grise PDF :", error);
@@ -1049,23 +1038,15 @@ async function genererPDFMensuel() {
   docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, margin, y);
 
   const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
-  const monthLabel = formatMonthLabel(moisEtat);
 
   try {
     await savePdfToHistory(docPdf, {
-      mois: monthLabel,
+      mois: formatMonthLabel(moisEtat),
       nom: fileName,
       type: "Frais kilométriques"
     });
   } catch (error) {
-    console.error("Erreur enregistrement historique distant :", error);
-
-    try {
-      const pdfBlob = docPdf.output("blob");
-      addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
-    } catch (fallbackError) {
-      console.error("Erreur enregistrement historique local :", fallbackError);
-    }
+    console.error("Erreur enregistrement historique :", error);
   }
 
   docPdf.save(fileName);
@@ -1081,58 +1062,110 @@ function drawCellText(docPdf, textOrLines, x, y, width, height, align = "left") 
 
   lines.forEach((line) => {
     let textX = x + 1.5;
-    if (align === "center") textX = x + width / 2;
-    if (align === "right") textX = x + width - 1.5;
 
-    docPdf.text(String(line), textX, currentY, { align });
+    if (align === "center") {
+      textX = x + width / 2;
+      docPdf.text(line, textX, currentY, { align: "center" });
+    } else if (align === "right") {
+      textX = x + width - 1.5;
+      docPdf.text(line, textX, currentY, { align: "right" });
+    } else {
+      docPdf.text(line, textX, currentY);
+    }
+
     currentY += lineGap;
   });
 }
 
 function calculBareme(distanceKm, cv) {
   const baremes = getBaremesFromInputs();
-  const key = cv >= 7 ? 7 : Math.max(3, Math.min(7, cv));
-  return distanceKm * baremes[key];
+  const puissance = Math.min(cv, 7);
+  const bareme = baremes[puissance] || baremes[7] || DEFAULT_BAREMES[7];
+  return distanceKm * bareme;
 }
 
-function formatDuration(seconds) {
-  const totalMinutes = Math.round(seconds / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours === 0) return `${minutes} min`;
-  if (minutes === 0) return `${hours} h`;
-  return `${hours} h ${minutes} min`;
+function formatDuration(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.round((totalSeconds % 3600) / 60);
+  return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
 }
 
 function formatDateFr(dateStr) {
   if (!dateStr) return "-";
-  const [year, month, day] = dateStr.split("-");
-  return `${day}/${month}/${year}`;
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
 }
 
-function formatMonthFr(monthValue) {
-  if (!monthValue) return "-";
-  const [year, month] = monthValue.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+function formatMonthFr(monthStr) {
+  if (!monthStr) return "-";
+  const [year, month] = monthStr.split("-");
+  const months = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+  ];
+  return `${months[Number(month) - 1]} ${year}`;
 }
 
 function safeText(value) {
-  return String(value || "").trim() || "-";
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function resetForm() {
+  document.getElementById("dateTrajet").value = "";
+  document.getElementById("enfant").value = "";
+  document.getElementById("professionnel").value = "";
+  document.getElementById("motif").value = "";
+  document.getElementById("heureDebut").value = "";
+  document.getElementById("heureFin").value = "";
+  document.getElementById("departDomicile").checked = true;
+  document.getElementById("retourDomicile").checked = true;
+  document.getElementById("cv").value = "7";
+
+  syncDepartIfNeeded();
+
+  document.getElementById("destinations").innerHTML = "";
+  addDestination();
+
+  totalDistanceKm = 0;
+  totalDurationSeconds = 0;
+  totalAmount = 0;
+
+  document.getElementById("distanceTotale").textContent = "0 km";
+  document.getElementById("tempsTotal").textContent = "0 min";
+  document.getElementById("montantTotal").textContent = "0,00 €";
+
+  if (directionsRenderer) {
+    directionsRenderer.set("directions", null);
+  }
 }
 
-function escapeHtmlAttr(value) {
-  return escapeHtml(value);
+function resetFormAfterAdd() {
+  document.getElementById("dateTrajet").value = "";
+  document.getElementById("enfant").value = "";
+  document.getElementById("professionnel").value = "";
+  document.getElementById("motif").value = "";
+  document.getElementById("heureDebut").value = "";
+  document.getElementById("heureFin").value = "";
+  document.getElementById("departDomicile").checked = true;
+  document.getElementById("retourDomicile").checked = true;
+
+  syncDepartIfNeeded();
+  syncDateWithMonth(true);
+
+  document.getElementById("destinations").innerHTML = "";
+  addDestination();
+
+  totalDistanceKm = 0;
+  totalDurationSeconds = 0;
+  totalAmount = 0;
+
+  document.getElementById("distanceTotale").textContent = "0 km";
+  document.getElementById("tempsTotal").textContent = "0 min";
+  document.getElementById("montantTotal").textContent = "0,00 €";
+
+  if (directionsRenderer) {
+    directionsRenderer.set("directions", null);
+  }
 }
 
 function showToast(message) {
@@ -1144,21 +1177,105 @@ function showToast(message) {
 
   setTimeout(() => {
     toast.classList.remove("show");
-  }, 2200);
+  }, 2500);
 }
 
-function handleSignatureChange(event) {
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeHtmlAttr(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function isImageDataUrl(data) {
+  return typeof data === "string" && data.startsWith("data:image/");
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function convertImageDataUrlToJpeg(dataUrl, quality = 0.92) {
+  const img = new Image();
+  img.src = dataUrl;
+
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+
+  return {
+    dataUrl: canvas.toDataURL("image/jpeg", quality),
+    width: canvas.width,
+    height: canvas.height
+  };
+}
+
+function loadSignatureInfo() {
+  const signatureData = localStorage.getItem(getSignatureDataKey());
+  const signatureName = localStorage.getItem(getSignatureNameKey()) || "";
+  const info = document.getElementById("signatureInfo");
+  const preview = document.getElementById("signaturePreview");
+
+  if (!info || !preview) return;
+
+  if (signatureData) {
+    info.textContent = signatureName ? `Signature enregistrée : ${signatureName}` : "Signature enregistrée";
+    preview.src = signatureData;
+    preview.style.display = "block";
+  } else {
+    info.textContent = "";
+    preview.src = "";
+    preview.style.display = "none";
+  }
+}
+
+async function handleSignatureChange(event) {
   const file = event.target.files?.[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    localStorage.setItem(getSignatureDataKey(), reader.result);
+  if (!(file.type && file.type.startsWith("image/"))) {
+    alert("Merci de choisir une image JPG ou PNG pour la signature.");
+    event.target.value = "";
+    return;
+  }
+
+  try {
+    const data = await fileToBase64(file);
+    localStorage.setItem(getSignatureDataKey(), data);
     localStorage.setItem(getSignatureNameKey(), file.name);
     loadSignatureInfo();
-    showToast("Signature importée");
-  };
-  reader.readAsDataURL(file);
+    showToast("Signature enregistrée");
+  } catch (error) {
+    console.error("Erreur lecture signature :", error);
+    alert("Impossible de lire l'image de signature.");
+  } finally {
+    event.target.value = "";
+  }
 }
 
 function clearSignature() {
@@ -1168,39 +1285,47 @@ function clearSignature() {
   showToast("Signature supprimée");
 }
 
-function loadSignatureInfo() {
-  const preview = document.getElementById("signaturePreview");
-  const info = document.getElementById("signatureInfo");
-  const data = localStorage.getItem(getSignatureDataKey());
-  const name = localStorage.getItem(getSignatureNameKey());
+function loadCarteGriseInfo() {
+  const carteData = localStorage.getItem(getCarteGriseDataKey());
+  const carteName = localStorage.getItem(getCarteGriseNameKey()) || "";
+  const info = document.getElementById("carteGriseInfo");
+  const preview = document.getElementById("carteGrisePreview");
 
-  if (preview) {
-    if (data) {
-      preview.src = data;
+  if (!info || !preview) return;
+
+  if (carteData) {
+    info.textContent = carteName ? `Carte grise enregistrée : ${carteName}` : "Carte grise enregistrée";
+
+    if (isImageDataUrl(carteData)) {
+      preview.src = carteData;
       preview.style.display = "block";
     } else {
-      preview.removeAttribute("src");
+      preview.src = "";
       preview.style.display = "none";
     }
-  }
-
-  if (info) {
-    info.textContent = name ? `Signature chargée : ${name}` : "";
+  } else {
+    info.textContent = "";
+    preview.src = "";
+    preview.style.display = "none";
   }
 }
 
-function handleCarteGriseChange(event) {
+async function handleCarteGriseChange(event) {
   const file = event.target.files?.[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    localStorage.setItem(getCarteGriseDataKey(), reader.result);
+  try {
+    const data = await fileToBase64(file);
+    localStorage.setItem(getCarteGriseDataKey(), data);
     localStorage.setItem(getCarteGriseNameKey(), file.name);
     loadCarteGriseInfo();
-    showToast("Carte grise importée");
-  };
-  reader.readAsDataURL(file);
+    showToast("Carte grise enregistrée");
+  } catch (error) {
+    console.error("Erreur lecture carte grise :", error);
+    alert("Impossible de lire le fichier de carte grise.");
+  } finally {
+    event.target.value = "";
+  }
 }
 
 function clearCarteGrise() {
@@ -1208,99 +1333,4 @@ function clearCarteGrise() {
   localStorage.removeItem(getCarteGriseNameKey());
   loadCarteGriseInfo();
   showToast("Carte grise supprimée");
-}
-
-function loadCarteGriseInfo() {
-  const info = document.getElementById("carteGriseInfo");
-  const name = localStorage.getItem(getCarteGriseNameKey());
-
-  if (info) {
-    info.textContent = name ? `Carte grise chargée : ${name}` : "";
-  }
-}
-
-function isImageDataUrl(value) {
-  return typeof value === "string" && value.startsWith("data:image/");
-}
-
-async function convertImageDataUrlToJpeg(dataUrl, quality = 0.92) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-
-        const jpegDataUrl = canvas.toDataURL("image/jpeg", quality);
-        resolve({
-          dataUrl: jpegDataUrl,
-          width: canvas.width,
-          height: canvas.height
-        });
-      } catch (error) {
-        reject(error);
-      }
-    };
-
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-}
-
-function resetFormAfterAdd() {
-  document.getElementById("dateTrajet").value = "";
-  document.getElementById("enfant").value = "";
-  document.getElementById("professionnel").value = "";
-  document.getElementById("motif").value = "";
-  document.getElementById("heureDebut").value = "";
-  document.getElementById("heureFin").value = "";
-  document.getElementById("retourDomicile").checked = false;
-
-  const departInput = document.getElementById("depart");
-  departInput.value = "";
-  departInput.disabled = false;
-
-  document.getElementById("destinations").innerHTML = "";
-  addDestination();
-
-  totalDistanceKm = 0;
-  totalDurationSeconds = 0;
-  totalAmount = 0;
-
-  document.getElementById("distanceTotale").textContent = "0 km";
-  document.getElementById("tempsTotal").textContent = "0 min";
-  document.getElementById("montantTotal").textContent = "0 €";
-}
-
-function resetForm() {
-  document.getElementById("dateTrajet").value = "";
-  document.getElementById("enfant").value = "";
-  document.getElementById("professionnel").value = "";
-  document.getElementById("motif").value = "";
-  document.getElementById("heureDebut").value = "";
-  document.getElementById("heureFin").value = "";
-  document.getElementById("retourDomicile").checked = false;
-
-  const departInput = document.getElementById("depart");
-  departInput.value = "";
-  departInput.disabled = false;
-
-  document.getElementById("destinations").innerHTML = "";
-  addDestination();
-
-  totalDistanceKm = 0;
-  totalDurationSeconds = 0;
-  totalAmount = 0;
-
-  document.getElementById("distanceTotale").textContent = "0 km";
-  document.getElementById("tempsTotal").textContent = "0 min";
-  document.getElementById("montantTotal").textContent = "0 €";
-
-  showToast("Formulaire réinitialisé");
 }
