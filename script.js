@@ -11,7 +11,6 @@ let directionsRenderer = null;
 let totalDistanceKm = 0;
 let totalDurationSeconds = 0;
 let totalAmount = 0;
-
 let deplacements = [];
 let currentUid = null;
 let currentProfile = null;
@@ -65,14 +64,6 @@ function getCarteGriseDataKey() {
 
 function getCarteGriseNameKey() {
   return `carteGriseKilometriqueName_${getUid()}`;
-}
-
-function getLogoDataKey() {
-  return `logoKilometriqueData_${getUid()}`;
-}
-
-function getLogoNameKey() {
-  return `logoKilometriqueName_${getUid()}`;
 }
 
 function getMotifsKey() {
@@ -418,13 +409,12 @@ function bindEvents() {
   });
   document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
   document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
-
-  document.getElementById("btnLogo")?.addEventListener("click", () => {
-    document.getElementById("logoFile")?.click();
-  });
-  document.getElementById("logoFile")?.addEventListener("change", handleLogoChange);
-  document.getElementById("btnClearLogo")?.addEventListener("click", clearLogo);
 }
+document.getElementById("btnLogo")?.addEventListener("click", () => {
+  document.getElementById("logoFile")?.click();
+});
+document.getElementById("logoFile")?.addEventListener("change", handleLogoChange);
+document.getElementById("btnClearLogo")?.addEventListener("click", clearLogo);
 
 function setDefaultMonthIfNeeded() {
   const moisInput = document.getElementById("moisEtat");
@@ -851,6 +841,7 @@ function renderDeplacements() {
   updateTotals();
 }
 
+
 function supprimerDeplacement(id) {
   deplacements = deplacements.filter((item) => item.id !== id);
   saveDeplacements();
@@ -886,11 +877,39 @@ function updateTotals() {
 }
 
 async function genererPDFMensuel() {
+  if (logoData && isImageDataUrl(logoData)) {
+  try {
+    const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
+    const pageWidth = docPdf.internal.pageSize.getWidth();
+
+    let logoWidth = 42;
+    let logoHeight = (convertedLogo.height / convertedLogo.width) * logoWidth;
+
+    if (logoHeight > 18) {
+      logoHeight = 18;
+      logoWidth = (convertedLogo.width / convertedLogo.height) * logoHeight;
+    }
+
+    const logoX = pageWidth - logoWidth - 12;
+    const logoY = 8;
+
+    docPdf.addImage(
+      convertedLogo.dataUrl,
+      "JPEG",
+      logoX,
+      logoY,
+      logoWidth,
+      logoHeight
+    );
+  } catch (error) {
+    console.error("Erreur ajout logo PDF :", error);
+  }
+}
   if (deplacements.length === 0) {
     alert("Aucun déplacement à exporter.");
     return;
   }
-
+const logoData = localStorage.getItem(getLogoDataKey());
   const allowed = await requirePdfAccess();
   if (!allowed) return;
 
@@ -905,7 +924,6 @@ async function genererPDFMensuel() {
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const signatureData = localStorage.getItem(getSignatureDataKey());
   const carteGriseData = localStorage.getItem(getCarteGriseDataKey());
-  const logoData = localStorage.getItem(getLogoDataKey());
 
   const margin = 10;
   let y = 14;
@@ -922,35 +940,6 @@ async function genererPDFMensuel() {
   docPdf.setFont("helvetica", "normal");
   docPdf.setFontSize(10.5);
   docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
-
-  if (logoData && isImageDataUrl(logoData)) {
-    try {
-      const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
-      const pageWidth = docPdf.internal.pageSize.getWidth();
-
-      let logoWidth = 42;
-      let logoHeight = (convertedLogo.height / convertedLogo.width) * logoWidth;
-
-      if (logoHeight > 18) {
-        logoHeight = 18;
-        logoWidth = (convertedLogo.width / convertedLogo.height) * logoHeight;
-      }
-
-      const logoX = pageWidth - logoWidth - 12;
-      const logoY = 8;
-
-      docPdf.addImage(
-        convertedLogo.dataUrl,
-        "JPEG",
-        logoX,
-        logoY,
-        logoWidth,
-        logoHeight
-      );
-    } catch (error) {
-      console.error("Erreur ajout logo PDF :", error);
-    }
-  }
 
   y += 8;
 
@@ -1036,35 +1025,6 @@ async function genererPDFMensuel() {
       docPdf.setFontSize(10.5);
       docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
 
-      if (logoData && isImageDataUrl(logoData)) {
-        try {
-          const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
-          const pageWidth = docPdf.internal.pageSize.getWidth();
-
-          let logoWidth = 42;
-          let logoHeight = (convertedLogo.height / convertedLogo.width) * logoWidth;
-
-          if (logoHeight > 18) {
-            logoHeight = 18;
-            logoWidth = (convertedLogo.width / convertedLogo.height) * logoHeight;
-          }
-
-          const logoX = pageWidth - logoWidth - 12;
-          const logoY = 8;
-
-          docPdf.addImage(
-            convertedLogo.dataUrl,
-            "JPEG",
-            logoX,
-            logoY,
-            logoWidth,
-            logoHeight
-          );
-        } catch (error) {
-          console.error("Erreur ajout logo PDF page suivante :", error);
-        }
-      }
-
       y += 8;
       drawHeader();
       docPdf.setFont("helvetica", "normal");
@@ -1145,54 +1105,66 @@ async function genererPDFMensuel() {
   yBareme += 5.5;
   docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, baremeX, yBareme);
 
-  const cadreX = 112;
-  const cadreY = 143;
-  const cadreW = pageWidth - cadreX - 10;
-  const cadreH = 60;
+ // -------------------------
+// Cadre comptabilité à droite
+// -------------------------
+const cadreX = 112;
+const cadreY = 143;
+const cadreW = pageWidth - cadreX - 10;
+const cadreH = 62;
 
-  docPdf.setDrawColor(0, 0, 0);
-  docPdf.setLineWidth(0.4);
-  docPdf.rect(cadreX, cadreY, cadreW, cadreH);
+// contour extérieur
+docPdf.setDrawColor(0, 0, 0);
+docPdf.setLineWidth(0.10);
+docPdf.rect(cadreX, cadreY, cadreW, cadreH);
 
-  docPdf.setFillColor(210, 228, 245);
-  docPdf.rect(cadreX, cadreY, cadreW, 16, "F");
+// bandeau du haut
+docPdf.setFillColor(210, 228, 245);
+docPdf.rect(cadreX, cadreY, cadreW, 16, "F");
 
-  docPdf.setFont("helvetica", "bold");
-  docPdf.setFontSize(10);
-  docPdf.setTextColor(0, 0, 0);
-  docPdf.text("Cadre réservé à la comptabilité", cadreX + cadreW / 2, cadreY + 6.5, {
-    align: "center"
-  });
+// titre
+docPdf.setFont("helvetica", "bold");
+docPdf.setFontSize(10);
+docPdf.setTextColor(0, 0, 0);
+docPdf.text("Cadre réservé à la comptabilité", cadreX + cadreW / 2, cadreY + 6.5, {
+  align: "center"
+});
 
-  docPdf.setFontSize(8.5);
-  docPdf.setTextColor(200, 0, 0);
-  docPdf.text("(ne rien inscrire)", cadreX + cadreW / 2, cadreY + 11.5, {
-    align: "center"
-  });
+docPdf.setFontSize(8.5);
+docPdf.setTextColor(200, 0, 0);
+docPdf.text("(ne rien inscrire)", cadreX + cadreW / 2, cadreY + 11.5, {
+  align: "center"
+});
 
-  docPdf.setTextColor(0, 0, 0);
+docPdf.setTextColor(0, 0, 0);
 
-  docPdf.setFont("helvetica", "normal");
-  docPdf.setFontSize(9);
-  docPdf.text("............................ Kms x ........................ = ........................ €", cadreX + 8, cadreY + 24);
+// zone calcul kms
+docPdf.setFont("helvetica", "normal");
+docPdf.setFontSize(9);
+docPdf.text("............................ Kms x ........................ = ........................ €", cadreX + 43, cadreY + 24);
 
-  docPdf.line(cadreX, cadreY + 30, cadreX + cadreW, cadreY + 30);
-  docPdf.line(cadreX, cadreY + 36, cadreX + cadreW, cadreY + 36);
+// séparation BON A PAYER
+docPdf.line(cadreX, cadreY + 28, cadreX + cadreW, cadreY + 28);
 
-  docPdf.setFont("helvetica", "bold");
-  docPdf.setFontSize(10);
-  docPdf.text("BON A PAYER", cadreX + cadreW / 2, cadreY + 33, { align: "center" });
+// texte BON A PAYER bien centré entre les deux lignes
+docPdf.setFont("helvetica", "bold");
+docPdf.setFontSize(9.5);
+docPdf.text("BON A PAYER", cadreX + cadreW / 2, cadreY + 33, {
+  align: "center"
+});
 
-  docPdf.line(cadreX, cadreY + 42, cadreX + cadreW, cadreY + 42);
+// séparation partie basse
+docPdf.line(cadreX, cadreY + 36, cadreX + cadreW, cadreY + 36);
 
-  docPdf.setFont("helvetica", "normal");
-  docPdf.setFontSize(8.5);
+// partie basse
+docPdf.setFont("helvetica", "normal");
+docPdf.setFontSize(8.5);
 
-  const leftPad = cadreX + 3;
-  docPdf.text("Date : ................................................................................................", leftPad, cadreY + 48);
-  docPdf.text("Nom du responsable : ........................................................................", leftPad, cadreY + 54);
-  docPdf.text("Imputation analytique : .....................................................................", leftPad, cadreY + 60);
-  docPdf.text("Signature : .........................................................................................", leftPad, cadreY + 66);
+const leftPad = cadreX + 3;
+docPdf.text("Date : ................................................................................................", leftPad, cadreY + 42);
+docPdf.text("Nom du responsable : ........................................................................", leftPad, cadreY + 48);
+docPdf.text("Imputation analytique : .....................................................................", leftPad, cadreY + 54);
+docPdf.text("Signature : .........................................................................................", leftPad, cadreY + 60);
 
   if (carteGriseData && isImageDataUrl(carteGriseData)) {
     try {
@@ -1559,7 +1531,6 @@ function clearCarteGrise() {
   loadCarteGriseInfo();
   showToast("Carte grise supprimée");
 }
-
 function loadLogoInfo() {
   const logoData = localStorage.getItem(getLogoDataKey());
   const logoName = localStorage.getItem(getLogoNameKey()) || "";
@@ -1590,15 +1561,6 @@ async function handleLogoChange(event) {
   if (!file) return;
 
   try {
-    const maxSizeMo = 2;
-    const maxSizeBytes = maxSizeMo * 1024 * 1024;
-
-    if (file.size > maxSizeBytes) {
-      alert(`Le logo est trop volumineux. Choisis une image de moins de ${maxSizeMo} Mo.`);
-      event.target.value = "";
-      return;
-    }
-
     if (!file.type.startsWith("image/")) {
       alert("Merci d'importer une image pour le logo.");
       event.target.value = "";
@@ -1619,7 +1581,6 @@ async function handleLogoChange(event) {
     event.target.value = "";
   }
 }
-
 function clearLogo() {
   localStorage.removeItem(getLogoDataKey());
   localStorage.removeItem(getLogoNameKey());
