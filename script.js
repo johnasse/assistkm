@@ -71,6 +71,10 @@ function getMotifsKey() {
   return `motifsKilometriques_${getUid()}`;
 }
 
+function getDestinationsKey() {
+  return `destinationsKilometriques_${getUid()}`;
+}
+
 function isGoogleMapsAvailable() {
   return !!(window.google && google.maps && google.maps.DirectionsService);
 }
@@ -144,6 +148,7 @@ async function loadUserData() {
   loadSignatureInfo();
   loadCarteGriseInfo();
   loadSavedMotifs();
+  loadSavedDestinations();
   await loadProfileData();
 
   renderDeplacements();
@@ -303,6 +308,47 @@ function memorizeMotif(motif) {
     saveMotifsList(saved.slice(0, 100));
     mergeMotifSuggestions(saved.slice(0, 100));
   }
+}
+
+function getSavedDestinations() {
+  return JSON.parse(localStorage.getItem(getDestinationsKey()) || "[]");
+}
+
+function saveDestinationsList(list) {
+  const unique = [...new Set(list.map((item) => String(item).trim()).filter(Boolean))];
+  localStorage.setItem(getDestinationsKey(), JSON.stringify(unique));
+}
+
+function loadSavedDestinations() {
+  mergeDestinationSuggestions(getSavedDestinations());
+}
+
+function mergeDestinationSuggestions(destinations) {
+  const datalist = document.getElementById("destinationSuggestions");
+  if (!datalist) return;
+
+  const current = [...datalist.querySelectorAll("option")].map((opt) => opt.value);
+  const saved = getSavedDestinations();
+  const merged = [...new Set([...current, ...saved, ...destinations].map((item) => String(item).trim()).filter(Boolean))];
+
+  datalist.innerHTML = "";
+  merged.forEach((destination) => {
+    const option = document.createElement("option");
+    option.value = destination;
+    datalist.appendChild(option);
+  });
+
+  saveDestinationsList(merged);
+}
+
+function memorizeDestinations(destinations) {
+  const cleanList = destinations.map((item) => String(item).trim()).filter(Boolean);
+  if (!cleanList.length) return;
+
+  const saved = getSavedDestinations();
+  const merged = [...cleanList, ...saved];
+  saveDestinationsList(merged.slice(0, 200));
+  mergeDestinationSuggestions(merged.slice(0, 200));
 }
 
 function useServiceAddressAsDestination() {
@@ -542,7 +588,7 @@ function addDestination(value = "") {
   const row = document.createElement("div");
   row.className = "dest-row";
   row.innerHTML = `
-    <input type="text" class="destination-input" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
+    <input type="text" class="destination-input" list="destinationSuggestions" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
     <button type="button" class="btn btn-danger">Supprimer</button>
   `;
 
@@ -722,6 +768,7 @@ function ajouterDeplacement() {
   }
 
   memorizeMotif(motif);
+  memorizeDestinations(destinations);
 
   const lieuRdv = destinations.join(" / ");
 
