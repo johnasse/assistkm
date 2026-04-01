@@ -880,6 +880,7 @@ async function genererPDFMensuel() {
   const moisEtat = document.getElementById("moisEtat").value;
   const assistantNom = document.getElementById("assistantNom").value.trim() || "-";
   const totalKm = deplacements.reduce((sum, item) => sum + item.km, 0);
+  const totalMontantEstime = deplacements.reduce((sum, item) => sum + item.montant, 0);
   const baremes = getBaremesFromInputs();
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const signatureData = localStorage.getItem(getSignatureDataKey());
@@ -1011,6 +1012,9 @@ async function genererPDFMensuel() {
   docPdf.setFont("helvetica", "bold");
   docPdf.setFontSize(10.5);
   docPdf.text(`Total kilomètres : ${totalKm.toFixed(1).replace(".", ",")} km`, margin, y);
+
+  y += 7;
+  docPdf.text(`Montant total estimé : ${totalMontantEstime.toFixed(2).replace(".", ",")} €`, margin, y);
 
   y += 12;
 
