@@ -1,178 +1,1495 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fiche de présence - EasyFrais</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fiche de présence - EasyFrais</title>
 
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f3f6fb;
-  margin: 0;
-  padding: 20px;
-}
-table {
-  border-collapse: collapse;
-  width: 100%;
-  margin-top: 20px;
-}
-th, td {
-  border: 1px solid #ddd;
-  text-align: center;
-  padding: 5px;
-  font-size: 12px;
-}
-.day-cell {
-  cursor: pointer;
-  font-weight: bold;
-}
-.code-P { background: #dcfce7; }
-.code-I { background: #fee2e2; }
-.code-DVH { background: #fef3c7; }
-.code-A { background: #e0e7ff; }
-.code-F { background: #fce7f3; }
-.code-R { background: #ede9fe; }
+  <style>
+    * { box-sizing: border-box; }
 
-button {
-  padding: 8px 12px;
-  margin: 5px;
-}
-</style>
-</head>
-
-<body>
-
-<h2>Fiche de présence</h2>
-
-<label>Mois :</label>
-<input type="month" id="presenceMonth">
-
-<button onclick="generatePresencePdf()">Générer PDF</button>
-
-<table id="presenceTable"></table>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<script>
-let selectedCode = "P";
-let daysInMonth = 31;
-
-const state = {
-  presence: {
-    month: "",
-    afName: "",
-    rectif: "",
-    signatureDataUrl: "",
-    children: ["Enfant 1","Enfant 2"],
-    grid: [
-      Array(31).fill(""),
-      Array(31).fill("")
-    ]
-  }
-};
-
-function getDaysInMonth(monthValue) {
-  if (!monthValue) return 31;
-  const [year, month] = monthValue.split("-").map(Number);
-  return new Date(year, month, 0).getDate();
-}
-
-document.getElementById("presenceMonth").addEventListener("change", (e) => {
-  state.presence.month = e.target.value;
-  daysInMonth = getDaysInMonth(state.presence.month);
-  renderTable();
-});
-
-function renderTable() {
-  const table = document.getElementById("presenceTable");
-
-  let html = "<tr><th>Enfant</th>";
-  for (let d = 1; d <= daysInMonth; d++) {
-    html += "<th>" + d + "</th>";
-  }
-  html += "<th>Total</th></tr>";
-
-  for (let row = 0; row < state.presence.children.length; row++) {
-    html += "<tr>";
-    html += "<td>" + state.presence.children[row] + "</td>";
-
-    let total = 0;
-
-    for (let d = 0; d < daysInMonth; d++) {
-      const code = state.presence.grid[row][d] || "";
-      if (code === "P") total++;
-
-      html += `<td class="day-cell code-${code}" 
-        onclick="toggleCell(${row},${d})">${code}</td>`;
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #f3f6fb, #e7edf7);
+      color: #111827;
     }
 
-    html += "<td><b>" + total + "</b></td>";
-    html += "</tr>";
-  }
+    .page {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
 
-  table.innerHTML = html;
-}
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
 
-function toggleCell(row, day) {
-  const current = state.presence.grid[row][day];
-  state.presence.grid[row][day] = current === "P" ? "" : "P";
-  renderTable();
-}
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: #6b7280;
+    }
+
+    .header-actions,
+    .toolbar,
+    .tabs,
+    .legend,
+    .summary-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: 0.2s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #111827; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-danger { background: #dc2626; color: white; }
+
+    .mini-btn {
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .mini-btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .mini-btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+
+    .card {
+      background: white;
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+    }
+
+    .card p {
+      margin: 0;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+
+    .tab-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: white;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+      color: #334155;
+    }
+
+    .tab-btn.active {
+      background: #2563eb;
+      color: white;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 14px;
+      outline: none;
+      background: white;
+    }
+
+    .toolbar {
+      margin-top: 16px;
+    }
+
+    .legend {
+      margin-top: 14px;
+    }
+
+    .legend button {
+      border: none;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .legend button.active {
+      background: #2563eb;
+      color: white;
+    }
+
+    .small-note {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .presence-table-wrap,
+    .relay-table-wrap {
+      overflow-x: visible;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      background: white;
+      margin-top: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid #e5e7eb;
+      text-align: center;
+      padding: 4px;
+      font-size: 11px;
+    }
+
+    th {
+      background: #f8fafc;
+      font-weight: 700;
+    }
+
+    th.left,
+    td.left {
+      text-align: left;
+      width: 120px;
+      min-width: 120px;
+      max-width: 120px;
+      padding-left: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    td.left input {
+      width: 100%;
+      min-width: 0;
+      padding: 6px 7px;
+      font-size: 11px;
+      border-radius: 8px;
+    }
+
+    .day-cell {
+      width: 22px;
+      min-width: 22px;
+      height: 22px;
+      cursor: pointer;
+      font-weight: 700;
+      user-select: none;
+      padding: 2px;
+      font-size: 10px;
+    }
+
+    .day-cell:hover {
+      background: #eff6ff;
+    }
+
+    .code-empty { color: #cbd5e1; }
+    .code-P { background: #dcfce7; color: #166534; }
+    .code-I { background: #fee2e2; color: #991b1b; }
+    .code-DVH { background: #fef3c7; color: #92400e; }
+    .code-A { background: #e0e7ff; color: #3730a3; }
+    .code-F { background: #fce7f3; color: #9d174d; }
+    .code-R { background: #ede9fe; color: #5b21b6; }
+
+    .summary-box {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 14px 16px;
+      min-width: 170px;
+    }
+
+    .summary-box span {
+      display: block;
+      color: #6b7280;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .summary-box strong {
+      font-size: 24px;
+    }
+
+    .signature-preview-wrap {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .signature-preview {
+      max-width: 240px;
+      max-height: 90px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: white;
+      padding: 8px;
+      object-fit: contain;
+    }
+
+    .children-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .child-inline {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .child-inline input {
+      flex: 1;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #111827;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.2s ease;
+      z-index: 9999;
+      font-weight: 600;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    @media (max-width: 1100px) {
+      .presence-table-wrap,
+      .relay-table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        min-width: 1000px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .grid-2, .grid-3, .children-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body { background: white; }
+
+      .tabs,
+      .header-actions,
+      .toolbar,
+      .legend,
+      .small-note,
+      .toast,
+      .signature-preview-wrap,
+      .signature-controls,
+      .remove-child-btn {
+        display: none !important;
+      }
+
+      .page {
+        max-width: 100%;
+        padding: 0;
+      }
+
+      .card {
+        box-shadow: none;
+        border: 1px solid #d1d5db;
+      }
+
+      .tab-panel {
+        display: block !important;
+      }
+
+      th, td {
+        font-size: 10px;
+        padding: 3px;
+      }
+
+      .day-cell {
+        width: 18px;
+        min-width: 18px;
+        height: 18px;
+        font-size: 9px;
+      }
+
+      th.left,
+      td.left {
+        width: 100px;
+        min-width: 100px;
+        max-width: 100px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">EF</div>
+        <div>
+          <h1>Fiche de présence</h1>
+          <p>Présence au domicile + relais + PDF + historique + signature</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <a href="index.html" class="btn btn-secondary">Accueil</a>
+        <button class="btn btn-success" type="button" id="btnSaveModule">Enregistrer</button>
+        <button class="btn btn-primary" type="button" id="btnPdfPresence">Générer PDF</button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="presence">Présence au domicile</button>
+      <button class="tab-btn" data-tab="relais">Relais mois précédent</button>
+    </div>
+
+    <section id="tab-presence" class="tab-panel active">
+      <div class="card">
+        <h2>Informations générales</h2>
+
+        <div class="grid grid-3">
+          <div class="field">
+            <label for="presenceMonth">Mois</label>
+            <input type="month" id="presenceMonth" />
+          </div>
+
+          <div class="field">
+            <label for="presenceAfName">Assistant familial référent</label>
+            <input type="text" id="presenceAfName" placeholder="Nom / prénom" />
+          </div>
+
+          <div class="field">
+            <label for="presenceRectif">Rectificatif / remarque</label>
+            <input type="text" id="presenceRectif" placeholder="Ex : correction suite à ..." />
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div class="toolbar" style="margin-bottom:12px;">
+            <button type="button" class="btn btn-secondary" id="btnAddChild">Ajouter un enfant</button>
+          </div>
+
+          <div id="childrenFields" class="children-grid"></div>
+        </div>
+
+        <datalist id="profileChildrenList"></datalist>
+
+        <div class="grid grid-2" style="margin-top:16px;">
+          <div class="field">
+            <label for="signatureUpload">Signature</label>
+
+            <input
+              type="file"
+              id="signatureUpload"
+              accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+              style="display:none;"
+            />
+
+            <div class="toolbar signature-controls">
+              <label for="signatureUpload" class="btn btn-secondary">Importer la signature</label>
+              <button type="button" class="btn btn-danger" id="btnClearSignature">Supprimer la signature</button>
+            </div>
+
+            <div id="signaturePreviewWrap" class="signature-preview-wrap">
+              <img id="signaturePreview" class="signature-preview" alt="Aperçu signature" />
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button type="button" class="btn btn-secondary" id="btnFillFullMonth">Mois complet</button>
+          <button type="button" class="btn btn-danger" id="btnClearPresenceMonth">Vider le mois</button>
+        </div>
+
+        <div class="legend" id="presenceLegend">
+          <button type="button" class="active" data-code="P">P</button>
+          <button type="button" data-code="I">I</button>
+          <button type="button" data-code="DVH">DVH</button>
+          <button type="button" data-code="A">A</button>
+          <button type="button" data-code="F">F</button>
+          <button type="button" data-code="R">R</button>
+          <button type="button" data-code="">Vider</button>
+        </div>
+
+        <div class="small-note">
+          Clique sur une case pour appliquer le code sélectionné. Si tu recliques sur le même code, la case se vide. Total = nombre de jours marqués « P ».
+        </div>
+
+        <div class="presence-table-wrap">
+          <table id="presenceTable"></table>
+        </div>
+
+        <div class="summary-row" id="presenceSummary"></div>
+      </div>
+    </section>
+
+    <section id="tab-relais" class="tab-panel">
+      <div class="card">
+        <h2>Fiche de relais du mois précédent</h2>
+
+        <div class="grid grid-3">
+          <div class="field">
+            <label for="relayMonth">Mois</label>
+            <input type="month" id="relayMonth" />
+          </div>
+
+          <div class="field">
+            <label for="relayAfName">Assistant familial signataire</label>
+            <input type="text" id="relayAfName" placeholder="Nom / prénom" />
+          </div>
+
+          <div class="field">
+            <label for="relayNotes">Remarque</label>
+            <input type="text" id="relayNotes" placeholder="Ex : relais ponctuel" />
+          </div>
+        </div>
+
+        <div class="legend" id="relayLegend">
+          <button type="button" class="active" data-code="P">P</button>
+          <button type="button" data-code="I">I</button>
+          <button type="button" data-code="DVH">DVH</button>
+          <button type="button" data-code="A">A</button>
+          <button type="button" data-code="F">F</button>
+          <button type="button" data-code="R">R</button>
+          <button type="button" data-code="">Vider</button>
+        </div>
+
+        <div class="toolbar">
+          <button type="button" class="btn btn-secondary" id="btnAddRelayRow">Ajouter une ligne relais</button>
+        </div>
+
+        <div class="relay-table-wrap">
+          <table id="relayTable"></table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+    const STORAGE_KEY = "presenceModuleEasyFrais";
+    const MIN_PRESENCE_ROWS = 4;
+    const MAX_PRESENCE_ROWS = 12;
+
+    let currentUser = null;
+    let selectedPresenceCode = "P";
+    let selectedRelayCode = "P";
+    let daysInPresenceMonth = 31;
+    let daysInRelayMonth = 31;
+    let isUiBound = false;
+    let areTabsBound = false;
+    let isLegendBound = false;
+
+    const state = {
+      presence: {
+        month: "",
+        afName: "",
+        rectif: "",
+        signatureDataUrl: "",
+        children: Array.from({ length: MIN_PRESENCE_ROWS }, () => ""),
+        grid: Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""))
+      },
+      relay: {
+        month: "",
+        afName: "",
+        notes: "",
+        rows: [createEmptyRelayRow()]
+      }
+    };
+
+    function createEmptyRelayRow() {
+      return {
+        child: "",
+        usualAf: "",
+        days: Array(31).fill("")
+      };
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    function getDaysInMonth(monthValue) {
+      if (!monthValue) return 31;
+      const [year, month] = monthValue.split("-").map(Number);
+      if (!year || !month) return 31;
+      return new Date(year, month, 0).getDate();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function normalizeStateShape() {
+      if (!Array.isArray(state.presence.children)) {
+        state.presence.children = Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
+      }
+
+      if (!Array.isArray(state.presence.grid)) {
+        state.presence.grid = Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
+      }
+
+      while (state.presence.children.length < MIN_PRESENCE_ROWS) {
+        state.presence.children.push("");
+      }
+
+      while (state.presence.grid.length < state.presence.children.length) {
+        state.presence.grid.push(Array(31).fill(""));
+      }
+
+      state.presence.children = state.presence.children.slice(0, MAX_PRESENCE_ROWS);
+      state.presence.grid = state.presence.grid.slice(0, MAX_PRESENCE_ROWS).map((row) => {
+        const normalized = Array.isArray(row) ? row.slice(0, 31) : [];
+        while (normalized.length < 31) normalized.push("");
+        return normalized;
+      });
+
+      if (typeof state.presence.signatureDataUrl !== "string") {
+        state.presence.signatureDataUrl = "";
+      }
+
+      if (!Array.isArray(state.relay.rows) || state.relay.rows.length === 0) {
+        state.relay.rows = [createEmptyRelayRow()];
+      }
+
+      state.relay.rows = state.relay.rows.map((row) => ({
+        child: row?.child || "",
+        usualAf: row?.usualAf || "",
+        days: Array.isArray(row?.days)
+          ? [...row.days.slice(0, 31), ...Array(Math.max(0, 31 - row.days.length)).fill("")]
+          : Array(31).fill("")
+      }));
+    }
+
+    function activateTabs() {
+      if (areTabsBound) return;
+      areTabsBound = true;
+
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+          document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById(`tab-${btn.dataset.tab}`)?.classList.add("active");
+        });
+      });
+    }
+
+    function bindLegend(containerId, callback) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      container.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          container.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          callback(btn.dataset.code ?? "");
+        });
+      });
+    }
+
+    function bindLegendsOnce() {
+      if (isLegendBound) return;
+      isLegendBound = true;
+
+      bindLegend("presenceLegend", (code) => {
+        selectedPresenceCode = code;
+      });
+
+      bindLegend("relayLegend", (code) => {
+        selectedRelayCode = code;
+      });
+    }
+
+    function updateSignaturePreview() {
+      const wrap = document.getElementById("signaturePreviewWrap");
+      const img = document.getElementById("signaturePreview");
+
+      if (!wrap || !img) return;
+
+      if (state.presence.signatureDataUrl) {
+        img.src = state.presence.signatureDataUrl;
+        wrap.style.display = "block";
+      } else {
+        img.src = "";
+        wrap.style.display = "none";
+      }
+    }
+
+    function renderChildrenFields() {
+      const wrap = document.getElementById("childrenFields");
+      if (!wrap) return;
+
+      wrap.innerHTML = state.presence.children.map((child, index) => `
+        <div class="field">
+          <label for="presenceChild${index}">Enfant ${index + 1}</label>
+          <div class="child-inline">
+            <input
+              type="text"
+              id="presenceChild${index}"
+              data-child-index="${index}"
+              list="profileChildrenList"
+              placeholder="Nom / prénom"
+              value="${escapeHtml(child || "")}"
+            />
+            ${
+              state.presence.children.length > MIN_PRESENCE_ROWS
+                ? `<button type="button" class="mini-btn mini-btn-danger remove-child-btn" data-child-index="${index}">X</button>`
+                : ""
+            }
+          </div>
+        </div>
+      `).join("");
+
+      document.querySelectorAll("input[data-child-index]").forEach((input) => {
+        input.oninput = (e) => {
+          const idx = Number(e.target.dataset.childIndex);
+          state.presence.children[idx] = e.target.value;
+          renderPresenceTable();
+          saveModuleSilently();
+        };
+      });
+
+      document.querySelectorAll(".remove-child-btn").forEach((btn) => {
+        btn.onclick = () => {
+          const idx = Number(btn.dataset.childIndex);
+          state.presence.children.splice(idx, 1);
+          state.presence.grid.splice(idx, 1);
+
+          while (state.presence.children.length < MIN_PRESENCE_ROWS) {
+            state.presence.children.push("");
+            state.presence.grid.push(Array(31).fill(""));
+          }
+
+          renderChildrenFields();
+          renderPresenceTable();
+          saveModuleSilently();
+          showToast("Enfant supprimé");
+        };
+      });
+    }
+
+    function renderPresenceSummary() {
+      const wrap = document.getElementById("presenceSummary");
+      if (!wrap) return;
+
+      wrap.innerHTML = state.presence.children.map((child, row) => {
+        let total = 0;
+        for (let day = 0; day < daysInPresenceMonth; day += 1) {
+          if ((state.presence.grid[row]?.[day] || "") === "P") total += 1;
+        }
+
+        return `
+          <div class="summary-box">
+            <span>${escapeHtml(child || `Enfant ${row + 1}`)}</span>
+            <strong>${total}</strong>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderPresenceTable() {
+      const table = document.getElementById("presenceTable");
+      if (!table) return;
+
+      let html = "<thead><tr><th class='left'>Enfant</th>";
+      for (let day = 1; day <= daysInPresenceMonth; day += 1) {
+        html += `<th>${day}</th>`;
+      }
+      html += "<th>Total</th><th>Action</th></tr></thead><tbody>";
+
+      for (let row = 0; row < state.presence.children.length; row += 1) {
+        const childName = escapeHtml(state.presence.children[row] || `Enfant ${row + 1}`);
+        html += `<tr><td class="left" title="${childName}">${childName}</td>`;
+        let total = 0;
+
+        for (let day = 0; day < daysInPresenceMonth; day += 1) {
+          const code = state.presence.grid[row][day] || "";
+          if (code === "P") total += 1;
+          const cls = `code-${code || "empty"}`;
+          html += `<td class="day-cell ${cls}" data-row="${row}" data-day="${day}" data-type="presence">${escapeHtml(code || "-")}</td>`;
+        }
+
+        html += `<td><strong>${total}</strong></td>`;
+        html += `<td><button type="button" class="mini-btn mini-btn-secondary fill-row-btn" data-row="${row}">Mois</button></td>`;
+        html += "</tr>";
+      }
+
+      html += "</tbody>";
+      table.innerHTML = html;
+      bindDayCells();
+      bindFillRowButtons();
+      renderPresenceSummary();
+    }
+
+    function renderRelayTable() {
+      const table = document.getElementById("relayTable");
+      if (!table) return;
+
+      let html = "<thead><tr><th class='left'>Enfant</th><th class='left'>AF habituel(le)</th>";
+      for (let day = 1; day <= daysInRelayMonth; day += 1) {
+        html += `<th>${day}</th>`;
+      }
+      html += "<th>Total</th><th>Action</th></tr></thead><tbody>";
+
+      state.relay.rows.forEach((row, rowIndex) => {
+        let total = 0;
+        html += "<tr>";
+        html += `<td class="left"><input data-relay-field="child" data-row="${rowIndex}" value="${escapeHtml(row.child)}" placeholder="Nom enfant"></td>`;
+        html += `<td class="left"><input data-relay-field="usualAf" data-row="${rowIndex}" value="${escapeHtml(row.usualAf)}" placeholder="Nom AF"></td>`;
+
+        for (let day = 0; day < daysInRelayMonth; day += 1) {
+          const code = row.days[day] || "";
+          if (code === "P") total += 1;
+          const cls = `code-${code || "empty"}`;
+          html += `<td class="day-cell ${cls}" data-row="${rowIndex}" data-day="${day}" data-type="relay">${escapeHtml(code || "-")}</td>`;
+        }
+
+        html += `<td><strong>${total}</strong></td>`;
+        html += `<td><button type="button" class="mini-btn mini-btn-danger relay-delete-btn" data-row="${rowIndex}">X</button></td>`;
+        html += "</tr>";
+      });
+
+      html += "</tbody>";
+      table.innerHTML = html;
+      bindDayCells();
+      bindRelayInputs();
+      bindRelayDeleteButtons();
+    }
+
+    function bindFillRowButtons() {
+      document.querySelectorAll(".fill-row-btn").forEach((btn) => {
+        btn.onclick = () => {
+          const row = Number(btn.dataset.row);
+          for (let day = 0; day < daysInPresenceMonth; day += 1) {
+            state.presence.grid[row][day] = "P";
+          }
+          renderPresenceTable();
+          saveModuleSilently();
+          showToast("Mois complet pour cet enfant");
+        };
+      });
+    }
+
+    function bindDayCells() {
+      document.querySelectorAll(".day-cell").forEach((cell) => {
+        cell.onclick = () => {
+          const row = Number(cell.dataset.row);
+          const day = Number(cell.dataset.day);
+          const type = cell.dataset.type;
+
+          if (type === "presence") {
+            const current = state.presence.grid[row][day];
+            state.presence.grid[row][day] = current === selectedPresenceCode ? "" : selectedPresenceCode;
+            renderPresenceTable();
+            saveModuleSilently();
+            return;
+          }
+
+          if (type === "relay") {
+            const current = state.relay.rows[row].days[day];
+            state.relay.rows[row].days[day] = current === selectedRelayCode ? "" : selectedRelayCode;
+            renderRelayTable();
+            saveModuleSilently();
+          }
+        };
+      });
+    }
+
+    function bindRelayInputs() {
+      document.querySelectorAll("input[data-relay-field]").forEach((input) => {
+        input.oninput = () => {
+          const rowIndex = Number(input.dataset.row);
+          const field = input.dataset.relayField;
+          state.relay.rows[rowIndex][field] = input.value;
+          saveModuleSilently();
+        };
+      });
+    }
+
+    function bindRelayDeleteButtons() {
+      document.querySelectorAll(".relay-delete-btn").forEach((btn) => {
+        btn.onclick = () => {
+          const rowIndex = Number(btn.dataset.row);
+
+          if (state.relay.rows.length === 1) {
+            state.relay.rows[0] = createEmptyRelayRow();
+          } else {
+            state.relay.rows.splice(rowIndex, 1);
+          }
+
+          renderRelayTable();
+          saveModuleSilently();
+          showToast("Ligne relais supprimée");
+        };
+      });
+    }
+
+    function bindFields() {
+      if (isUiBound) return;
+      isUiBound = true;
+
+      document.getElementById("presenceMonth").addEventListener("change", (e) => {
+        state.presence.month = e.target.value;
+        daysInPresenceMonth = getDaysInMonth(state.presence.month);
+        renderPresenceTable();
+        saveModuleSilently();
+      });
+
+      document.getElementById("relayMonth").addEventListener("change", (e) => {
+        state.relay.month = e.target.value;
+        daysInRelayMonth = getDaysInMonth(state.relay.month);
+        renderRelayTable();
+        saveModuleSilently();
+      });
+
+      document.getElementById("presenceAfName").addEventListener("input", (e) => {
+        state.presence.afName = e.target.value;
+        saveModuleSilently();
+      });
+
+      document.getElementById("presenceRectif").addEventListener("input", (e) => {
+        state.presence.rectif = e.target.value;
+        saveModuleSilently();
+      });
+
+      document.getElementById("relayAfName").addEventListener("input", (e) => {
+        state.relay.afName = e.target.value;
+        saveModuleSilently();
+      });
+
+      document.getElementById("relayNotes").addEventListener("input", (e) => {
+        state.relay.notes = e.target.value;
+        saveModuleSilently();
+      });
+
+      document.getElementById("btnAddChild").addEventListener("click", () => {
+        if (state.presence.children.length >= MAX_PRESENCE_ROWS) {
+          showToast("Maximum 12 enfants");
+          return;
+        }
+
+        state.presence.children.push("");
+        state.presence.grid.push(Array(31).fill(""));
+
+        renderChildrenFields();
+        renderPresenceTable();
+        saveModuleSilently();
+        showToast("Nouvel enfant ajouté");
+      });
+
+      document.getElementById("signatureUpload").addEventListener("change", (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+          showToast("Merci de choisir une image PNG ou JPG");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.presence.signatureDataUrl = reader.result || "";
+          updateSignaturePreview();
+          saveModuleSilently();
+          showToast("Signature importée");
+        };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById("btnClearSignature").addEventListener("click", () => {
+        state.presence.signatureDataUrl = "";
+        document.getElementById("signatureUpload").value = "";
+        updateSignaturePreview();
+        saveModuleSilently();
+        showToast("Signature supprimée");
+      });
+
+      document.getElementById("btnFillFullMonth").addEventListener("click", fillFullMonthPresence);
+      document.getElementById("btnClearPresenceMonth").addEventListener("click", clearFullMonthPresence);
+
+      document.getElementById("btnAddRelayRow").addEventListener("click", () => {
+        state.relay.rows.push(createEmptyRelayRow());
+        renderRelayTable();
+        saveModuleSilently();
+        showToast("Nouvelle ligne relais ajoutée");
+      });
+
+      document.getElementById("btnSaveModule").addEventListener("click", saveModule);
+      document.getElementById("btnPdfPresence").addEventListener("click", generatePresencePdf);
+    }
+
+    function fillFromState() {
+      document.getElementById("presenceMonth").value = state.presence.month || "";
+      document.getElementById("presenceAfName").value = state.presence.afName || "";
+      document.getElementById("presenceRectif").value = state.presence.rectif || "";
+      document.getElementById("relayMonth").value = state.relay.month || "";
+      document.getElementById("relayAfName").value = state.relay.afName || "";
+      document.getElementById("relayNotes").value = state.relay.notes || "";
+
+      daysInPresenceMonth = getDaysInMonth(state.presence.month);
+      daysInRelayMonth = getDaysInMonth(state.relay.month);
+
+      renderChildrenFields();
+      renderPresenceTable();
+      renderRelayTable();
+      updateSignaturePreview();
+    }
+
+    function fillFullMonthPresence() {
+      for (let row = 0; row < state.presence.children.length; row += 1) {
+        for (let day = 0; day < daysInPresenceMonth; day += 1) {
+          state.presence.grid[row][day] = "P";
+        }
+      }
+      renderPresenceTable();
+      saveModuleSilently();
+      showToast("Mois complet appliqué");
+    }
+
+    function clearFullMonthPresence() {
+      for (let row = 0; row < state.presence.children.length; row += 1) {
+        for (let day = 0; day < 31; day += 1) {
+          state.presence.grid[row][day] = "";
+        }
+      }
+      renderPresenceTable();
+      saveModuleSilently();
+      showToast("Mois vidé");
+    }
+
+    function saveModule() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      showToast("Fiche de présence enregistrée");
+    }
+
+    function saveModuleSilently() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadModule() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+
+      try {
+        const parsed = JSON.parse(raw);
+
+        if (parsed?.presence) {
+          state.presence.month = parsed.presence.month || "";
+          state.presence.afName = parsed.presence.afName || "";
+          state.presence.rectif = parsed.presence.rectif || "";
+          state.presence.signatureDataUrl = parsed.presence.signatureDataUrl || "";
+          state.presence.children = parsed.presence.children || Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
+          state.presence.grid = parsed.presence.grid || Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
+        }
+
+        if (parsed?.relay) {
+          state.relay.month = parsed.relay.month || "";
+          state.relay.afName = parsed.relay.afName || "";
+          state.relay.notes = parsed.relay.notes || "";
+          state.relay.rows = parsed.relay.rows || [createEmptyRelayRow()];
+        }
+
+        normalizeStateShape();
+      } catch (error) {
+        console.error("Erreur chargement module présence :", error);
+      }
+    }
+
+    async function loadProfile() {
+      if (!currentUser) return;
+
+      try {
+        const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
+        const snap = await getDoc(profileRef);
+        if (!snap.exists()) return;
+
+        const data = snap.data() || {};
+        const profileName = String(data.fullName || "").trim();
+        const children = String(data.childrenList || "")
+          .split(/\n|,/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+        if (!state.presence.afName && profileName) state.presence.afName = profileName;
+        if (!state.relay.afName && profileName) state.relay.afName = profileName;
+
+        children.forEach((child, index) => {
+          if (index < MAX_PRESENCE_ROWS) {
+            if (index >= state.presence.children.length) {
+              state.presence.children.push("");
+              state.presence.grid.push(Array(31).fill(""));
+            }
+            if (!state.presence.children[index]) {
+              state.presence.children[index] = child;
+            }
+          }
+        });
+
+        const datalist = document.getElementById("profileChildrenList");
+        if (datalist) {
+          datalist.innerHTML = "";
+          children.forEach((child) => {
+            const option = document.createElement("option");
+            option.value = child;
+            datalist.appendChild(option);
+          });
+        }
+
+        fillFromState();
+        saveModuleSilently();
+      } catch (error) {
+        console.error("Erreur profil fiche présence :", error);
+      }
+    }
+
+    function formatMonthLabel(monthValue) {
+      if (!monthValue) return "";
+      const [year, month] = monthValue.split("-");
+      return `${month}/${year}`;
+    }
+
+    function drawPdfCell(pdf, x, y, w, h, text = "", align = "center", fontSize = 7) {
+      pdf.rect(x, y, w, h);
+      pdf.setFontSize(fontSize);
+
+      const content = String(text ?? "");
+
+      if (align === "left") {
+        pdf.text(content, x + 1, y + h / 2 + 1.5);
+      } else {
+        const textWidth = pdf.getTextWidth(content);
+        pdf.text(content, x + (w - textWidth) / 2, y + h / 2 + 1.5);
+      }
+    }
+
+    function addSignatureToPdf(pdf, dataUrl, x, y, maxW, maxH) {
+      if (!dataUrl) return;
+
+      try {
+        const format = dataUrl.includes("image/png") ? "PNG" : "JPEG";
+        pdf.addImage(dataUrl, format, x + 2, y + 2, maxW - 4, maxH - 4);
+      } catch (error) {
+        console.error("Erreur ajout signature PDF :", error);
+      }
+    }
+
+    function addPdfToGlobalHistory(blob, fileName, monthLabel) {
+      if (!currentUser) return;
+
+      const storageKey = `historiquePDF_${currentUser.uid}`;
+      const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        historique.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          mois: monthLabel,
+          nom: fileName,
+          data: reader.result,
+          dateGeneration: new Date().toLocaleString("fr-FR"),
+          type: "Fiche de présence"
+        });
+
+        localStorage.setItem(storageKey, JSON.stringify(historique));
+      };
+      reader.readAsDataURL(blob);
+    }
 
 function generatePresencePdf() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("landscape", "mm", "a4");
 
-  const leftMargin = 10;
+  const monthLabel = formatMonthLabel(state.presence.month);
+  const relayMonthLabel = formatMonthLabel(state.relay.month);
+
+  const leftMargin = 8;
   const topMargin = 10;
-  const dayW = 7;
+  const pageWidth = 297;
+  const usableWidth = pageWidth - (leftMargin * 2);
+
   const rowH = 8;
-  const nameW = 40;
+  const nameW = 38;
   const totalW = 12;
 
-  const pdfDays = getDaysInMonth(state.presence.month);
+  const pdfDaysInPresenceMonth = getDaysInMonth(state.presence.month);
+  const pdfDaysInRelayMonth = getDaysInMonth(state.relay.month);
+
+  const dayWPresence = (usableWidth - nameW - totalW) / pdfDaysInPresenceMonth;
+
+  function drawCell(x, y, w, h, text = "", align = "center", fontSize = 7, bold = false) {
+    pdf.rect(x, y, w, h);
+
+    pdf.setFont("helvetica", bold ? "bold" : "normal");
+    pdf.setFontSize(fontSize);
+
+    const safeText = String(text || "");
+    let textX = x + (w / 2);
+
+    if (align === "left") textX = x + 2;
+    if (align === "right") textX = x + w - 2;
+
+    pdf.text(safeText, textX, y + (h / 2) + 1, {
+      align,
+      baseline: "middle",
+      maxWidth: Math.max(1, w - 2)
+    });
+  }
+
+  // =========================
+  // PAGE 1 : PRESENCE
+  // =========================
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("FEUILLE DE PRESENCE AU DOMICILE DE L'ASSISTANT FAMILIAL", leftMargin, topMargin);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(`Nom et prénom de l'assistant familial : ${state.presence.afName || ""}`, leftMargin, 18);
+  pdf.text(`Mois : ${monthLabel}`, 220, 18);
 
   let startX = leftMargin;
-  let startY = 20;
+  let startY = 25;
 
-  pdf.text("FICHE DE PRESENCE", leftMargin, 10);
+  drawCell(startX, startY, nameW, rowH, "ENFANT", "left", 7, true);
 
-  pdf.rect(startX, startY, nameW, rowH);
-  pdf.text("ENFANT", startX + 5, startY + 5);
-
-  for (let d = 1; d <= pdfDays; d++) {
-    pdf.rect(startX + nameW + (d - 1) * dayW, startY, dayW, rowH);
-    pdf.text(String(d), startX + nameW + (d - 1) * dayW + 2, startY + 5);
+  for (let d = 1; d <= pdfDaysInPresenceMonth; d += 1) {
+    drawCell(
+      startX + nameW + (d - 1) * dayWPresence,
+      startY,
+      dayWPresence,
+      rowH,
+      d,
+      "center",
+      6,
+      true
+    );
   }
 
-  pdf.rect(startX + nameW + pdfDays * dayW, startY, totalW, rowH);
-  pdf.text("Total", startX + nameW + pdfDays * dayW + 2, startY + 5);
+  drawCell(
+    startX + nameW + pdfDaysInPresenceMonth * dayWPresence,
+    startY,
+    totalW,
+    rowH,
+    "Total",
+    "center",
+    7,
+    true
+  );
 
-  for (let row = 0; row < state.presence.children.length; row++) {
+  for (let row = 0; row < state.presence.children.length; row += 1) {
     const y = startY + rowH * (row + 1);
-    pdf.rect(startX, y, nameW, rowH);
-    pdf.text(state.presence.children[row], startX + 2, y + 5);
-
+    const childName = state.presence.children[row] || `Enfant ${row + 1}`;
     let total = 0;
 
-    for (let d = 0; d < pdfDays; d++) {
-      const code = state.presence.grid[row][d] || "";
-      if (code === "P") total++;
+    drawCell(startX, y, nameW, rowH, childName, "left", 7, false);
 
-      pdf.rect(startX + nameW + d * dayW, y, dayW, rowH);
-      pdf.text(code, startX + nameW + d * dayW + 2, y + 5);
+    for (let d = 0; d < pdfDaysInPresenceMonth; d += 1) {
+      const code = state.presence.grid[row][d] || "";
+      if (code === "P") total += 1;
+
+      let fontSize = 6;
+      if (code === "DVH") fontSize = 5;
+
+      drawCell(
+        startX + nameW + d * dayWPresence,
+        y,
+        dayWPresence,
+        rowH,
+        code,
+        "center",
+        fontSize,
+        false
+      );
     }
 
-    pdf.rect(startX + nameW + pdfDays * dayW, y, totalW, rowH);
-    pdf.text(String(total), startX + nameW + pdfDays * dayW + 2, y + 5);
+    drawCell(
+      startX + nameW + pdfDaysInPresenceMonth * dayWPresence,
+      y,
+      totalW,
+      rowH,
+      total,
+      "center",
+      7,
+      false
+    );
   }
 
-  pdf.save("fiche_presence.pdf");
+  let infoY = startY + rowH * (state.presence.children.length + 2) + 6;
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.text("Rappel motifs :", leftMargin, infoY);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.text(
+    "P = Présence   I = Internat   DVH = Droits de visite / hébergement   A = Absence   F = Fugue   R = Relais",
+    leftMargin + 22,
+    infoY
+  );
+
+  infoY += 10;
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Rectificatif :", leftMargin, infoY);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.rect(leftMargin, infoY + 2, 180, 20);
+  pdf.text(state.presence.rectif || "", leftMargin + 2, infoY + 8, { maxWidth: 176 });
+
+  pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, infoY + 8);
+  pdf.text("Signature :", 220, infoY + 18);
+  pdf.rect(220, infoY + 20, 55, 18);
+  addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, infoY + 20, 55, 18);
+
+  // =========================
+  // PAGE 2 : RELAIS
+  // =========================
+  pdf.addPage();
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("FICHE DE RELAIS DU MOIS PRECEDENT", leftMargin, topMargin);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(`Nom et prénom de l'assistant familial signataire : ${state.relay.afName || ""}`, leftMargin, 18);
+  pdf.text(`Mois : ${relayMonthLabel}`, 220, 18);
+
+  const relayNameW = 34;
+  const relayAfW = 36;
+  const relayTotalW = 12;
+  const relayDayW = (usableWidth - relayNameW - relayAfW - relayTotalW) / pdfDaysInRelayMonth;
+
+  let relayY = 25;
+
+  drawCell(leftMargin, relayY, relayNameW, rowH, "ENFANT", "left", 7, true);
+  drawCell(leftMargin + relayNameW, relayY, relayAfW, rowH, "AF habituel", "left", 7, true);
+
+  for (let d = 1; d <= pdfDaysInRelayMonth; d += 1) {
+    drawCell(
+      leftMargin + relayNameW + relayAfW + (d - 1) * relayDayW,
+      relayY,
+      relayDayW,
+      rowH,
+      d,
+      "center",
+      6,
+      true
+    );
+  }
+
+  drawCell(
+    leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
+    relayY,
+    relayTotalW,
+    rowH,
+    "Total",
+    "center",
+    7,
+    true
+  );
+
+  state.relay.rows.forEach((row, index) => {
+    const y = relayY + rowH * (index + 1);
+    let total = 0;
+
+    drawCell(leftMargin, y, relayNameW, rowH, row.child || "", "left", 7, false);
+    drawCell(leftMargin + relayNameW, y, relayAfW, rowH, row.usualAf || "", "left", 7, false);
+
+    for (let d = 0; d < pdfDaysInRelayMonth; d += 1) {
+      const code = row.days[d] || "";
+      if (code === "P") total += 1;
+
+      let fontSize = 6;
+      if (code === "DVH") fontSize = 5;
+
+      drawCell(
+        leftMargin + relayNameW + relayAfW + d * relayDayW,
+        y,
+        relayDayW,
+        rowH,
+        code,
+        "center",
+        fontSize,
+        false
+      );
+    }
+
+    drawCell(
+      leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
+      y,
+      relayTotalW,
+      rowH,
+      total,
+      "center",
+      7,
+      false
+    );
+  });
+
+  let relayBottomY = relayY + rowH * (state.relay.rows.length + 2) + 10;
+
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Remarque :", leftMargin, relayBottomY);
+  pdf.setFont("helvetica", "normal");
+  pdf.rect(leftMargin, relayBottomY + 2, 180, 18);
+  pdf.text(state.relay.notes || "", leftMargin + 2, relayBottomY + 8, { maxWidth: 176 });
+
+  pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, relayBottomY + 8);
+  pdf.text("Signature :", 220, relayBottomY + 18);
+  pdf.rect(220, relayBottomY + 20, 55, 18);
+  addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, relayBottomY + 20, 55, 18);
+
+  const fileName = `fiche_presence_${state.presence.month || "sans_mois"}.pdf`;
+  const pdfBlob = pdf.output("blob");
+
+  if (typeof addPdfToGlobalHistory === "function") {
+    addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
+  }
+
+  pdf.save(fileName);
+  showToast("PDF généré et ajouté à l’historique");
 }
 
-renderTable();
-</script>
+    function initDefaults() {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
 
+      if (!state.presence.month) state.presence.month = currentMonth;
+      if (!state.relay.month) state.relay.month = previousMonth;
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user || null;
+
+      if (!currentUser) {
+        window.location.href = "connexion.html";
+        return;
+      }
+
+      loadModule();
+      normalizeStateShape();
+      initDefaults();
+
+      activateTabs();
+      bindLegendsOnce();
+      bindFields();
+      fillFromState();
+
+      await loadProfile();
+    });
+  </script>
 </body>
 </html>
