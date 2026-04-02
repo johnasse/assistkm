@@ -398,23 +398,27 @@ function bindEvents() {
   document.getElementById("btnResetBaremes")?.addEventListener("click", resetBaremes);
   document.getElementById("btnToggleBaremes")?.addEventListener("click", toggleBaremesLock);
 
+  // Signature
   document.getElementById("btnSignature")?.addEventListener("click", () => {
     document.getElementById("signatureFile")?.click();
   });
   document.getElementById("signatureFile")?.addEventListener("change", handleSignatureChange);
   document.getElementById("btnClearSignature")?.addEventListener("click", clearSignature);
 
+  // Carte grise
   document.getElementById("btnCarteGrise")?.addEventListener("click", () => {
     document.getElementById("carteGriseFile")?.click();
   });
   document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
   document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
+
+  // LOGO
+  document.getElementById("btnLogo")?.addEventListener("click", () => {
+    document.getElementById("logoFile")?.click();
+  });
+  document.getElementById("logoFile")?.addEventListener("change", handleLogoChange);
+  document.getElementById("btnClearLogo")?.addEventListener("click", clearLogo);
 }
-document.getElementById("btnLogo")?.addEventListener("click", () => {
-  document.getElementById("logoFile")?.click();
-});
-document.getElementById("logoFile")?.addEventListener("change", handleLogoChange);
-document.getElementById("btnClearLogo")?.addEventListener("click", clearLogo);
 
 function setDefaultMonthIfNeeded() {
   const moisInput = document.getElementById("moisEtat");
@@ -924,7 +928,13 @@ const logoData = localStorage.getItem(getLogoDataKey());
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const signatureData = localStorage.getItem(getSignatureDataKey());
   const carteGriseData = localStorage.getItem(getCarteGriseDataKey());
+function getLogoDataKey() {
+  return `logoKilometriqueData_${getUid()}`;
+}
 
+function getLogoNameKey() {
+  return `logoKilometriqueName_${getUid()}`;
+}
   const margin = 10;
   let y = 14;
 
