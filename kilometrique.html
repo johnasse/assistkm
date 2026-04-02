@@ -19,7 +19,7 @@
     }
 
     .container {
-      max-width: 1300px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -192,23 +192,63 @@
       margin-top: 14px;
     }
 
-    table {
+    .deplacements-table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 950px;
+      table-layout: fixed;
+      min-width: 1200px;
     }
 
-    th,
-    td {
+    .deplacements-table th,
+    .deplacements-table td {
       border: 1px solid #e5e7eb;
       padding: 10px;
       text-align: center;
       font-size: 14px;
+      vertical-align: top;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
     }
 
-    th {
+    .deplacements-table th {
       background: #f8fafc;
       font-weight: 700;
+    }
+
+    .deplacements-table th:nth-child(1),
+    .deplacements-table td:nth-child(1) { width: 110px; }
+
+    .deplacements-table th:nth-child(2),
+    .deplacements-table td:nth-child(2) { width: 110px; }
+
+    .deplacements-table th:nth-child(3),
+    .deplacements-table td:nth-child(3) { width: 95px; }
+
+    .deplacements-table th:nth-child(4),
+    .deplacements-table td:nth-child(4),
+    .deplacements-table th:nth-child(5),
+    .deplacements-table td:nth-child(5) { width: 90px; }
+
+    .deplacements-table th:nth-child(6),
+    .deplacements-table td:nth-child(6),
+    .deplacements-table th:nth-child(7),
+    .deplacements-table td:nth-child(7),
+    .deplacements-table th:nth-child(8),
+    .deplacements-table td:nth-child(8) { width: 180px; }
+
+    .deplacements-table th:nth-child(9),
+    .deplacements-table td:nth-child(9) { width: 90px; }
+
+    .deplacements-table th:nth-child(10),
+    .deplacements-table td:nth-child(10) { width: 110px; }
+
+    .deplacements-table tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .deplacements-table tbody tr:hover {
+      background: #eef2ff;
     }
 
     .empty-cell {
@@ -320,7 +360,7 @@
     .signature-preview {
       display: none;
       max-width: 220px;
-      max-height: 120px;
+      max-height: 140px;
       margin-top: 12px;
       border: 1px solid #d1d5db;
       border-radius: 10px;
@@ -494,12 +534,8 @@
         </div>
 
         <div class="actions">
-          <button class="btn btn-secondary" type="button" id="btnSaveBaremes">
-            Enregistrer les barèmes
-          </button>
-          <button class="btn btn-danger" type="button" id="btnResetBaremes">
-            Remettre les barèmes par défaut
-          </button>
+          <button class="btn btn-secondary" type="button" id="btnSaveBaremes">Enregistrer les barèmes</button>
+          <button class="btn btn-danger" type="button" id="btnResetBaremes">Remettre les barèmes par défaut</button>
         </div>
       </div>
 
@@ -518,9 +554,7 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-secondary" type="button" id="btnSaveDomicile">
-          Enregistrer le domicile
-        </button>
+        <button class="btn btn-secondary" type="button" id="btnSaveDomicile">Enregistrer le domicile</button>
       </div>
     </section>
 
@@ -543,12 +577,8 @@
         <datalist id="destinationSuggestions"></datalist>
 
         <div class="service-actions">
-          <button class="btn btn-secondary" type="button" id="btnAddDestination">
-            + Ajouter une destination
-          </button>
-          <button class="btn btn-secondary" type="button" id="btnUseServiceDestination">
-            Utiliser l'adresse du service
-          </button>
+          <button class="btn btn-secondary" type="button" id="btnAddDestination">+ Ajouter une destination</button>
+          <button class="btn btn-secondary" type="button" id="btnUseServiceDestination">Utiliser l'adresse du service</button>
         </div>
       </div>
 
@@ -606,7 +636,7 @@
     <section class="card">
       <h2>Carte grise locale</h2>
       <p style="margin-top:0;color:#6b7280;">
-        Vous pouvez importer une photo ou un PDF de la carte grise.
+        Vous pouvez importer une image ou un PDF de la carte grise.
       </p>
 
       <div class="actions">
@@ -617,6 +647,22 @@
       <input type="file" id="carteGriseFile" accept="image/*,.pdf" style="display:none;" />
       <div id="carteGriseInfo" class="signature-info"></div>
       <img id="carteGrisePreview" class="signature-preview" alt="Aperçu carte grise" />
+    </section>
+
+    <section class="card">
+      <h2>Logo entreprise</h2>
+      <p style="margin-top:0;color:#6b7280;">
+        Tu peux importer un logo (Les Nids, ASE, SPF, etc.). Il sera affiché en haut à droite du PDF.
+      </p>
+
+      <div class="actions">
+        <button class="btn btn-secondary" type="button" id="btnLogo">Importer le logo</button>
+        <button class="btn btn-danger" type="button" id="btnClearLogo">Supprimer le logo</button>
+      </div>
+
+      <input type="file" id="logoFile" accept="image/*" style="display:none;" />
+      <div id="logoInfo" class="signature-info"></div>
+      <img id="logoPreview" class="signature-preview" alt="Aperçu logo" />
     </section>
 
     <section class="card">
@@ -633,13 +679,14 @@
               <th>Heure fin</th>
               <th>Lieu départ</th>
               <th>Lieu RDV</th>
+              <th>Lieu retour</th>
               <th>KM A/R</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody id="deplacementsBody">
             <tr id="emptyRow">
-              <td colspan="9" class="empty-cell">Aucun déplacement enregistré</td>
+              <td colspan="10" class="empty-cell">Aucun déplacement enregistré</td>
             </tr>
           </tbody>
         </table>
@@ -679,7 +726,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="module" src="script.js"></script>
 
-  <!-- Remplace TA_CLE_API par ta vraie clé -->
   <script
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBFbvVJkqXFdK8Tdd8Py0smXXGgc1bkh0&libraries=places"
     async
