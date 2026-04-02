@@ -147,6 +147,7 @@ async function loadUserData() {
   loadBaremes();
   loadSignatureInfo();
   loadCarteGriseInfo();
+  loadLogoInfo();
   loadSavedMotifs();
   loadSavedDestinations();
   await loadProfileData();
@@ -409,6 +410,13 @@ function bindEvents() {
   });
   document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
   document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
+  // LOGO
+document.getElementById("btnLogo")?.addEventListener("click", () => {
+  document.getElementById("logoFile")?.click();
+});
+
+document.getElementById("logoFile")?.addEventListener("change", handleLogoChange);
+document.getElementById("btnClearLogo")?.addEventListener("click", clearLogo);
 }
 
 function setDefaultMonthIfNeeded() {
@@ -420,6 +428,24 @@ function setDefaultMonthIfNeeded() {
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const year = now.getFullYear();
     moisInput.value = `${year}-${month}`;
+  }
+}
+function loadLogoInfo() {
+  const logoData = localStorage.getItem(getLogoDataKey());
+  const logoName = localStorage.getItem(getLogoNameKey()) || "";
+  const info = document.getElementById("logoInfo");
+  const preview = document.getElementById("logoPreview");
+
+  if (!info || !preview) return;
+
+  if (logoData) {
+    info.textContent = logoName ? `Logo chargé : ${logoName}` : "Logo chargé";
+    preview.src = logoData;
+    preview.style.display = "block";
+  } else {
+    info.textContent = "";
+    preview.removeAttribute("src");
+    preview.style.display = "none";
   }
 }
 
@@ -810,7 +836,7 @@ function renderDeplacements() {
     return;
   }
 
-  deplacements.forEach((item) => {
+ for (const item of deplacements) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(item.enfant)}</td>
@@ -825,7 +851,7 @@ function renderDeplacements() {
       <td><button class="btn btn-danger table-action-btn" data-id="${item.id}">Supprimer</button></td>
     `;
     body.appendChild(tr);
-  });
+}
 
   document.querySelectorAll(".table-action-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -854,12 +880,74 @@ function viderListe() {
   saveDeplacements();
   renderDeplacements();
   showToast("Liste vidée");
+
+}
+async function handleLogoChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!(file.type && file.type.startsWith("image/"))) {
+    alert("Merci de choisir une image pour le logo.");
+    event.target.value = "";
+    return;
+  }
+
+  try {
+    const data = await fileToBase64(file);
+
+    localStorage.setItem(getLogoDataKey(), data);
+    localStorage.setItem(getLogoNameKey(), file.name);
+
+    const preview = document.getElementById("logoPreview");
+    const info = document.getElementById("logoInfo");
+
+    if (preview) {
+      preview.src = data;
+      preview.style.display = "block";
+    }
+
+    if (info) {
+      info.textContent = `Logo chargé : ${file.name}`;
+    }
+
+    showToast("Logo enregistré");
+  } catch (error) {
+    console.error("Erreur lecture logo :", error);
+    alert("Impossible de lire le logo.");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function clearLogo() {
+  localStorage.removeItem(getLogoDataKey());
+  localStorage.removeItem(getLogoNameKey());
+
+  const preview = document.getElementById("logoPreview");
+  const info = document.getElementById("logoInfo");
+
+  if (preview) {
+    preview.removeAttribute("src");
+    preview.style.display = "none";
+  }
+
+  if (info) {
+    info.textContent = "";
+  }
+
+  showToast("Logo supprimé");
 }
 
 function saveDeplacements() {
   localStorage.setItem(getDeplacementsKey(), JSON.stringify(deplacements));
 }
+function getLogoDataKey() {
+  return `logoKilometriqueData_${getUid()}`;
+}
 
+function getLogoNameKey() {
+  return `logoKilometriqueName_${getUid()}`;
+}
 function updateTotals() {
   const totalKm = deplacements.reduce((sum, item) => sum + item.km, 0);
   const totalMontant = deplacements.reduce((sum, item) => sum + item.montant, 0);
@@ -869,6 +957,23 @@ function updateTotals() {
 
   document.getElementById("totalMontantMois").textContent =
     totalMontant.toFixed(2).replace(".", ",") + " €";
+}
+
+function addEasyfraisFooter(docPdf) {
+  const pageHeight = docPdf.internal.pageSize.getHeight();
+  const margin = 10;
+
+  docPdf.setFont("helvetica", "italic");
+  docPdf.setFontSize(8);
+  docPdf.setTextColor(130, 130, 130);
+
+  docPdf.text(
+    "Document généré automatiquement par easyfrais.fr",
+    margin,
+    pageHeight - 6
+  );
+
+  docPdf.setTextColor(0, 0, 0);
 }
 
 async function genererPDFMensuel() {
@@ -891,24 +996,62 @@ async function genererPDFMensuel() {
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const signatureData = localStorage.getItem(getSignatureDataKey());
   const carteGriseData = localStorage.getItem(getCarteGriseDataKey());
+  const logoData = localStorage.getItem(getLogoDataKey());
 
   const margin = 10;
+  const pageWidth = docPdf.internal.pageSize.getWidth();
   let y = 14;
 
-  docPdf.setFont("helvetica", "bold");
-  docPdf.setFontSize(13);
-  docPdf.text(
-    `ETAT DE FRAIS DE DEPLACEMENTS DU MOIS DE : ${formatMonthFr(moisEtat)}`,
-    margin,
-    y
-  );
+  async function drawLogo() {
+    if (!logoData || !isImageDataUrl(logoData)) return;
 
-  y += 8;
-  docPdf.setFont("helvetica", "normal");
-  docPdf.setFontSize(10.5);
-  docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
+    try {
+      const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
 
-  y += 8;
+      const maxLogoWidth = 30;
+      const maxLogoHeight = 18;
+
+      let logoWidth = convertedLogo.width;
+      let logoHeight = convertedLogo.height;
+
+      const ratio = Math.min(maxLogoWidth / logoWidth, maxLogoHeight / logoHeight);
+      logoWidth *= ratio;
+      logoHeight *= ratio;
+
+      const logoX = pageWidth - logoWidth - 10;
+      const logoY = 8;
+
+      docPdf.addImage(
+        convertedLogo.dataUrl,
+        "JPEG",
+        logoX,
+        logoY,
+        logoWidth,
+        logoHeight
+      );
+    } catch (error) {
+      console.error("Erreur ajout logo PDF :", error);
+    }
+  }
+
+  async function drawPageHeader() {
+    docPdf.setFont("helvetica", "bold");
+    docPdf.setFontSize(13);
+    docPdf.text(
+      `ETAT DE FRAIS DE DEPLACEMENTS DU MOIS DE : ${formatMonthFr(moisEtat)}`,
+      margin,
+      y
+    );
+
+    await drawLogo();
+
+    y += 8;
+    docPdf.setFont("helvetica", "normal");
+    docPdf.setFontSize(10.5);
+    docPdf.text(`Nom et prénom de l'assistant familial : ${assistantNom}`, margin, y);
+
+    y += 8;
+  }
 
   const cols = [
     { key: "enfant", title: "Enfant", width: 25, align: "left" },
@@ -939,12 +1082,14 @@ async function genererPDFMensuel() {
     y += headerHeight;
   }
 
+  await drawPageHeader();
   drawHeader();
+  addEasyfraisFooter(docPdf);
 
   docPdf.setFont("helvetica", "normal");
   docPdf.setFontSize(8.4);
 
-  deplacements.forEach((item) => {
+for (const item of deplacements) {
     const rowValues = [
       safeText(item.enfant),
       safeText(item.motif),
@@ -977,7 +1122,9 @@ async function genererPDFMensuel() {
 
     if (y + rowHeight > 132) {
       docPdf.addPage("landscape", "a4");
+      addEasyfraisFooter(docPdf);
       y = 14;
+      addEasyfraisFooter(docPdf);
 
       docPdf.setFont("helvetica", "bold");
       docPdf.setFontSize(13);
@@ -986,6 +1133,36 @@ async function genererPDFMensuel() {
         margin,
         y
       );
+
+      if (logoData && isImageDataUrl(logoData)) {
+        try {
+          const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
+
+          const maxLogoWidth = 30;
+          const maxLogoHeight = 18;
+
+          let logoWidth = convertedLogo.width;
+          let logoHeight = convertedLogo.height;
+
+          const ratio = Math.min(maxLogoWidth / logoWidth, maxLogoHeight / logoHeight);
+          logoWidth *= ratio;
+          logoHeight *= ratio;
+
+          const logoX = pageWidth - logoWidth - 10;
+          const logoY = 8;
+
+          docPdf.addImage(
+            convertedLogo.dataUrl,
+            "JPEG",
+            logoX,
+            logoY,
+            logoWidth,
+            logoHeight
+          );
+        } catch (error) {
+          console.error("Erreur ajout logo PDF :", error);
+        }
+      }
 
       y += 8;
       docPdf.setFont("helvetica", "normal");
@@ -1008,58 +1185,64 @@ async function genererPDFMensuel() {
     });
 
     y += rowHeight;
-  });
+ }
 
   y += 8;
 
-  if (y > 118) {
-    docPdf.addPage("landscape", "a4");
-    y = 20;
-  }
-
   docPdf.setFont("helvetica", "bold");
-  docPdf.setFontSize(10.5);
+  docPdf.setFontSize(10);
   docPdf.text(`Total kilomètres : ${totalKm.toFixed(1).replace(".", ",")} km`, margin, y);
 
-  y += 7;
-  docPdf.text(`Montant total estimé : ${totalMontantEstime.toFixed(2).replace(".", ",")} €`, margin, y);
-
-  y += 12;
-
-  docPdf.setFont("helvetica", "normal");
-  docPdf.setFontSize(10);
-  docPdf.text(`Certifié exact le : ${dateCreationPdf}`, margin, y);
+  y += 6;
+  docPdf.text(`Montant estimé : ${totalMontantEstime.toFixed(2).replace(".", ",")} €`, margin, y);
 
   y += 10;
-  docPdf.text("Signature assistant familial :", margin, y);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(9.5);
+  docPdf.text(`PDF créé le ${dateCreationPdf}`, margin, y);
+  y += 10;
+docPdf.setFont("helvetica", "normal");
+docPdf.setFontSize(10);
+docPdf.text("Certifié exact le : " + dateCreationPdf, margin, y);
 
-  if (signatureData && isImageDataUrl(signatureData)) {
-    try {
-      const converted = await convertImageDataUrlToJpeg(signatureData, 0.92);
-      let imgWidth = 45;
-      let imgHeight = (converted.height / converted.width) * imgWidth;
+y += 10;
 
-      if (imgHeight > 18) {
-        imgHeight = 18;
-        imgWidth = (converted.width / converted.height) * imgHeight;
-      }
+docPdf.setFont("helvetica", "normal");
+docPdf.setFontSize(10);
 
-      docPdf.addImage(converted.dataUrl, "JPEG", margin + 48, y - 8, imgWidth, imgHeight);
-    } catch (error) {
-      console.error("Erreur ajout signature PDF :", error);
-    }
+y += 10;
+docPdf.text("Signature assistant familial :", margin, y);
+
+// Signature à côté du texte
+if (signatureData && isImageDataUrl(signatureData)) {
+  try {
+    const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.10);
+
+    docPdf.addImage(
+      convertedSignature.dataUrl,
+      "JPEG",
+      margin + 65,   // position X
+      y - 6,         // position Y
+      40,
+      12
+    );
+  } catch (error) {
+    console.error("Erreur ajout signature PDF :", error);
   }
+}
 
-  const pageWidth = docPdf.internal.pageSize.getWidth();
+y += 20; // espace avant les barèmes
 
-  const baremeX = margin;
-  const baremeTitleY = 146;
+
+
+  const baremeX = 12;
+  let yBareme = 154;
 
   docPdf.setFont("helvetica", "bold");
   docPdf.setFontSize(10);
-  docPdf.text("Barèmes kilométriques utilisés", baremeX, baremeTitleY);
+  docPdf.text("Barèmes utilisés :", baremeX, yBareme);
 
-  let yBareme = baremeTitleY + 7;
+  yBareme += 6;
   docPdf.setFont("helvetica", "normal");
   docPdf.setFontSize(9.5);
   docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, baremeX, yBareme);
@@ -1072,72 +1255,63 @@ async function genererPDFMensuel() {
   yBareme += 5.5;
   docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, baremeX, yBareme);
 
- // -------------------------
-// Cadre comptabilité à droite
-// -------------------------
-const cadreX = 112;
-const cadreY = 143;
-const cadreW = pageWidth - cadreX - 10;
-const cadreH = 62;
+  const cadreX = 112;
+  const cadreY = 143;
+  const cadreW = pageWidth - cadreX - 10;
+  const cadreH = 62;
 
-// contour extérieur
-docPdf.setDrawColor(0, 0, 0);
-docPdf.setLineWidth(0.10);
-docPdf.rect(cadreX, cadreY, cadreW, cadreH);
+  docPdf.setDrawColor(0, 0, 0);
+  docPdf.setLineWidth(0.10);
+  docPdf.rect(cadreX, cadreY, cadreW, cadreH);
 
-// bandeau du haut
-docPdf.setFillColor(210, 228, 245);
-docPdf.rect(cadreX, cadreY, cadreW, 16, "F");
+  docPdf.setFillColor(210, 228, 245);
+  docPdf.rect(cadreX, cadreY, cadreW, 16, "F");
 
-// titre
-docPdf.setFont("helvetica", "bold");
-docPdf.setFontSize(10);
-docPdf.setTextColor(0, 0, 0);
-docPdf.text("Cadre réservé à la comptabilité", cadreX + cadreW / 2, cadreY + 6.5, {
-  align: "center"
-});
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(10);
+  docPdf.setTextColor(0, 0, 0);
+  docPdf.text("Cadre réservé à la comptabilité", cadreX + cadreW / 2, cadreY + 6.5, {
+    align: "center"
+  });
 
-docPdf.setFontSize(8.5);
-docPdf.setTextColor(200, 0, 0);
-docPdf.text("(ne rien inscrire)", cadreX + cadreW / 2, cadreY + 11.5, {
-  align: "center"
-});
+  docPdf.setFontSize(8.5);
+  docPdf.setTextColor(200, 0, 0);
+  docPdf.text("(ne rien inscrire)", cadreX + cadreW / 2, cadreY + 11.5, {
+    align: "center"
+  });
 
-docPdf.setTextColor(0, 0, 0);
+  docPdf.setTextColor(0, 0, 0);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(9);
+  docPdf.text("............................ Kms x ........................ = ........................ €", cadreX + 40, cadreY + 24);
 
-// zone calcul kms
-docPdf.setFont("helvetica", "normal");
-docPdf.setFontSize(9);
-docPdf.text("............................ Kms x ........................ = ........................ €", cadreX + 40, cadreY + 24);
+  docPdf.line(cadreX, cadreY + 28, cadreX + cadreW, cadreY + 28);
 
-// séparation BON A PAYER
-docPdf.line(cadreX, cadreY + 28, cadreX + cadreW, cadreY + 28);
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(9.5);
+  docPdf.text("BON A PAYER", cadreX + cadreW / 2, cadreY + 33, {
+    align: "center"
+  });
 
-// texte BON A PAYER bien centré entre les deux lignes
-docPdf.setFont("helvetica", "bold");
-docPdf.setFontSize(9.5);
-docPdf.text("BON A PAYER", cadreX + cadreW / 2, cadreY + 33, {
-  align: "center"
-});
+  docPdf.line(cadreX, cadreY + 36, cadreX + cadreW, cadreY + 36);
 
-// séparation partie basse
-docPdf.line(cadreX, cadreY + 36, cadreX + cadreW, cadreY + 36);
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setFontSize(8.5);
 
-// partie basse
-docPdf.setFont("helvetica", "normal");
-docPdf.setFontSize(8.5);
+  const leftPad = cadreX + 3;
+  docPdf.text("Date : ................................................................................................", leftPad, cadreY + 42);
+  docPdf.text("Nom du responsable : ........................................................................", leftPad, cadreY + 48);
+  docPdf.text("Imputation analytique : .....................................................................", leftPad, cadreY + 54);
+  docPdf.text("Signature : .........................................................................................", leftPad, cadreY + 60);
 
-const leftPad = cadreX + 3;
-docPdf.text("Date : ................................................................................................", leftPad, cadreY + 42);
-docPdf.text("Nom du responsable : ........................................................................", leftPad, cadreY + 48);
-docPdf.text("Imputation analytique : .....................................................................", leftPad, cadreY + 54);
-docPdf.text("Signature : .........................................................................................", leftPad, cadreY + 60);
+
 
   if (carteGriseData && isImageDataUrl(carteGriseData)) {
     try {
       const convertedCarte = await convertImageDataUrlToJpeg(carteGriseData, 0.92);
 
       docPdf.addPage("landscape", "a4");
+      addEasyfraisFooter(docPdf);
 
       const pageW = docPdf.internal.pageSize.getWidth();
       const pageH = docPdf.internal.pageSize.getHeight();
@@ -1179,20 +1353,22 @@ docPdf.text("Signature : .......................................................
     }
   }
 
-  const fileName = `etat-frais-deplacements-${moisEtat || "sans-mois"}.pdf`;
+  const fileName = `etat_frais_kilometriques_${moisEtat || "mois"}.pdf`;
 
-  try {
-    await savePdfToHistory(docPdf, {
-      mois: formatMonthLabel(moisEtat),
-      nom: fileName,
-      type: "Frais kilométriques"
-    });
-  } catch (error) {
-    console.error("Erreur enregistrement historique :", error);
-  }
+addEasyfraisFooter(docPdf);
 
-  docPdf.save(fileName);
-  showToast("PDF mensuel généré et enregistré");
+try {
+  await savePdfToHistory(docPdf, {
+    mois: formatMonthLabel(moisEtat),
+    nom: fileName,
+    type: "Frais kilométriques"
+  });
+} catch (error) {
+  console.error("Erreur enregistrement historique :", error);
+}
+
+docPdf.save(fileName);
+showToast("PDF mensuel généré et enregistré dans l'historique");
 }
 
 function drawCellText(docPdf, textOrLines, x, y, width, height, align = "left") {
