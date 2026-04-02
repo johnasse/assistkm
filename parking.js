@@ -219,43 +219,37 @@ function clearAllEntries() {
   showToast("Liste vidée");
 }
 
-function dataUriToUint8Array(dataUri) {
-  const parts = String(dataUri || "").split(",");
-  if (parts.length < 2) {
-    throw new Error("Data URI invalide");
-  }
-
-  const base64 = parts[1];
-  const raw = atob(base64);
-  const uint8Array = new Uint8Array(raw.length);
-
-  for (let i = 0; i < raw.length; i += 1) {
-    uint8Array[i] = raw.charCodeAt(i);
-  }
-
-  return uint8Array;
-}
-
-function addPdfToGlobalHistory(blob, fileName, monthLabel) {
+function addPdfToGlobalHistory(fileName, monthLabel) {
   if (!currentUser) return;
 
   const historyKey = `historiquePDF_${currentUser.uid}`;
   const historique = JSON.parse(localStorage.getItem(historyKey) || "[]");
 
-  const reader = new FileReader();
-  reader.onloadend = function () {
-    historique.push({
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      mois: monthLabel,
-      nom: fileName,
-      data: reader.result,
-      dateGeneration: new Date().toLocaleString("fr-FR"),
-      type: "Frais de parking"
-    });
+  historique.push({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    mois: monthLabel,
+    nom: fileName,
+    dateGeneration: new Date().toLocaleString("fr-FR"),
+    type: "Frais de parking"
+  });
 
-    localStorage.setItem(historyKey, JSON.stringify(historique));
-  };
-  reader.readAsDataURL(blob);
+  localStorage.setItem(historyKey, JSON.stringify(historique));
+}
+
+function addEasyfraisFooter(pdf) {
+  const pageCount = pdf.getNumberOfPages();
+
+  pdf.setFont("helvetica", "italic");
+  pdf.setFontSize(8);
+  pdf.setTextColor(120, 120, 120);
+
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    pdf.text("Document généré automatiquement par easyfrais.fr", 10, pageHeight - 5);
+  }
+
+  pdf.setTextColor(0, 0, 0);
 }
 
 async function generatePdf() {
@@ -331,10 +325,35 @@ async function generatePdf() {
   pdf.text(`Nombre de dépenses : ${entries.length}`, 14, y);
   pdf.text(`Total : ${formatMoney(total)}`, 140, y);
 
-  const fileName = `parking_${getFileNameMonth(moisValue)}.pdf`;
-  const pdfBlob = pdf.output("blob");
+  for (const item of entries) {
+    if (item.justificatifDataUrl) {
+      pdf.addPage();
 
-  addPdfToGlobalHistory(pdfBlob, fileName, moisLabel);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.text("Justificatif - Frais de parking", 105, 15, { align: "center" });
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.text(`Date : ${item.date || "-"}`, 14, 30);
+      pdf.text(`Enfant : ${item.enfant || "-"}`, 14, 37);
+      pdf.text(`Lieu : ${item.lieu || "-"}`, 14, 44);
+      pdf.text(`Montant : ${formatMoney(item.montant)}`, 14, 51);
+
+      try {
+        pdf.addImage(item.justificatifDataUrl, "JPEG", 15, 60, 180, 180);
+      } catch (e) {
+        console.log("Erreur image justificatif", e);
+      }
+    }
+  }
+
+  addEasyfraisFooter(pdf);
+
+  const fileName = `parking_${getFileNameMonth(moisValue)}.pdf`;
+
+  addPdfToGlobalHistory(fileName, moisLabel);
+
   pdf.save(fileName);
   showToast("PDF généré et ajouté à l’historique");
 }
