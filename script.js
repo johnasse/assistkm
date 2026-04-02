@@ -11,6 +11,7 @@ let directionsRenderer = null;
 let totalDistanceKm = 0;
 let totalDurationSeconds = 0;
 let totalAmount = 0;
+
 let deplacements = [];
 let currentUid = null;
 let currentProfile = null;
@@ -146,7 +147,6 @@ async function loadUserData() {
   loadBaremes();
   loadSignatureInfo();
   loadCarteGriseInfo();
-  loadLogoInfo();
   loadSavedMotifs();
   loadSavedDestinations();
   await loadProfileData();
@@ -398,26 +398,17 @@ function bindEvents() {
   document.getElementById("btnResetBaremes")?.addEventListener("click", resetBaremes);
   document.getElementById("btnToggleBaremes")?.addEventListener("click", toggleBaremesLock);
 
-  // Signature
   document.getElementById("btnSignature")?.addEventListener("click", () => {
     document.getElementById("signatureFile")?.click();
   });
   document.getElementById("signatureFile")?.addEventListener("change", handleSignatureChange);
   document.getElementById("btnClearSignature")?.addEventListener("click", clearSignature);
 
-  // Carte grise
   document.getElementById("btnCarteGrise")?.addEventListener("click", () => {
     document.getElementById("carteGriseFile")?.click();
   });
   document.getElementById("carteGriseFile")?.addEventListener("change", handleCarteGriseChange);
   document.getElementById("btnClearCarteGrise")?.addEventListener("click", clearCarteGrise);
-
-  // LOGO
-  document.getElementById("btnLogo")?.addEventListener("click", () => {
-    document.getElementById("logoFile")?.click();
-  });
-  document.getElementById("logoFile")?.addEventListener("change", handleLogoChange);
-  document.getElementById("btnClearLogo")?.addEventListener("click", clearLogo);
 }
 
 function setDefaultMonthIfNeeded() {
@@ -881,39 +872,11 @@ function updateTotals() {
 }
 
 async function genererPDFMensuel() {
-  if (logoData && isImageDataUrl(logoData)) {
-  try {
-    const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
-    const pageWidth = docPdf.internal.pageSize.getWidth();
-
-    let logoWidth = 42;
-    let logoHeight = (convertedLogo.height / convertedLogo.width) * logoWidth;
-
-    if (logoHeight > 18) {
-      logoHeight = 18;
-      logoWidth = (convertedLogo.width / convertedLogo.height) * logoHeight;
-    }
-
-    const logoX = pageWidth - logoWidth - 12;
-    const logoY = 8;
-
-    docPdf.addImage(
-      convertedLogo.dataUrl,
-      "JPEG",
-      logoX,
-      logoY,
-      logoWidth,
-      logoHeight
-    );
-  } catch (error) {
-    console.error("Erreur ajout logo PDF :", error);
-  }
-}
   if (deplacements.length === 0) {
     alert("Aucun déplacement à exporter.");
     return;
   }
-const logoData = localStorage.getItem(getLogoDataKey());
+
   const allowed = await requirePdfAccess();
   if (!allowed) return;
 
@@ -928,13 +891,7 @@ const logoData = localStorage.getItem(getLogoDataKey());
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const signatureData = localStorage.getItem(getSignatureDataKey());
   const carteGriseData = localStorage.getItem(getCarteGriseDataKey());
-function getLogoDataKey() {
-  return `logoKilometriqueData_${getUid()}`;
-}
 
-function getLogoNameKey() {
-  return `logoKilometriqueName_${getUid()}`;
-}
   const margin = 10;
   let y = 14;
 
@@ -1151,7 +1108,7 @@ docPdf.setTextColor(0, 0, 0);
 // zone calcul kms
 docPdf.setFont("helvetica", "normal");
 docPdf.setFontSize(9);
-docPdf.text("............................ Kms x ........................ = ........................ €", cadreX + 43, cadreY + 24);
+docPdf.text("............................ Kms x ........................ = ........................ €", cadreX + 40, cadreY + 24);
 
 // séparation BON A PAYER
 docPdf.line(cadreX, cadreY + 28, cadreX + cadreW, cadreY + 28);
@@ -1540,60 +1497,4 @@ function clearCarteGrise() {
   localStorage.removeItem(getCarteGriseNameKey());
   loadCarteGriseInfo();
   showToast("Carte grise supprimée");
-}
-function loadLogoInfo() {
-  const logoData = localStorage.getItem(getLogoDataKey());
-  const logoName = localStorage.getItem(getLogoNameKey()) || "";
-  const info = document.getElementById("logoInfo");
-  const preview = document.getElementById("logoPreview");
-
-  if (!info || !preview) return;
-
-  if (logoData) {
-    info.textContent = logoName ? `Logo enregistré : ${logoName}` : "Logo enregistré";
-
-    if (isImageDataUrl(logoData)) {
-      preview.src = logoData;
-      preview.style.display = "block";
-    } else {
-      preview.removeAttribute("src");
-      preview.style.display = "none";
-    }
-  } else {
-    info.textContent = "";
-    preview.removeAttribute("src");
-    preview.style.display = "none";
-  }
-}
-
-async function handleLogoChange(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  try {
-    if (!file.type.startsWith("image/")) {
-      alert("Merci d'importer une image pour le logo.");
-      event.target.value = "";
-      return;
-    }
-
-    const data = await fileToBase64(file);
-
-    localStorage.setItem(getLogoDataKey(), data);
-    localStorage.setItem(getLogoNameKey(), file.name);
-
-    loadLogoInfo();
-    showToast("Logo enregistré");
-  } catch (error) {
-    console.error("Erreur lecture logo :", error);
-    alert("Impossible d'importer le logo.");
-  } finally {
-    event.target.value = "";
-  }
-}
-function clearLogo() {
-  localStorage.removeItem(getLogoDataKey());
-  localStorage.removeItem(getLogoNameKey());
-  loadLogoInfo();
-  showToast("Logo supprimé");
 }
