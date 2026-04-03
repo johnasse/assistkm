@@ -83,6 +83,14 @@ function getTotal() {
   return fraisLoisirs.reduce((sum, item) => sum + Number(item.montant || 0), 0);
 }
 
+function showToast(message) {
+  const toast = $("toastLoisirs") || $("toast") || document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2200);
+}
+
 async function ajouterFrais() {
   const date = $("dateLoisirs").value;
   const enfant = $("enfantLoisirs").value.trim();
@@ -132,6 +140,7 @@ async function ajouterFrais() {
   saveData();
   render();
   resetForm();
+  showToast("Dépense ajoutée");
 }
 
 function voirJustificatif(id) {
@@ -163,6 +172,7 @@ function supprimerFrais(id) {
   fraisLoisirs = fraisLoisirs.filter((x) => x.id !== id);
   saveData();
   render();
+  showToast("Dépense supprimée");
 }
 
 function viderListe() {
@@ -172,6 +182,7 @@ function viderListe() {
   fraisLoisirs = [];
   saveData();
   render();
+  showToast("Liste vidée");
 }
 
 function render() {
@@ -243,6 +254,22 @@ async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   };
 }
 
+function addEasyfraisFooter(pdf) {
+  const pageCount = pdf.getNumberOfPages();
+
+  pdf.setFont("helvetica", "italic");
+  pdf.setFontSize(8);
+  pdf.setTextColor(120, 120, 120);
+
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    pdf.text("Document généré automatiquement par easyfrais.fr", 10, pageHeight - 5);
+  }
+
+  pdf.setTextColor(0, 0, 0);
+}
+
 async function ajouterImagesAuPdf(pdf) {
   for (const item of fraisLoisirs) {
     if (!item.justificatif?.data) continue;
@@ -253,10 +280,13 @@ async function ajouterImagesAuPdf(pdf) {
       const margin = 10;
 
       pdf.addPage();
+      pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
       pdf.text("Justificatif", margin, 12);
 
+      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
+
       const meta = `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet}`;
       const lines = pdf.splitTextToSize(meta, pageWidth - margin * 2);
       pdf.text(lines, margin, 22);
@@ -288,27 +318,21 @@ async function ajouterImagesAuPdf(pdf) {
   }
 }
 
-function addPdfToGlobalHistory(blob, fileName, monthLabel) {
+function addPdfToGlobalHistory(fileName, monthLabel) {
   if (!currentUser) return;
 
   const storageKey = `historiquePDF_${currentUser.uid}`;
   const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
 
-  const reader = new FileReader();
-  reader.onloadend = function () {
-    historique.push({
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      mois: monthLabel,
-      nom: fileName,
-      data: reader.result,
-      dateGeneration: new Date().toLocaleString("fr-FR"),
-      type: "Sports et loisirs"
-    });
+  historique.push({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    mois: monthLabel,
+    nom: fileName,
+    dateGeneration: new Date().toLocaleString("fr-FR"),
+    type: "Sports et loisirs"
+  });
 
-    localStorage.setItem(storageKey, JSON.stringify(historique));
-  };
-
-  reader.readAsDataURL(blob);
+  localStorage.setItem(storageKey, JSON.stringify(historique));
 }
 
 async function genererPDF() {
@@ -330,10 +354,12 @@ async function genererPDF() {
 
   let y = 12;
 
+  pdf.setFont("helvetica", "bold");
   pdf.setFontSize(14);
   pdf.text("Frais sports et loisirs", 10, y);
   y += 8;
 
+  pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
   pdf.text(`PDF créé le ${dateCreationPdf}`, 10, y);
   y += 6;
@@ -342,7 +368,7 @@ async function genererPDF() {
   pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
   y += 10;
 
-  fraisLoisirs.forEach((item) => {
+  for (const item of fraisLoisirs) {
     const line = `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`;
     const lines = pdf.splitTextToSize(line, 180);
     pdf.text(lines, 10, y);
@@ -352,18 +378,20 @@ async function genererPDF() {
       pdf.addPage();
       y = 12;
     }
-  });
+  }
 
   y += 4;
+  pdf.setFont("helvetica", "bold");
   pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
 
   await ajouterImagesAuPdf(pdf);
+  addEasyfraisFooter(pdf);
 
   const fileName = `loisirs_${new Date().toISOString().slice(0, 10)}.pdf`;
-  const pdfBlob = pdf.output("blob");
 
-  addPdfToGlobalHistory(pdfBlob, fileName, formatMonthLabel(mois));
+  addPdfToGlobalHistory(fileName, formatMonthLabel(mois));
   pdf.save(fileName);
+  showToast("PDF généré et ajouté à l’historique");
 }
 
 async function loadProfileLoisirs() {
