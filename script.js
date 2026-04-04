@@ -1367,7 +1367,23 @@ try {
   console.error("Erreur enregistrement historique :", error);
 }
 
-docPdf.save(fileName);
+const filename = `kilometrique_${moisEtat}.pdf`;
+
+// Convertir PDF en blob
+const pdfBlob = docPdf.output("blob");
+
+// Enregistrer dans Firebase + Historique
+await savePdfToHistory({
+  fileName: filename,
+  blob: pdfBlob,
+  type: "Kilométrique",
+  mois: formatMonthLabel(moisEtat)
+});
+
+// Télécharger aussi sur l'ordinateur
+docPdf.save(filename);
+
+showToast("PDF généré et enregistré dans l'historique");
 showToast("PDF mensuel généré et enregistré dans l'historique");
 }
 
