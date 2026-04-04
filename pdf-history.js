@@ -1,4 +1,5 @@
 import { auth } from "./firebase-config.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
 export function formatMonthLabel(monthStr) {
   if (!monthStr) return "-";
@@ -12,32 +13,35 @@ export function formatMonthLabel(monthStr) {
 
 export async function savePdfToHistory(docPdf, info) {
   try {
-    const uid = auth.currentUser?.uid || "guest";
-    const historiqueKey = `historiquePDF_${uid}`;
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const storage = getStorage();
+    const fileName = info.nom || "document.pdf";
+    const storagePath = `pdf/${user.uid}/${Date.now()}_${fileName}`;
+
+    const pdfBlob = docPdf.output("blob");
+
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, pdfBlob);
+    const downloadURL = await getDownloadURL(storageRef);
+
+    const historiqueKey = `historiquePDF_${user.uid}`;
     const historique = JSON.parse(localStorage.getItem(historiqueKey) || "[]");
 
-    let data = null;
-
-    try {
-      const rawData = docPdf.output("datauristring");
-      if (rawData && rawData.length < 1400000) {
-        data = rawData;
-      }
-    } catch (error) {
-      console.warn("PDF trop lourd pour stockage local du téléchargement :", error);
-    }
-
     historique.push({
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      nom: info.nom || "document.pdf",
+      id: Date.now(),
+      nom: fileName,
       mois: info.mois || "-",
       type: info.type || "Non classé",
       dateGeneration: new Date().toLocaleString("fr-FR"),
-      data
+      downloadURL,
+      storagePath
     });
 
     localStorage.setItem(historiqueKey, JSON.stringify(historique));
-    console.log("PDF enregistré dans historique :", historiqueKey);
+    console.log("PDF enregistré dans historique + storage");
+
   } catch (error) {
     console.error("Erreur historique PDF :", error);
   }
