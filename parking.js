@@ -1,4 +1,6 @@
 import { auth, db } from "./firebase-config.js";
+import { requirePdfAccess } from "./premium.js";
+import { savePdfToHistory } from "./pdf-history.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -219,23 +221,6 @@ function clearAllEntries() {
   showToast("Liste vidée");
 }
 
-function addPdfToGlobalHistory(fileName, monthLabel) {
-  if (!currentUser) return;
-
-  const historyKey = `historiquePDF_${currentUser.uid}`;
-  const historique = JSON.parse(localStorage.getItem(historyKey) || "[]");
-
-  historique.push({
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    mois: monthLabel,
-    nom: fileName,
-    dateGeneration: new Date().toLocaleString("fr-FR"),
-    type: "Frais de parking"
-  });
-
-  localStorage.setItem(historyKey, JSON.stringify(historique));
-}
-
 function addEasyfraisFooter(pdf) {
   const pageCount = pdf.getNumberOfPages();
 
@@ -252,11 +237,39 @@ function addEasyfraisFooter(pdf) {
   pdf.setTextColor(0, 0, 0);
 }
 
+async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
+  const img = new Image();
+  img.src = dataUrl;
+
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+
+  return {
+    dataUrl: canvas.toDataURL("image/jpeg", quality),
+    width: canvas.width,
+    height: canvas.height
+  };
+}
+
 async function generatePdf() {
   if (!entries.length) {
     alert("Ajoute au moins une dépense avant de générer le PDF.");
     return;
   }
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("p", "mm", "a4");
@@ -326,25 +339,26 @@ async function generatePdf() {
   pdf.text(`Total : ${formatMoney(total)}`, 140, y);
 
   for (const item of entries) {
-    if (item.justificatifDataUrl) {
-      pdf.addPage();
+    if (!item.justificatifDataUrl) continue;
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(14);
-      pdf.text("Justificatif - Frais de parking", 105, 15, { align: "center" });
+    pdf.addPage();
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      pdf.text(`Date : ${item.date || "-"}`, 14, 30);
-      pdf.text(`Enfant : ${item.enfant || "-"}`, 14, 37);
-      pdf.text(`Lieu : ${item.lieu || "-"}`, 14, 44);
-      pdf.text(`Montant : ${formatMoney(item.montant)}`, 14, 51);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(14);
+    pdf.text("Justificatif - Frais de parking", 105, 15, { align: "center" });
 
-      try {
-        pdf.addImage(item.justificatifDataUrl, "JPEG", 15, 60, 180, 180);
-      } catch (e) {
-        console.log("Erreur image justificatif", e);
-      }
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+    pdf.text(`Date : ${item.date || "-"}`, 14, 30);
+    pdf.text(`Enfant : ${item.enfant || "-"}`, 14, 37);
+    pdf.text(`Lieu : ${item.lieu || "-"}`, 14, 44);
+    pdf.text(`Montant : ${formatMoney(item.montant)}`, 14, 51);
+
+    try {
+      const converted = await convertImageDataUrlToJpeg(item.justificatifDataUrl);
+      pdf.addImage(converted.dataUrl, "JPEG", 15, 60, 180, 180);
+    } catch (e) {
+      console.log("Erreur image justificatif", e);
     }
   }
 
@@ -352,10 +366,18 @@ async function generatePdf() {
 
   const fileName = `parking_${getFileNameMonth(moisValue)}.pdf`;
 
-  addPdfToGlobalHistory(fileName, moisLabel);
+  try {
+    await savePdfToHistory(pdf, {
+      nom: fileName,
+      mois: moisLabel,
+      type: "Frais de parking"
+    });
+  } catch (error) {
+    console.error("Erreur historique parking :", error);
+  }
 
   pdf.save(fileName);
-  showToast("PDF généré et ajouté à l’historique");
+  showToast("PDF généré et enregistré dans l’historique");
 }
 
 async function loadProfileParking() {
