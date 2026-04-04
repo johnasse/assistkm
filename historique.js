@@ -19,6 +19,10 @@ function saveHistorique() {
   localStorage.setItem(storageKey, JSON.stringify(historique));
 }
 
+function canDownload(pdf) {
+  return !!pdf?.downloadURL || !!pdf?.data;
+}
+
 function renderHistorique() {
   const body = $("historiqueBody");
   body.innerHTML = "";
@@ -31,19 +35,22 @@ function renderHistorique() {
 
   historique.forEach((pdf) => {
     const tr = document.createElement("tr");
+    const downloadable = canDownload(pdf);
 
     tr.innerHTML = `
       <td class="checkbox-cell">
-        <input type="checkbox" class="pdfCheck" data-id="${pdf.id}">
+        ${downloadable ? `<input type="checkbox" class="pdfCheck" data-id="${pdf.id}">` : ""}
       </td>
-      <td>${pdf.mois}</td>
-      <td>${pdf.type}</td>
-      <td>${pdf.nom}</td>
-      <td>${pdf.dateGeneration}</td>
+      <td>${escapeHtml(pdf.mois || "-")}</td>
+      <td>${escapeHtml(pdf.type || "-")}</td>
+      <td>${escapeHtml(pdf.nom || "-")}</td>
+      <td>${escapeHtml(pdf.dateGeneration || "-")}</td>
       <td>
-        <button class="btn btn-primary btn-download" data-url="${pdf.downloadURL}">
-          Télécharger
-        </button>
+        ${
+          downloadable
+            ? `<button class="btn btn-primary btn-download" data-id="${pdf.id}">Télécharger</button>`
+            : `<button class="btn btn-secondary" type="button" disabled>Indisponible</button>`
+        }
         <button class="table-action-btn btn-delete" data-id="${pdf.id}">
           Supprimer
         </button>
@@ -54,34 +61,65 @@ function renderHistorique() {
   });
 
   document.querySelectorAll(".btn-download").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      window.open(btn.dataset.url, "_blank");
-    });
+    btn.addEventListener("click", () => telechargerPdf(btn.dataset.id));
   });
 
   document.querySelectorAll(".btn-delete").forEach((btn) => {
     btn.addEventListener("click", () => supprimerPdf(btn.dataset.id));
   });
 
-  $("nbResultatsHistorique").textContent = historique.length;
+  $("nbResultatsHistorique").textContent = String(historique.length);
+}
+
+function telechargerPdf(id) {
+  const pdf = historique.find((p) => String(p.id) === String(id));
+  if (!pdf) return;
+
+  if (pdf.downloadURL) {
+    window.open(pdf.downloadURL, "_blank");
+    return;
+  }
+
+  if (pdf.data) {
+    const link = document.createElement("a");
+    link.href = pdf.data;
+    link.download = pdf.nom || "document.pdf";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return;
+  }
+
+  alert("Ce PDF n'est pas disponible en téléchargement.");
 }
 
 async function supprimerPdf(id) {
-  const pdf = historique.find((p) => p.id == id);
+  const pdf = historique.find((p) => String(p.id) === String(id));
   if (!pdf) return;
 
-  if (!confirm("Supprimer ce PDF ?")) return;
+  if (!confirm(`Supprimer "${pdf.nom || "ce PDF"}" ?`)) return;
 
   try {
-    const storageRef = ref(storage, pdf.storagePath);
-    await deleteObject(storageRef);
+    if (pdf.storagePath) {
+      const storageRef = ref(storage, pdf.storagePath);
+      await deleteObject(storageRef);
+    }
   } catch (e) {
     console.log("Erreur suppression Storage", e);
   }
 
-  historique = historique.filter((p) => p.id != id);
+  historique = historique.filter((p) => String(p.id) !== String(id));
   saveHistorique();
   renderHistorique();
+}
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 onAuthStateChanged(auth, (user) => {
