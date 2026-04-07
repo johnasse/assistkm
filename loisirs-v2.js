@@ -574,12 +574,13 @@ pdf.text("Signature : ", cadreX + 4, cadreY + 42);
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
 
-  const fileName = `loisirs_${new Date().toISOString().slice(0, 10)}.pdf`;
+const fileName = `loisirs_${new Date().toISOString().slice(0, 10)}.pdf`;
 const pdfBlob = pdf.output("blob");
 
 try {
   await savePdfToHistory({
-    fileName,
+    nom: fileName,
+    fileName: fileName,
     blob: pdfBlob,
     type: "Sports et loisirs",
     mois: formatMonthLabel(mois)
