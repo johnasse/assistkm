@@ -261,6 +261,66 @@ async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
     height: canvas.height
   };
 }
+function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
+  const lines = Array.isArray(textOrLines) ? textOrLines : [String(textOrLines)];
+  
+  const fontSize = pdf.getFontSize();
+  const lineHeight = fontSize * 0.35;
+
+  const totalTextHeight = lines.length * lineHeight;
+  let currentY = y + (height - totalTextHeight) / 2 + 2;
+
+  lines.forEach((line) => {
+    let textX = x + 2;
+
+    if (align === "center") {
+      textX = x + width / 2;
+      pdf.text(line, textX, currentY, { align: "center" });
+    } else if (align === "right") {
+      textX = x + width - 2;
+      pdf.text(line, textX, currentY, { align: "right" });
+    } else {
+      pdf.text(line, textX, currentY);
+    }
+
+    currentY += lineHeight;
+  });
+}
+
+function isImageDataUrl(value) {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
+
+function getProfileLogoData() {
+  return localStorage.getItem(`profileLogoData_${currentUser?.uid || ""}`) || "";
+}
+
+function getProfileSignatureData() {
+  return localStorage.getItem(`profileSignatureData_${currentUser?.uid || ""}`) || "";
+}
+async function drawLogo(pdf) {
+  const logoData = getProfileLogoData();
+  if (!logoData || !isImageDataUrl(logoData)) return;
+
+  try {
+    const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.9);
+
+    const maxWidth = 30;
+    const maxHeight = 20;
+
+    let w = convertedLogo.width;
+    let h = convertedLogo.height;
+
+    const ratio = Math.min(maxWidth / w, maxHeight / h, 1);
+    w *= ratio;
+    h *= ratio;
+
+    pdf.addImage(convertedLogo.dataUrl, "JPEG", 10, 8, w, h);
+  } catch (e) {
+    console.error("Erreur logo :", e);
+  }
+}
+
 
 async function generatePdf() {
   if (!entries.length) {
@@ -272,71 +332,155 @@ async function generatePdf() {
   if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF("p", "mm", "a4");
+  const pdf = new jsPDF("portrait", "mm", "a4");
 
   const moisValue = moisInput?.value || getCurrentMonthValue();
   const moisLabel = getMonthLabel(moisValue);
   const assistantNom = assistantInput?.value?.trim() || "";
   const total = getTotal();
+  const dateCreation = new Date().toLocaleDateString("fr-FR");
+  const signatureData = getProfileSignatureData();
+
+  await drawLogo(pdf);
 
   let y = 15;
 
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(16);
-  pdf.text("ETAT DE FRAIS - PARKING", 105, y, { align: "center" });
+  pdf.setFontSize(14);
+  pdf.text("DEMANDE DE REMBOURSEMENT", 105, y, { align: "center" });
+  pdf.text("FRAIS DE PARKING", 105, y + 10, { align: "center" });
 
-  y += 10;
+  pdf.line(60, y + 2, 150, y + 2);
+  pdf.line(80, y + 12, 130, y + 12);
+
+  y += 25;
+
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(11);
-  pdf.text(`Mois : ${moisLabel}`, 14, y);
-  pdf.text(`Assistant familial : ${assistantNom || "-"}`, 14, y + 7);
+  pdf.setFontSize(10);
 
-  y += 18;
+  pdf.text(`Nom / Prénom de l’assistant(e) familial(e) : ${assistantNom || "-"}`, 10, y);
+  y += 10;
+  pdf.text(`Mois : ${moisLabel}`, 10, y);
+  y += 10;
 
-  const colX = {
-    date: 10,
-    enfant: 32,
-    type: 64,
-    lieu: 95,
-    objet: 126,
-    montant: 170
-  };
+  const tableX = 10;
+  const colDate = 28;
+  const colEnfant = 40;
+  const colDetail = 82;
+  const colMontant = 38;
+  const headerH = 10;
 
   pdf.setFont("helvetica", "bold");
-  pdf.setFillColor(230, 235, 245);
-  pdf.rect(10, y, 190, 8, "F");
-  pdf.text("Date", colX.date + 2, y + 5.5);
-  pdf.text("Enfant", colX.enfant + 2, y + 5.5);
-  pdf.text("Type", colX.type + 2, y + 5.5);
-  pdf.text("Lieu", colX.lieu + 2, y + 5.5);
-  pdf.text("Objet", colX.objet + 2, y + 5.5);
-  pdf.text("Montant", colX.montant + 2, y + 5.5);
+  pdf.rect(tableX, y, colDate, headerH);
+  pdf.rect(tableX + colDate, y, colEnfant, headerH);
+  pdf.rect(tableX + colDate + colEnfant, y, colDetail, headerH);
+  pdf.rect(tableX + colDate + colEnfant + colDetail, y, colMontant, headerH);
 
-  y += 10;
+  drawCellText(pdf, "Date", tableX, y, colDate, headerH, "center");
+  drawCellText(pdf, "Enfant", tableX + colDate, y, colEnfant, headerH, "center");
+  drawCellText(pdf, "Détail", tableX + colDate + colEnfant, y, colDetail, headerH, "center");
+  drawCellText(pdf, "Montant", tableX + colDate + colEnfant + colDetail, y, colMontant, headerH, "center");
+
+  let rowY = y + headerH;
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
+  pdf.setFontSize(9.3);
+
+  const stopY = rowY + 80;
 
   for (const item of entries) {
-    if (y > 270) {
-      pdf.addPage();
-      y = 15;
-    }
+    const detailText = [
+      item.type,
+      item.lieu,
+      item.objet
+    ].filter(Boolean).join(" - ");
 
-    pdf.text(String(item.date || "-"), colX.date + 2, y);
-    pdf.text(String(item.enfant || "-").slice(0, 18), colX.enfant + 2, y);
-    pdf.text(String(item.type || "-").slice(0, 18), colX.type + 2, y);
-    pdf.text(String(item.lieu || "-").slice(0, 18), colX.lieu + 2, y);
-    pdf.text(String(item.objet || "-").slice(0, 22), colX.objet + 2, y);
-    pdf.text(formatMoney(item.montant), colX.montant + 2, y);
+    const dateLines = pdf.splitTextToSize(String(item.date || "-"), colDate - 4);
+    const enfantLines = pdf.splitTextToSize(String(item.enfant || "-"), colEnfant - 4);
+    const detailLines = pdf.splitTextToSize(String(detailText || "-"), colDetail - 4);
+    const montantLines = pdf.splitTextToSize(formatMoney(item.montant), colMontant - 4);
 
-    y += 7;
+    const maxLines = Math.max(
+      dateLines.length,
+      enfantLines.length,
+      detailLines.length,
+      montantLines.length
+    );
+
+    const rowH = Math.max(14, maxLines * 4 + 6);
+
+    if (rowY + rowH > stopY) break;
+
+    pdf.rect(tableX, rowY, colDate, rowH);
+    pdf.rect(tableX + colDate, rowY, colEnfant, rowH);
+    pdf.rect(tableX + colDate + colEnfant, rowY, colDetail, rowH);
+    pdf.rect(tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH);
+
+    drawCellText(pdf, dateLines, tableX, rowY, colDate, rowH, "center");
+    drawCellText(pdf, enfantLines, tableX + colDate, rowY, colEnfant, rowH, "center");
+    drawCellText(pdf, detailLines, tableX + colDate + colEnfant, rowY, colDetail, rowH, "center");
+    drawCellText(pdf, montantLines, tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH, "center");
+
+    rowY += rowH;
   }
 
-  y += 4;
+  while (rowY < stopY) {
+    const h = Math.min(18, stopY - rowY);
+
+    pdf.rect(tableX, rowY, colDate, h);
+    pdf.rect(tableX + colDate, rowY, colEnfant, h);
+    pdf.rect(tableX + colDate + colEnfant, rowY, colDetail, h);
+    pdf.rect(tableX + colDate + colEnfant + colDetail, rowY, colMontant, h);
+
+    rowY += h;
+  }
+
+  const totalX = tableX + colDate + colEnfant + colDetail;
+  pdf.rect(totalX, stopY + 2, colMontant, 24);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.text("Total Frais", totalX + colMontant / 2, stopY + 10, { align: "center" });
+  pdf.setFontSize(10);
+  pdf.text(formatMoney(total), totalX + colMontant / 2, stopY + 20, { align: "center" });
+
+  const certifY = stopY + 15;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.text(`Certifié exact, le ${dateCreation}`, 10, certifY);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Signature de l’assistant(e) familial(e) :", 10, certifY + 12);
+
+  if (signatureData && isImageDataUrl(signatureData)) {
+    try {
+      const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.9);
+      pdf.addImage(convertedSignature.dataUrl, "JPEG", 10, certifY + 14, 52, 15);
+    } catch (error) {
+      console.error("Erreur ajout signature PDF parking :", error);
+    }
+  }
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.6);
+  pdf.text("Justificatif joint au PDF", 10, 274);
+
+  const bx = 108;
+const by = stopY + 32;
+  const bw = 90;
+  const bh = 44;
+
+  pdf.rect(bx, by, bw, bh);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(11);
-  pdf.text(`Nombre de dépenses : ${entries.length}`, 14, y);
-  pdf.text(`Total : ${formatMoney(total)}`, 140, y);
+  pdf.text("BON A PAYER", bx + bw / 2, by + 8, { align: "center" });
+
+  pdf.line(bx, by + 12, bx + bw, by + 12);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text("Date : ............................................................", bx + 4, by + 18);
+  pdf.text("Nom du responsable : ..........................................", bx + 4, by + 26);
+  pdf.text("Imputation analytique : .......................................", bx + 4, by + 34);
+  pdf.text("Signature : ", bx + 4, by + 42);
 
   for (const item of entries) {
     if (!item.justificatifDataUrl) continue;
