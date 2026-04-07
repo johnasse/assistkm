@@ -3,7 +3,6 @@ import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-
 let fraisLoisirs = [];
 let uid = null;
 let currentUser = null;
@@ -575,22 +574,22 @@ pdf.text("Signature : ", cadreX + 4, cadreY + 42);
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
 
-  const fileName = `loisirs_${mois || new Date().toISOString().slice(0, 7)}.pdf`;
-  const pdfBlob = pdf.output("blob");
+  const fileName = `loisirs_${new Date().toISOString().slice(0, 10)}.pdf`;
+const pdfBlob = pdf.output("blob");
 
-  try {
-    await savePdfToHistory({
-      fileName,
-      blob: pdfBlob,
-      type: "Sports et loisirs",
-      mois: formatMonthLabel(mois)
-    });
-  } catch (error) {
-    console.error("Erreur enregistrement historique loisirs :", error);
-  }
+try {
+  await savePdfToHistory({
+    fileName,
+    blob: pdfBlob,
+    type: "Sports et loisirs",
+    mois: formatMonthLabel(mois)
+  });
+} catch (error) {
+  console.error("Erreur enregistrement historique loisirs :", error);
+}
 
-  pdf.save(fileName);
-  showToast("PDF généré et enregistré dans l’historique");
+pdf.save(fileName);
+showToast("PDF généré et enregistré dans l’historique");
 }
 
 async function loadProfileLoisirs() {
