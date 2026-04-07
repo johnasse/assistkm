@@ -978,6 +978,7 @@ function addEasyfraisFooter(docPdf) {
 
 async function genererPDFMensuel() {
   if (deplacements.length === 0) {
+
     alert("Aucun déplacement à exporter.");
     return;
   }
@@ -1211,27 +1212,31 @@ docPdf.setFont("helvetica", "normal");
 docPdf.setFontSize(10);
 
 y += 10;
+docPdf.setFont("helvetica", "normal");
+docPdf.setFontSize(10);
+
+// Texte
 docPdf.text("Signature assistant familial :", margin, y);
 
-// Signature à côté du texte
+// Signature bien alignée
 if (signatureData && isImageDataUrl(signatureData)) {
   try {
-    const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.10);
+    const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.7);
 
     docPdf.addImage(
       convertedSignature.dataUrl,
       "JPEG",
-      margin + 65,   // position X
-      y - 6,         // position Y
-      40,
-      12
+      margin + 70,   // décale un peu à droite
+      y - 4,         // alignement parfait
+      45,            // largeur un peu plus propre
+      15             // hauteur plus visible
     );
   } catch (error) {
     console.error("Erreur ajout signature PDF :", error);
   }
 }
 
-y += 20; // espace avant les barèmes
+y += 25;
 
 
 
@@ -1651,6 +1656,7 @@ async function handleCarteGriseChange(event) {
   if (!file) return;
 
   try {
+  
     const maxSizeMo = 3;
     const maxSizeBytes = maxSizeMo * 1024 * 1024;
 
