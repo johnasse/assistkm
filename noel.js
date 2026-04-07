@@ -1,11 +1,13 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
+import { savePdfToHistory } from "./pdf-history.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 let fraisNoel = [];
 let uid = null;
 let currentUser = null;
+let currentProfile = null;
 let eventsBound = false;
 
 const $ = (id) => document.getElementById(id);
@@ -63,34 +65,50 @@ function isImageFile(file) {
   return Boolean(file && file.type && file.type.startsWith("image/"));
 }
 
+function isImageDataUrl(value) {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
+
 function updateNomJustificatif() {
-  const file = $("justificatifNoel").files[0];
-  $("nomJustificatifNoel").textContent = file ? `Fichier sélectionné : ${file.name}` : "";
+  const input = $("justificatifNoel");
+  const label = $("nomJustificatifNoel");
+  const file = input?.files?.[0];
+  if (label) {
+    label.textContent = file ? `Fichier sélectionné : ${file.name}` : "";
+  }
 }
 
 function resetForm() {
-  $("dateNoel").value = "";
-  $("enfantNoel").value = "";
-  $("typeNoel").value = "";
-  $("magasinNoel").value = "";
-  $("objetNoel").value = "";
-  $("montantNoel").value = "";
-  $("justificatifNoel").value = "";
-  $("nomJustificatifNoel").textContent = "";
+  if ($("dateNoel")) $("dateNoel").value = "";
+  if ($("enfantNoel")) $("enfantNoel").value = "";
+  if ($("typeNoel")) $("typeNoel").value = "";
+  if ($("magasinNoel")) $("magasinNoel").value = "";
+  if ($("objetNoel")) $("objetNoel").value = "";
+  if ($("montantNoel")) $("montantNoel").value = "";
+  if ($("justificatifNoel")) $("justificatifNoel").value = "";
+  if ($("nomJustificatifNoel")) $("nomJustificatifNoel").textContent = "";
 }
 
 function getTotal() {
   return fraisNoel.reduce((sum, item) => sum + Number(item.montant || 0), 0);
 }
 
+function showToast(message) {
+  const toast = $("toastNoel") || $("toast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2200);
+}
+
 async function ajouterFrais() {
-  const date = $("dateNoel").value;
-  const enfant = $("enfantNoel").value.trim();
-  const type = $("typeNoel").value;
-  const magasin = $("magasinNoel").value.trim();
-  const objet = $("objetNoel").value.trim();
-  const montant = parseFloat($("montantNoel").value);
-  const file = $("justificatifNoel").files[0] || null;
+  const date = $("dateNoel")?.value || "";
+  const enfant = $("enfantNoel")?.value.trim() || "";
+  const type = $("typeNoel")?.value || "";
+  const magasin = $("magasinNoel")?.value.trim() || "";
+  const objet = $("objetNoel")?.value.trim() || "";
+  const montant = parseFloat(($("montantNoel")?.value || "").replace(",", "."));
+  const file = $("justificatifNoel")?.files?.[0] || null;
 
   if (!date || !enfant || !type || !magasin || !objet || Number.isNaN(montant) || montant <= 0) {
     alert("Merci de remplir tous les champs correctement.");
@@ -132,6 +150,7 @@ async function ajouterFrais() {
   saveData();
   render();
   resetForm();
+  showToast("Dépense ajoutée");
 }
 
 function voirJustificatif(id) {
@@ -163,6 +182,7 @@ function supprimerFrais(id) {
   fraisNoel = fraisNoel.filter((x) => x.id !== id);
   saveData();
   render();
+  showToast("Dépense supprimée");
 }
 
 function viderListe() {
@@ -172,16 +192,19 @@ function viderListe() {
   fraisNoel = [];
   saveData();
   render();
+  showToast("Liste vidée");
 }
 
 function render() {
   const body = $("noelBody");
+  if (!body) return;
+
   body.innerHTML = "";
 
   if (!fraisNoel.length) {
     body.innerHTML = `<tr><td colspan="8" class="empty-cell">Aucune dépense enregistrée</td></tr>`;
-    $("totalLignesNoel").textContent = "0";
-    $("totalMontantNoel").textContent = "0,00 €";
+    if ($("totalLignesNoel")) $("totalLignesNoel").textContent = "0";
+    if ($("totalMontantNoel")) $("totalMontantNoel").textContent = "0,00 €";
     return;
   }
 
@@ -214,8 +237,10 @@ function render() {
     btn.addEventListener("click", () => voirJustificatif(Number(btn.dataset.id)));
   });
 
-  $("totalLignesNoel").textContent = String(fraisNoel.length);
-  $("totalMontantNoel").textContent = `${getTotal().toFixed(2).replace(".", ",")} €`;
+  if ($("totalLignesNoel")) $("totalLignesNoel").textContent = String(fraisNoel.length);
+  if ($("totalMontantNoel")) {
+    $("totalMontantNoel").textContent = `${getTotal().toFixed(2).replace(".", ",")} €`;
+  }
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
@@ -243,6 +268,22 @@ async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   };
 }
 
+function addEasyfraisFooter(pdf) {
+  const pageCount = pdf.getNumberOfPages();
+
+  pdf.setFont("helvetica", "italic");
+  pdf.setFontSize(8);
+  pdf.setTextColor(120, 120, 120);
+
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    pdf.text("Document généré automatiquement par easyfrais.fr", 10, pageHeight - 5);
+  }
+
+  pdf.setTextColor(0, 0, 0);
+}
+
 async function ajouterImagesAuPdf(pdf) {
   for (const item of fraisNoel) {
     if (!item.justificatif?.data) continue;
@@ -253,10 +294,13 @@ async function ajouterImagesAuPdf(pdf) {
       const margin = 10;
 
       pdf.addPage();
+      pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
       pdf.text("Justificatif", margin, 12);
 
+      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
+
       const meta = `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.magasin} - ${item.objet}`;
       const lines = pdf.splitTextToSize(meta, pageWidth - margin * 2);
       pdf.text(lines, margin, 22);
@@ -288,27 +332,54 @@ async function ajouterImagesAuPdf(pdf) {
   }
 }
 
-function addPdfToGlobalHistory(blob, fileName, monthLabel) {
-  if (!currentUser) return;
+function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
+  const lines = Array.isArray(textOrLines) ? textOrLines : [String(textOrLines)];
+  const lineHeight = pdf.getFontSize() * 0.35;
+  let currentY = y + (height - lines.length * lineHeight) / 2 + 2;
 
-  const storageKey = `historiquePDF_${currentUser.uid}`;
-  const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+  lines.forEach((line) => {
+    let textX = x + 2;
 
-  const reader = new FileReader();
-  reader.onloadend = function () {
-    historique.push({
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      mois: monthLabel,
-      nom: fileName,
-      data: reader.result,
-      dateGeneration: new Date().toLocaleString("fr-FR"),
-      type: "Frais de Noël"
-    });
+    if (align === "center") {
+      textX = x + width / 2;
+      pdf.text(line, textX, currentY, { align: "center" });
+    } else if (align === "right") {
+      textX = x + width - 2;
+      pdf.text(line, textX, currentY, { align: "right" });
+    } else {
+      pdf.text(line, textX, currentY);
+    }
 
-    localStorage.setItem(storageKey, JSON.stringify(historique));
-  };
+    currentY += lineHeight;
+  });
+}
 
-  reader.readAsDataURL(blob);
+function getProfileLogoData() {
+  return localStorage.getItem(`profileLogoData_${uid}`) || "";
+}
+
+function getProfileSignatureData() {
+  return localStorage.getItem(`profileSignatureData_${uid}`) || "";
+}
+
+async function drawLogo(pdf) {
+  const logoData = getProfileLogoData();
+  if (!logoData || !isImageDataUrl(logoData)) return;
+
+  try {
+    const converted = await convertImageDataUrlToJpeg(logoData, 0.9);
+
+    let w = converted.width;
+    let h = converted.height;
+
+    const ratio = Math.min(30 / w, 20 / h, 1);
+    w *= ratio;
+    h *= ratio;
+
+    pdf.addImage(converted.dataUrl, "JPEG", 10, 8, w, h);
+  } catch (error) {
+    console.error("Erreur logo PDF Noël :", error);
+  }
 }
 
 async function genererPDF() {
@@ -321,49 +392,176 @@ async function genererPDF() {
   if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF();
+  const pdf = new jsPDF("portrait", "mm", "a4");
 
-  const assistant = $("assistantNomNoel").value.trim() || "-";
-  const mois = $("moisNoel").value || "";
+  const assistant = $("assistantNomNoel")?.value.trim() || currentProfile?.fullName || "-";
+  const mois = $("moisNoel")?.value || "";
   const total = getTotal();
-  const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
+  const dateCreation = new Date().toLocaleDateString("fr-FR");
+  const signature = getProfileSignatureData();
 
-  let y = 12;
+  await drawLogo(pdf);
 
+  let y = 15;
+
+  pdf.setFont("helvetica", "bold");
   pdf.setFontSize(14);
-  pdf.text("Frais de Noël", 10, y);
-  y += 8;
+  pdf.text("DEMANDE DE REMBOURSEMENT", 105, y, { align: "center" });
+  pdf.text("FRAIS DE NOËL", 105, y + 10, { align: "center" });
 
+  pdf.line(60, y + 2, 150, y + 2);
+  pdf.line(80, y + 12, 130, y + 12);
+
+  y += 25;
+
+  pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
-  pdf.text(`PDF créé le ${dateCreationPdf}`, 10, y);
-  y += 6;
-  pdf.text(`Assistant : ${assistant}`, 10, y);
-  y += 6;
+
+  pdf.text(`Nom / Prénom : ${assistant}`, 10, y);
+  y += 8;
   pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
   y += 10;
 
-  fraisNoel.forEach((item) => {
-    const line = `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.magasin} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`;
-    const lines = pdf.splitTextToSize(line, 180);
-    pdf.text(lines, 10, y);
-    y += lines.length * 6 + 2;
+  const tableX = 10;
+  const colDate = 28;
+  const colEnfant = 40;
+  const colDetail = 82;
+  const colMontant = 38;
+  const headerH = 10;
 
-    if (y > 270) {
-      pdf.addPage();
-      y = 12;
+  pdf.setFont("helvetica", "bold");
+
+  pdf.rect(tableX, y, colDate, headerH);
+  pdf.rect(tableX + colDate, y, colEnfant, headerH);
+  pdf.rect(tableX + colDate + colEnfant, y, colDetail, headerH);
+  pdf.rect(tableX + colDate + colEnfant + colDetail, y, colMontant, headerH);
+
+  drawCellText(pdf, "Date", tableX, y, colDate, headerH, "center");
+  drawCellText(pdf, "Enfant", tableX + colDate, y, colEnfant, headerH, "center");
+  drawCellText(pdf, "Détail", tableX + colDate + colEnfant, y, colDetail, headerH, "center");
+  drawCellText(pdf, "Montant", tableX + colDate + colEnfant + colDetail, y, colMontant, headerH, "center");
+
+  let rowY = y + headerH;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9.3);
+
+  const stopY = rowY + 80;
+
+  for (const item of fraisNoel) {
+    const detail = [item.type, item.magasin, item.objet].filter(Boolean).join(" - ");
+
+    const dateLines = pdf.splitTextToSize(formatDateFr(item.date), colDate - 4);
+    const enfantLines = pdf.splitTextToSize(item.enfant || "-", colEnfant - 4);
+    const detailLines = pdf.splitTextToSize(detail || "-", colDetail - 4);
+    const montantLines = pdf.splitTextToSize(
+      `${item.montant.toFixed(2).replace(".", ",")} €`,
+      colMontant - 4
+    );
+
+    const maxLines = Math.max(
+      dateLines.length,
+      enfantLines.length,
+      detailLines.length,
+      montantLines.length
+    );
+
+    const rowH = Math.max(14, maxLines * 4 + 6);
+
+    if (rowY + rowH > stopY) break;
+
+    pdf.rect(tableX, rowY, colDate, rowH);
+    pdf.rect(tableX + colDate, rowY, colEnfant, rowH);
+    pdf.rect(tableX + colDate + colEnfant, rowY, colDetail, rowH);
+    pdf.rect(tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH);
+
+    drawCellText(pdf, dateLines, tableX, rowY, colDate, rowH, "center");
+    drawCellText(pdf, enfantLines, tableX + colDate, rowY, colEnfant, rowH, "center");
+    drawCellText(pdf, detailLines, tableX + colDate + colEnfant, rowY, colDetail, rowH, "center");
+    drawCellText(pdf, montantLines, tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH, "center");
+
+    rowY += rowH;
+  }
+
+  while (rowY < stopY) {
+    const h = Math.min(18, stopY - rowY);
+
+    pdf.rect(tableX, rowY, colDate, h);
+    pdf.rect(tableX + colDate, rowY, colEnfant, h);
+    pdf.rect(tableX + colDate + colEnfant, rowY, colDetail, h);
+    pdf.rect(tableX + colDate + colEnfant + colDetail, rowY, colMontant, h);
+
+    rowY += h;
+  }
+
+  const totalX = tableX + colDate + colEnfant + colDetail;
+
+  pdf.rect(totalX, stopY + 2, colMontant, 24);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.text("Total Frais", totalX + colMontant / 2, stopY + 10, { align: "center" });
+  pdf.text(`${total.toFixed(2).replace(".", ",")} €`, totalX + colMontant / 2, stopY + 20, { align: "center" });
+
+  const certifY = stopY + 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.text(`Certifié exact, le ${dateCreation}`, 10, certifY);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Signature de l’assistant(e) familial(e) :", 10, certifY + 9);
+
+  if (signature && isImageDataUrl(signature)) {
+    try {
+      const img = await convertImageDataUrlToJpeg(signature, 0.9);
+      pdf.addImage(img.dataUrl, "JPEG", 10, certifY + 11, 50, 15);
+    } catch (error) {
+      console.error("Erreur ajout signature PDF Noël :", error);
     }
-  });
+  }
 
-  y += 4;
-  pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.6);
+  pdf.text("Justificatif joint au PDF", 10, 268);
+
+  const bx = 108;
+  const by = 228;
+  const bw = 90;
+  const bh = 44;
+
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setLineWidth(0.2);
+  pdf.rect(bx, by, bw, bh);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(11);
+  pdf.text("BON A PAYER", bx + bw / 2, by + 8, { align: "center" });
+
+  pdf.line(bx, by + 12, bx + bw, by + 12);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text("Date : ............................................................", bx + 4, by + 18);
+  pdf.text("Nom du responsable : ..........................................", bx + 4, by + 26);
+  pdf.text("Imputation analytique : .......................................", bx + 4, by + 34);
+  pdf.text("Signature : ", bx + 4, by + 42);
 
   await ajouterImagesAuPdf(pdf);
+  addEasyfraisFooter(pdf);
 
   const fileName = `noel_${new Date().toISOString().slice(0, 10)}.pdf`;
-  const pdfBlob = pdf.output("blob");
 
-  addPdfToGlobalHistory(pdfBlob, fileName, formatMonthLabel(mois));
+  try {
+    await savePdfToHistory(pdf, {
+      nom: fileName,
+      mois: formatMonthLabel(mois),
+      type: "Noël"
+    });
+  } catch (error) {
+    console.error("Erreur historique Noël :", error);
+  }
+
   pdf.save(fileName);
+  showToast("PDF généré et enregistré dans l’historique");
 }
 
 async function loadProfileNoel() {
@@ -372,9 +570,14 @@ async function loadProfileNoel() {
   try {
     const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
     const snap = await getDoc(profileRef);
-    if (!snap.exists()) return;
+    if (!snap.exists()) {
+      currentProfile = null;
+      return;
+    }
 
     const data = snap.data() || {};
+    currentProfile = data;
+
     const profileName = String(data.fullName || "").trim();
     const children = String(data.childrenList || "")
       .split(/\n|,/)
@@ -405,17 +608,17 @@ function bindEvents() {
   if (eventsBound) return;
   eventsBound = true;
 
-  $("btnAjouterNoel").addEventListener("click", ajouterFrais);
-  $("btnResetNoel").addEventListener("click", resetForm);
-  $("btnPdfNoel").addEventListener("click", genererPDF);
-  $("btnViderNoel").addEventListener("click", viderListe);
-  $("justificatifNoel").addEventListener("change", updateNomJustificatif);
+  $("btnAjouterNoel")?.addEventListener("click", ajouterFrais);
+  $("btnResetNoel")?.addEventListener("click", resetForm);
+  $("btnPdfNoel")?.addEventListener("click", genererPDF);
+  $("btnViderNoel")?.addEventListener("click", viderListe);
+  $("justificatifNoel")?.addEventListener("change", updateNomJustificatif);
 
-  $("assistantNomNoel").addEventListener("input", () => {
+  $("assistantNomNoel")?.addEventListener("input", () => {
     localStorage.setItem(`assistantNomNoel_${uid}`, $("assistantNomNoel").value.trim());
   });
 
-  $("moisNoel").addEventListener("change", () => {
+  $("moisNoel")?.addEventListener("change", () => {
     localStorage.setItem(`moisNoel_${uid}`, $("moisNoel").value);
   });
 }
@@ -429,13 +632,17 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   uid = user.uid;
 
-  $("assistantNomNoel").value =
-    localStorage.getItem(`assistantNomNoel_${uid}`) ||
-    localStorage.getItem(`assistantNom_${uid}`) ||
-    "";
+  if ($("assistantNomNoel")) {
+    $("assistantNomNoel").value =
+      localStorage.getItem(`assistantNomNoel_${uid}`) ||
+      localStorage.getItem(`assistantNom_${uid}`) ||
+      "";
+  }
 
-  $("moisNoel").value =
-    localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
+  if ($("moisNoel")) {
+    $("moisNoel").value =
+      localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
+  }
 
   loadData();
   bindEvents();
