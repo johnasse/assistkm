@@ -1,12 +1,13 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
-import { uploadPdfToStorage } from "./storage-pdf.js";
+import { savePdfToHistory } from "./pdf-history.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 let fraisAutres = [];
 let uid = null;
 let currentUser = null;
+let currentProfile = null;
 let eventsBound = false;
 
 const $ = (id) => document.getElementById(id);
@@ -64,20 +65,27 @@ function isImageFile(file) {
   return Boolean(file && file.type && file.type.startsWith("image/"));
 }
 
+function isImageDataUrl(value) {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
+
 function updateNomJustificatif() {
   const file = $("justificatifAutres")?.files?.[0];
-  $("nomJustificatifAutres").textContent = file ? `Fichier sélectionné : ${file.name}` : "";
+  const label = $("nomJustificatifAutres");
+  if (label) {
+    label.textContent = file ? `Fichier sélectionné : ${file.name}` : "";
+  }
 }
 
 function resetForm() {
-  $("dateAutres").value = "";
-  $("enfantAutres").value = "";
-  $("typeAutres").value = "";
-  $("lieuAutres").value = "";
-  $("objetAutres").value = "";
-  $("montantAutres").value = "";
-  $("justificatifAutres").value = "";
-  $("nomJustificatifAutres").textContent = "";
+  if ($("dateAutres")) $("dateAutres").value = "";
+  if ($("enfantAutres")) $("enfantAutres").value = "";
+  if ($("typeAutres")) $("typeAutres").value = "";
+  if ($("lieuAutres")) $("lieuAutres").value = "";
+  if ($("objetAutres")) $("objetAutres").value = "";
+  if ($("montantAutres")) $("montantAutres").value = "";
+  if ($("justificatifAutres")) $("justificatifAutres").value = "";
+  if ($("nomJustificatifAutres")) $("nomJustificatifAutres").textContent = "";
 }
 
 function getTotal() {
@@ -93,12 +101,12 @@ function showToast(message) {
 }
 
 async function ajouterFrais() {
-  const date = $("dateAutres").value;
-  const enfant = $("enfantAutres").value.trim();
-  const type = $("typeAutres").value.trim();
-  const lieu = $("lieuAutres").value.trim();
-  const objet = $("objetAutres").value.trim();
-  const montant = parseFloat($("montantAutres").value);
+  const date = $("dateAutres")?.value || "";
+  const enfant = $("enfantAutres")?.value.trim() || "";
+  const type = $("typeAutres")?.value.trim() || "";
+  const lieu = $("lieuAutres")?.value.trim() || "";
+  const objet = $("objetAutres")?.value.trim() || "";
+  const montant = parseFloat($("montantAutres")?.value || "");
   const file = $("justificatifAutres")?.files?.[0] || null;
 
   if (!date || !objet || Number.isNaN(montant) || montant <= 0) {
@@ -188,12 +196,14 @@ function viderListe() {
 
 function render() {
   const body = $("autresBody");
+  if (!body) return;
+
   body.innerHTML = "";
 
   if (!fraisAutres.length) {
     body.innerHTML = `<tr><td colspan="8" class="empty-cell">Aucune dépense enregistrée</td></tr>`;
-    $("totalLignesAutres").textContent = "0";
-    $("totalMontantAutres").textContent = "0,00 €";
+    if ($("totalLignesAutres")) $("totalLignesAutres").textContent = "0";
+    if ($("totalMontantAutres")) $("totalMontantAutres").textContent = "0,00 €";
     return;
   }
 
@@ -226,8 +236,10 @@ function render() {
     btn.addEventListener("click", () => voirJustificatif(Number(btn.dataset.id)));
   });
 
-  $("totalLignesAutres").textContent = String(fraisAutres.length);
-  $("totalMontantAutres").textContent = `${getTotal().toFixed(2).replace(".", ",")} €`;
+  if ($("totalLignesAutres")) $("totalLignesAutres").textContent = String(fraisAutres.length);
+  if ($("totalMontantAutres")) {
+    $("totalMontantAutres").textContent = `${getTotal().toFixed(2).replace(".", ",")} €`;
+  }
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
@@ -318,24 +330,61 @@ function addEasyfraisFooter(pdf) {
 
   pdf.setTextColor(0, 0, 0);
 }
+function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
+  const lines = Array.isArray(textOrLines) ? textOrLines : [String(textOrLines)];
+  const fontSize = pdf.getFontSize();
+  const lineGap = fontSize * 0.35;
+  const totalTextHeight = lines.length * lineGap;
+  let currentY = y + (height - totalTextHeight) / 2 + 2.2;
 
-function addPdfToGlobalHistory(fileName, monthLabel, downloadURL, storagePath) {
-  if (!currentUser) return;
+  lines.forEach((line) => {
+    let textX = x + 1.8;
 
-  const storageKey = `historiquePDF_${currentUser.uid}`;
-  const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    if (align === "center") {
+      textX = x + width / 2;
+      pdf.text(line, textX, currentY, { align: "center" });
+    } else if (align === "right") {
+      textX = x + width - 1.8;
+      pdf.text(line, textX, currentY, { align: "right" });
+    } else {
+      pdf.text(line, textX, currentY);
+    }
 
-  historique.push({
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    mois: monthLabel,
-    nom: fileName,
-    downloadURL,
-    storagePath,
-    dateGeneration: new Date().toLocaleString("fr-FR"),
-    type: "Autres frais"
+    currentY += lineGap;
   });
+}
+function getProfileLogoData() {
+  return localStorage.getItem(`profileLogoData_${uid}`) || "";
+}
 
-  localStorage.setItem(storageKey, JSON.stringify(historique));
+function getProfileSignatureData() {
+  return localStorage.getItem(`profileSignatureData_${uid}`) || "";
+}
+
+function getAssistantName() {
+  return $("assistantNomAutres")?.value.trim() || currentProfile?.fullName || "-";
+}
+
+async function drawLogo(pdf) {
+  const logoData = getProfileLogoData();
+  if (!logoData || !isImageDataUrl(logoData)) return;
+
+  try {
+    const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
+    const maxLogoWidth = 28;
+    const maxLogoHeight = 18;
+
+    let logoWidth = convertedLogo.width;
+    let logoHeight = convertedLogo.height;
+
+    const ratio = Math.min(maxLogoWidth / logoWidth, maxLogoHeight / logoHeight, 1);
+    logoWidth *= ratio;
+    logoHeight *= ratio;
+
+    pdf.addImage(convertedLogo.dataUrl, "JPEG", 10, 8, logoWidth, logoHeight);
+  } catch (error) {
+    console.error("Erreur ajout logo PDF autres :", error);
+  }
 }
 
 async function genererPDF() {
@@ -348,59 +397,201 @@ async function genererPDF() {
   if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF();
+  const pdf = new jsPDF("portrait", "mm", "a4");
 
-  const assistant = $("assistantNomAutres").value.trim() || "-";
-  const mois = $("moisAutres").value || "";
+  const assistant = getAssistantName();
+  const mois = $("moisAutres")?.value || "";
   const total = getTotal();
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
+  const signatureData = getProfileSignatureData();
 
-  let y = 12;
+  await drawLogo(pdf);
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(14);
-  pdf.text("Autres frais", 10, y);
+  pdf.text("DEMANDE DE REMBOURSEMENT", 105, 18, { align: "center" });
+  pdf.text("AUTRES FRAIS", 105, 28, { align: "center" });
+
+  pdf.setLineWidth(0.4);
+  pdf.line(63, 20, 147, 20);
+  pdf.line(84, 30, 126, 30);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10.2);
+
+  const bulletX = 16;
+  let y = 42;
+
+  const bullet1 = "Renseigner chaque dépense engagée pour l’enfant.";
+  const bullet2 = "Joindre les justificatifs correspondants au PDF généré.";
+  const bullet3 = "Préciser la date, le détail et le montant de chaque dépense.";
+
+  const bullets = [bullet1, bullet2, bullet3];
+
+  for (const text of bullets) {
+    pdf.circle(bulletX, y - 1.2, 0.7, "F");
+    const lines = pdf.splitTextToSize(text, 155);
+    pdf.text(lines, bulletX + 4, y);
+    y += lines.length * 5.2 + 2;
+  }
+
   y += 8;
+
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Nom / Prénom de l’assistant(e) familial(e) : ${assistant}`, 10, y);
+
+  y += 12;
+  pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
+
+  y += 10;
+
+  const tableX = 10;
+  const tableY = y;
+  const colDate = 28;
+const colEnfant = 40;
+const colDetail = 82;
+const colMontant = 38;
+  const headerH = 10;
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.rect(tableX, tableY, colDate, headerH);
+pdf.rect(tableX, tableY, colDate, headerH);
+pdf.rect(tableX + colDate, tableY, colEnfant, headerH);
+pdf.rect(tableX + colDate + colEnfant, tableY, colDetail, headerH);
+pdf.rect(tableX + colDate + colEnfant + colDetail, tableY, colMontant, headerH);
+
+drawCellText(pdf, "Date", tableX, tableY, colDate, headerH, "center");
+drawCellText(pdf, "Enfant", tableX + colDate, tableY, colEnfant, headerH, "center");
+drawCellText(pdf, "Détail", tableX + colDate + colEnfant, tableY, colDetail, headerH, "center");
+drawCellText(pdf, "Montant", tableX + colDate + colEnfant + colDetail, tableY, colMontant, headerH, "center");
+
+  let rowY = tableY + headerH;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9.3);
+
+  const maxRowsHeight = 62;
+  const stopY = rowY + maxRowsHeight;
+
+  for (const item of fraisAutres) {
+    const enfantText = item.enfant || "";
+const detailText = [
+  item.type,
+  item.lieu,
+  item.objet
+].filter(Boolean).join(" - ");
+
+    const dateLines = pdf.splitTextToSize(formatDateFr(item.date), colDate - 4);
+    const detailLines = pdf.splitTextToSize(detailText, colDetail - 4);
+    const montantLines = pdf.splitTextToSize(
+      `${Number(item.montant || 0).toFixed(2).replace(".", ",")} €`,
+      colMontant - 4
+    );
+
+    const maxLines = Math.max(dateLines.length, detailLines.length, montantLines.length);
+    const rowH = Math.max(14, maxLines * 4.2 + 5);
+
+    if (rowY + rowH > stopY) break;
+
+    pdf.rect(tableX, rowY, colDate, rowH);
+pdf.rect(tableX + colDate, rowY, colEnfant, rowH);
+pdf.rect(tableX + colDate + colEnfant, rowY, colDetail, rowH);
+pdf.rect(tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH);
+
+drawCellText(pdf, dateLines, tableX, rowY, colDate, rowH, "center");
+drawCellText(pdf, enfantText, tableX + colDate, rowY, colEnfant, rowH, "center");
+drawCellText(pdf, detailLines, tableX + colDate + colEnfant, rowY, colDetail, rowH, "center");
+drawCellText(pdf, montantLines, tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH, "center");;
+
+    rowY += rowH;
+  }
+
+ while (rowY < stopY) {
+  const blankH = Math.min(18, stopY - rowY);
+
+  pdf.rect(tableX, rowY, colDate, blankH);
+  pdf.rect(tableX + colDate, rowY, colEnfant, blankH);
+  pdf.rect(tableX + colDate + colEnfant, rowY, colDetail, blankH);
+  pdf.rect(tableX + colDate + colEnfant + colDetail, rowY, colMontant, blankH);
+
+  rowY += blankH;
+}
+
+  const bottomBlockY = stopY + 1;
+  const totalBoxX = tableX + colDate + colEnfant + colDetail;
+  const totalBoxY = bottomBlockY;
+  const totalBoxW = colMontant;
+  const totalBoxH = 24;
+
+  pdf.rect(totalBoxX, totalBoxY, totalBoxW, totalBoxH);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.text("Total Frais", totalBoxX + totalBoxW / 2, totalBoxY + 8, { align: "center" });
+  pdf.setFontSize(10);
+  pdf.text(`${total.toFixed(2).replace(".", ",")} €`, totalBoxX + totalBoxW / 2, totalBoxY + 18, { align: "center" });
+
+  const certifY = bottomBlockY + 10;
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
-  pdf.text(`PDF créé le ${dateCreationPdf}`, 10, y);
-  y += 6;
-  pdf.text(`Assistant : ${assistant}`, 10, y);
-  y += 6;
-  pdf.text(`Mois : ${formatMonthLabel(mois)}`, 10, y);
-  y += 10;
+  pdf.text(`Certifié exact, le ${dateCreationPdf}`, 12, certifY);
 
-  for (const item of fraisAutres) {
-    const line =
-      `${formatDateFr(item.date)} - ${item.enfant} - ${item.type} - ${item.lieu} - ${item.objet} - ${item.montant.toFixed(2).replace(".", ",")} €`;
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Signature de l’assistant(e) familial(e) :", 12, certifY + 12);
 
-    const lines = pdf.splitTextToSize(line, 180);
-    pdf.text(lines, 10, y);
-    y += lines.length * 6 + 2;
-
-    if (y > 270) {
-      pdf.addPage();
-      y = 12;
+  if (signatureData && isImageDataUrl(signatureData)) {
+    try {
+      const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.9);
+      pdf.addImage(convertedSignature.dataUrl, "JPEG", 12, certifY + 14, 52, 15);
+    } catch (error) {
+      console.error("Erreur ajout signature PDF autres :", error);
     }
   }
 
-  y += 4;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.6);
+  pdf.text("Justificatif joint au PDF", 10, 274);
+
+  const cadreX = 108;
+  const cadreY = 214;
+  const cadreW = 90;
+  const cadreH = 44;
+
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setLineWidth(0.2);
+  pdf.rect(cadreX, cadreY, cadreW, cadreH);
+
   pdf.setFont("helvetica", "bold");
-  pdf.text(`Total : ${total.toFixed(2).replace(".", ",")} €`, 10, y);
+  pdf.setFontSize(11);
+  pdf.text("BON A PAYER", cadreX + cadreW / 2, cadreY + 8, { align: "center" });
+
+  pdf.line(cadreX, cadreY + 12, cadreX + cadreW, cadreY + 12);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text("Date : ............................................................", cadreX + 4, cadreY + 18);
+  pdf.text("Nom du responsable : ..........................................", cadreX + 4, cadreY + 26);
+  pdf.text("Imputation analytique : .......................................", cadreX + 4, cadreY + 34);
+  pdf.text("Signature : ", cadreX + 4, cadreY + 42);
 
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
 
   const fileName = `autres_${new Date().toISOString().slice(0, 10)}.pdf`;
-  const pdfBlob = pdf.output("blob");
 
-  const { storagePath, downloadURL } = await uploadPdfToStorage(pdfBlob, fileName);
-
-  addPdfToGlobalHistory(fileName, formatMonthLabel(mois), downloadURL, storagePath);
+  try {
+    await savePdfToHistory(pdf, {
+      nom: fileName,
+      mois: formatMonthLabel(mois),
+      type: "Autres frais"
+    });
+  } catch (error) {
+    console.error("Erreur enregistrement historique autres :", error);
+  }
 
   pdf.save(fileName);
-  showToast("PDF généré et ajouté à l’historique");
+  showToast("PDF généré et enregistré dans l’historique");
 }
 
 async function loadProfileAutres() {
@@ -409,9 +600,14 @@ async function loadProfileAutres() {
   try {
     const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
     const snap = await getDoc(profileRef);
-    if (!snap.exists()) return;
+    if (!snap.exists()) {
+      currentProfile = null;
+      return;
+    }
 
     const data = snap.data() || {};
+    currentProfile = data;
+
     const profileName = String(data.fullName || "").trim();
     const children = String(data.childrenList || "")
       .split(/\n|,/)
@@ -442,17 +638,17 @@ function bindEvents() {
   if (eventsBound) return;
   eventsBound = true;
 
-  $("btnAjouterAutres").addEventListener("click", ajouterFrais);
-  $("btnResetAutres").addEventListener("click", resetForm);
-  $("btnPdfAutres").addEventListener("click", genererPDF);
-  $("btnViderAutres").addEventListener("click", viderListe);
-  $("justificatifAutres").addEventListener("change", updateNomJustificatif);
+  $("btnAjouterAutres")?.addEventListener("click", ajouterFrais);
+  $("btnResetAutres")?.addEventListener("click", resetForm);
+  $("btnPdfAutres")?.addEventListener("click", genererPDF);
+  $("btnViderAutres")?.addEventListener("click", viderListe);
+  $("justificatifAutres")?.addEventListener("change", updateNomJustificatif);
 
-  $("assistantNomAutres").addEventListener("input", () => {
+  $("assistantNomAutres")?.addEventListener("input", () => {
     localStorage.setItem(`assistantNomAutres_${uid}`, $("assistantNomAutres").value.trim());
   });
 
-  $("moisAutres").addEventListener("change", () => {
+  $("moisAutres")?.addEventListener("change", () => {
     localStorage.setItem(`moisAutres_${uid}`, $("moisAutres").value);
   });
 }
@@ -466,13 +662,17 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   uid = user.uid;
 
-  $("assistantNomAutres").value =
-    localStorage.getItem(`assistantNomAutres_${uid}`) ||
-    localStorage.getItem(`assistantNom_${uid}`) ||
-    "";
+  if ($("assistantNomAutres")) {
+    $("assistantNomAutres").value =
+      localStorage.getItem(`assistantNomAutres_${uid}`) ||
+      localStorage.getItem(`assistantNom_${uid}`) ||
+      "";
+  }
 
-  $("moisAutres").value =
-    localStorage.getItem(`moisAutres_${uid}`) || getDefaultMonthValue();
+  if ($("moisAutres")) {
+    $("moisAutres").value =
+      localStorage.getItem(`moisAutres_${uid}`) || getDefaultMonthValue();
+  }
 
   loadData();
   bindEvents();
