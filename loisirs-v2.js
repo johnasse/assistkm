@@ -453,11 +453,11 @@ async function genererPDF() {
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "normal");
   pdf.text(`Nom / Prénom de l’assistant(e) familial(e) : ${assistant}`, 10, y);
-  pdf.line(70, y + 0.5, 196, y + 0.5);
+  
 
   y += 12;
   pdf.text(`Nom / Prénom de l’enfant : ${enfantPrincipal}`, 10, y);
-  pdf.line(53, y + 0.5, 196, y + 0.5);
+  
 
   y += 10;
 
@@ -482,7 +482,7 @@ async function genererPDF() {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9.3);
 
-  const maxRowsHeight = 88;
+  const maxRowsHeight = 62;
   const stopY = rowY + maxRowsHeight;
 
   for (const item of fraisLoisirs) {
@@ -500,9 +500,9 @@ async function genererPDF() {
     pdf.rect(tableX + colDate, rowY, colDetail, rowH);
     pdf.rect(tableX + colDate + colDetail, rowY, colMontant, rowH);
 
-    drawCellText(pdf, dateLines, tableX, rowY, colDate, rowH, "center");
-    drawCellText(pdf, detailLines, tableX + colDate, rowY, colDetail, rowH, "left");
-    drawCellText(pdf, montantLines, tableX + colDate + colDetail, rowY, colMontant, rowH, "right");
+   drawCellText(pdf, dateLines, tableX, rowY, colDate, rowH, "center");
+drawCellText(pdf, detailLines, tableX + colDate, rowY, colDetail, rowH, "center");
+drawCellText(pdf, montantLines, tableX + colDate + colDetail, rowY, colMontant, rowH, "center");
 
     rowY += rowH;
   }
@@ -515,45 +515,45 @@ async function genererPDF() {
     rowY += blankH;
   }
 
-  const bottomBlockY = stopY;
+ const bottomBlockY = stopY + 1;
   const totalBoxX = tableX + colDate + colDetail;
   const totalBoxY = bottomBlockY;
   const totalBoxW = colMontant;
-  const totalBoxH = 28;
+  const totalBoxH = 24;
 
   pdf.rect(totalBoxX, totalBoxY, totalBoxW, totalBoxH);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(9);
-  pdf.text("(1) Total Factures", totalBoxX + totalBoxW / 2, totalBoxY + 8, { align: "center" });
+  pdf.text("Total Factures", totalBoxX + totalBoxW / 2, totalBoxY + 8, { align: "center" });
   pdf.setFontSize(10);
   pdf.text(`${total.toFixed(2).replace(".", ",")} €`, totalBoxX + totalBoxW / 2, totalBoxY + 18, { align: "center" });
 
-  const certifY = bottomBlockY + 12;
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
-  pdf.text("Certifié exact, le", 12, certifY);
-  pdf.line(48, certifY + 0.5, 88, certifY + 0.5);
+  const certifY = bottomBlockY + 10;
 
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Signature de l’assistant(e) familial(e) :", 12, certifY + 15);
+pdf.setFont("helvetica", "normal");
+pdf.setFontSize(10);
+pdf.text(`Certifié exact, le ${dateCreationPdf}`, 12, certifY);
 
-  if (signatureData && isImageDataUrl(signatureData)) {
-    try {
-      const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.9);
-      pdf.addImage(convertedSignature.dataUrl, "JPEG", 12, certifY + 18, 62, 18);
-    } catch (error) {
-      console.error("Erreur ajout signature PDF loisirs :", error);
-    }
+pdf.setFont("helvetica", "bold");
+pdf.text("Signature de l’assistant(e) familial(e) :", 12, certifY + 12);
+
+if (signatureData && isImageDataUrl(signatureData)) {
+  try {
+    const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.9);
+    pdf.addImage(convertedSignature.dataUrl, "JPEG", 12, certifY + 14, 52, 15);
+  } catch (error) {
+    console.error("Erreur ajout signature PDF loisirs :", error);
   }
+}
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8.6);
   pdf.text("Justificatif joint au PDF", 10, 274);
 
-  const cadreX = 108;
-  const cadreY = 228;
-  const cadreW = 90;
-  const cadreH = 48;
+ const cadreX = 108;
+const cadreY = 214;
+const cadreW = 90;
+const cadreH = 44;
 
   pdf.setDrawColor(0, 0, 0);
   pdf.setLineWidth(0.2);
@@ -567,10 +567,10 @@ async function genererPDF() {
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
-  pdf.text("Date : ................................................................", cadreX + 4, cadreY + 20);
-  pdf.text("Nom du responsable : .................................................", cadreX + 4, cadreY + 28);
-  pdf.text("Imputation analytique : ..............................................", cadreX + 4, cadreY + 36);
-  pdf.text("Signature : ", cadreX + 4, cadreY + 44);
+  pdf.text("Date : ............................................................", cadreX + 4, cadreY + 18);
+pdf.text("Nom du responsable : ..........................................", cadreX + 4, cadreY + 26);
+pdf.text("Imputation analytique : .......................................", cadreX + 4, cadreY + 34);
+pdf.text("Signature : ", cadreX + 4, cadreY + 42);
 
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
