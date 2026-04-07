@@ -575,15 +575,12 @@ pdf.text("Signature : ", cadreX + 4, cadreY + 42);
   addEasyfraisFooter(pdf);
 
 const fileName = `loisirs_${new Date().toISOString().slice(0, 10)}.pdf`;
-const pdfBlob = pdf.output("blob");
 
 try {
-  await savePdfToHistory({
+  await savePdfToHistory(pdf, {
     nom: fileName,
-    fileName: fileName,
-    blob: pdfBlob,
-    type: "Sports et loisirs",
-    mois: formatMonthLabel(mois)
+    mois: formatMonthLabel(mois),
+    type: "Sports et loisirs"
   });
 } catch (error) {
   console.error("Erreur enregistrement historique loisirs :", error);
