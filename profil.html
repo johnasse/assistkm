@@ -17,7 +17,7 @@
     }
 
     .page {
-      max-width: 1100px;
+      max-width: 1120px;
       margin: 0 auto;
       padding: 24px;
     }
@@ -102,6 +102,15 @@
 
     .btn-secondary:hover {
       background: #1f2937;
+    }
+
+    .btn-danger {
+      background: #b91c1c;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #991b1b;
     }
 
     .btn-save {
@@ -253,6 +262,68 @@
       padding-bottom: 0;
     }
 
+    .upload-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 16px;
+      background: #fafcff;
+      margin-bottom: 16px;
+    }
+
+    .upload-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .upload-title {
+      font-weight: 700;
+      color: #111827;
+      font-size: 15px;
+      margin: 0;
+    }
+
+    .preview-box {
+      min-height: 80px;
+      border: 1px dashed #cbd5e1;
+      background: white;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .preview-box img {
+      max-width: 100%;
+      max-height: 120px;
+      display: block;
+    }
+
+    .preview-placeholder {
+      color: #94a3b8;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .mini-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .file-name {
+      font-size: 13px;
+      color: #475569;
+      margin-top: 8px;
+      word-break: break-word;
+    }
+
     @media (max-width: 850px) {
       .grid {
         grid-template-columns: 1fr;
@@ -313,7 +384,7 @@
     <section class="card">
       <h2>Votre profil</h2>
       <p>
-        Ces informations pourront être réutilisées plus tard dans les PDF, les exports
+        Ces informations pourront être réutilisées dans les PDF, les exports
         et les modules de frais afin d’éviter de tout ressaisir à chaque fois.
       </p>
       <div class="status" id="statusMsg">Chargement du profil...</div>
@@ -351,8 +422,8 @@
 
         <div class="field">
           <label for="serviceAddress">Adresse du service</label>
-          <textarea id="serviceAddress" class="textarea" placeholder="Adresse du service utilisée dans le module kilométrique"></textarea>
-          <div class="note">Cette adresse pourra être utilisée automatiquement comme destination dans les trajets.</div>
+          <textarea id="serviceAddress" class="textarea" placeholder="Adresse du service utilisée dans les modules"></textarea>
+          <div class="note">Cette adresse pourra être utilisée automatiquement comme destination ou référence dans les modules.</div>
         </div>
 
         <div class="field">
@@ -405,37 +476,88 @@
           <div class="summary-list">
             <div class="summary-item"><span>Préremplissage des PDF</span><strong>Oui</strong></div>
             <div class="summary-item"><span>Modules kilométriques</span><strong>Oui</strong></div>
-            <div class="summary-item"><span>Infos véhicule</span><strong>Oui</strong></div>
-            <div class="summary-item"><span>Exports futurs</span><strong>Prévu</strong></div>
+            <div class="summary-item"><span>Loisirs / autres frais</span><strong>Oui</strong></div>
+            <div class="summary-item"><span>Logo et signature</span><strong>Oui</strong></div>
           </div>
         </div>
       </section>
     </div>
 
     <section class="card">
-      <h3 class="section-title">Signature, documents et notes</h3>
+      <h3 class="section-title">Logo, signature, documents et notes</h3>
 
-      <div class="field">
-        <label for="signatureName">Nom de signature</label>
-        <input id="signatureName" class="input" type="text" placeholder="Ex : John Rombert" />
+      <div class="upload-card">
+        <div class="upload-header">
+          <p class="upload-title">Logo entreprise / service</p>
+        </div>
+
+        <div class="field">
+          <label for="logoImage">Importer un logo</label>
+          <input id="logoImage" class="input" type="file" accept="image/*" />
+          <div class="note">Ce logo pourra être repris automatiquement dans les PDF.</div>
+        </div>
+
+        <div class="preview-box" id="logoPreviewBox">
+          <div class="preview-placeholder">Aucun logo enregistré</div>
+        </div>
+        <div class="file-name" id="logoFileName"></div>
+
+        <div class="mini-actions">
+          <button id="removeLogoBtn" class="btn btn-danger" type="button">Supprimer le logo</button>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="signatureImage">Signature en image</label>
-        <input id="signatureImage" class="input" type="file" accept="image/*" />
-        <div class="note">Champ prêt pour une future intégration avec Firebase Storage.</div>
+      <div class="upload-card">
+        <div class="upload-header">
+          <p class="upload-title">Signature</p>
+        </div>
+
+        <div class="field">
+          <label for="signatureName">Nom de signature</label>
+          <input id="signatureName" class="input" type="text" placeholder="Ex : John Rombert" />
+        </div>
+
+        <div class="field">
+          <label for="signatureImage">Importer une signature</label>
+          <input id="signatureImage" class="input" type="file" accept="image/*" />
+          <div class="note">Cette signature pourra être reprise automatiquement dans les PDF.</div>
+        </div>
+
+        <div class="preview-box" id="signaturePreviewBox">
+          <div class="preview-placeholder">Aucune signature enregistrée</div>
+        </div>
+        <div class="file-name" id="signatureFileName"></div>
+
+        <div class="mini-actions">
+          <button id="removeSignatureBtn" class="btn btn-danger" type="button">Supprimer la signature</button>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="carteGriseImage">Carte grise du véhicule</label>
-        <input id="carteGriseImage" class="input" type="file" accept="image/*,.pdf" />
-        <div class="note">Champ prêt pour une future intégration avec Firebase Storage.</div>
+      <div class="upload-card">
+        <div class="upload-header">
+          <p class="upload-title">Carte grise</p>
+        </div>
+
+        <div class="field">
+          <label for="carteGriseImage">Importer la carte grise</label>
+          <input id="carteGriseImage" class="input" type="file" accept="image/*,.pdf" />
+          <div class="note">Conservée pour les futurs modules et justificatifs.</div>
+        </div>
+
+        <div class="preview-box" id="carteGrisePreviewBox">
+          <div class="preview-placeholder">Aucune carte grise enregistrée</div>
+        </div>
+        <div class="file-name" id="carteGriseFileName"></div>
+
+        <div class="mini-actions">
+          <button id="removeCarteGriseBtn" class="btn btn-danger" type="button">Supprimer la carte grise</button>
+        </div>
       </div>
 
       <div class="field">
         <label for="childrenList">Enfants accueillis en permanence</label>
         <textarea id="childrenList" class="textarea" placeholder="Un enfant par ligne&#10;Ex : Léa Martin&#10;Noah Dupont"></textarea>
-        <div class="note">Cette liste pourra servir plus tard à proposer les noms automatiquement dans les modules.</div>
+        <div class="note">Cette liste pourra servir à proposer les noms automatiquement dans les modules.</div>
       </div>
 
       <div class="field">
@@ -459,6 +581,22 @@
     const errorMsg = document.getElementById("errorMsg");
     const saveBtn = document.getElementById("saveBtn");
     const resetBtn = document.getElementById("resetBtn");
+
+    const logoImageInput = document.getElementById("logoImage");
+    const signatureImageInput = document.getElementById("signatureImage");
+    const carteGriseImageInput = document.getElementById("carteGriseImage");
+
+    const logoPreviewBox = document.getElementById("logoPreviewBox");
+    const signaturePreviewBox = document.getElementById("signaturePreviewBox");
+    const carteGrisePreviewBox = document.getElementById("carteGrisePreviewBox");
+
+    const logoFileName = document.getElementById("logoFileName");
+    const signatureFileName = document.getElementById("signatureFileName");
+    const carteGriseFileName = document.getElementById("carteGriseFileName");
+
+    const removeLogoBtn = document.getElementById("removeLogoBtn");
+    const removeSignatureBtn = document.getElementById("removeSignatureBtn");
+    const removeCarteGriseBtn = document.getElementById("removeCarteGriseBtn");
 
     const fields = {
       fullName: document.getElementById("fullName"),
@@ -492,6 +630,73 @@
 
     function setStatus(message) {
       statusMsg.textContent = message;
+    }
+
+    function getUid() {
+      return currentUser?.uid || "guest";
+    }
+
+    function getProfileLogoDataKey() {
+      return `profileLogoData_${getUid()}`;
+    }
+
+    function getProfileLogoNameKey() {
+      return `profileLogoName_${getUid()}`;
+    }
+
+    function getProfileSignatureDataKey() {
+      return `profileSignatureData_${getUid()}`;
+    }
+
+    function getProfileSignatureNameKey() {
+      return `profileSignatureName_${getUid()}`;
+    }
+
+    function getProfileCarteGriseDataKey() {
+      return `profileCarteGriseData_${getUid()}`;
+    }
+
+    function getProfileCarteGriseNameKey() {
+      return `profileCarteGriseName_${getUid()}`;
+    }
+
+    function isImageDataUrl(value) {
+      return typeof value === "string" && value.startsWith("data:image/");
+    }
+
+    function isPdfDataUrl(value) {
+      return typeof value === "string" && value.startsWith("data:application/pdf");
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function clearPreview(box, fileNameEl, placeholderText) {
+      box.innerHTML = `<div class="preview-placeholder">${placeholderText}</div>`;
+      fileNameEl.textContent = "";
+    }
+
+    function renderImagePreview(box, fileNameEl, dataUrl, fileName, placeholderText) {
+      if (!dataUrl) {
+        clearPreview(box, fileNameEl, placeholderText);
+        return;
+      }
+
+      if (isImageDataUrl(dataUrl)) {
+        box.innerHTML = `<img src="${dataUrl}" alt="">`;
+      } else if (isPdfDataUrl(dataUrl)) {
+        box.innerHTML = `<div class="preview-placeholder">PDF enregistré</div>`;
+      } else {
+        box.innerHTML = `<div class="preview-placeholder">Fichier enregistré</div>`;
+      }
+
+      fileNameEl.textContent = fileName ? `Fichier : ${fileName}` : "";
     }
 
     function getProfileData() {
@@ -532,6 +737,66 @@
       fields.childrenList.value = data.childrenList || "";
     }
 
+    function loadStoredFiles() {
+      renderImagePreview(
+        logoPreviewBox,
+        logoFileName,
+        localStorage.getItem(getProfileLogoDataKey()),
+        localStorage.getItem(getProfileLogoNameKey()) || "",
+        "Aucun logo enregistré"
+      );
+
+      renderImagePreview(
+        signaturePreviewBox,
+        signatureFileName,
+        localStorage.getItem(getProfileSignatureDataKey()),
+        localStorage.getItem(getProfileSignatureNameKey()) || "",
+        "Aucune signature enregistrée"
+      );
+
+      renderImagePreview(
+        carteGrisePreviewBox,
+        carteGriseFileName,
+        localStorage.getItem(getProfileCarteGriseDataKey()),
+        localStorage.getItem(getProfileCarteGriseNameKey()) || "",
+        "Aucune carte grise enregistrée"
+      );
+    }
+
+    async function handleImageUpload(input, dataKey, nameKey, previewBox, fileNameEl, placeholderText, allowedPdf = false) {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const isImage = file.type && file.type.startsWith("image/");
+      const isPdf = allowedPdf && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+
+      if (!isImage && !isPdf) {
+        alert(allowedPdf ? "Merci de choisir une image ou un PDF." : "Merci de choisir une image.");
+        input.value = "";
+        return;
+      }
+
+      try {
+        const data = await fileToBase64(file);
+        localStorage.setItem(dataKey(), data);
+        localStorage.setItem(nameKey(), file.name);
+        renderImagePreview(previewBox, fileNameEl, data, file.name, placeholderText);
+        setStatus("Fichier enregistré localement dans le profil.");
+      } catch (error) {
+        console.error(error);
+        showError("Impossible de lire le fichier sélectionné.");
+      } finally {
+        input.value = "";
+      }
+    }
+
+    function removeStoredFile(dataKey, nameKey, previewBox, fileNameEl, placeholderText) {
+      localStorage.removeItem(dataKey());
+      localStorage.removeItem(nameKey());
+      clearPreview(previewBox, fileNameEl, placeholderText);
+      setStatus("Fichier supprimé du profil.");
+    }
+
     async function loadProfile(uid) {
       try {
         hideError();
@@ -547,6 +812,8 @@
           fillForm({ email: currentUser?.email || "" });
           setStatus("Aucun profil enregistré pour le moment.");
         }
+
+        loadStoredFiles();
       } catch (error) {
         console.error(error);
         showError("Impossible de charger le profil.");
@@ -600,20 +867,86 @@
 
     function resetForm() {
       if (!confirm("Réinitialiser les champs affichés ?")) return;
+
       fillForm({ email: currentUser?.email || "" });
 
-      const signatureImageInput = document.getElementById("signatureImage");
-      const carteGriseImageInput = document.getElementById("carteGriseImage");
+      logoImageInput.value = "";
+      signatureImageInput.value = "";
+      carteGriseImageInput.value = "";
 
-      if (signatureImageInput) signatureImageInput.value = "";
-      if (carteGriseImageInput) carteGriseImageInput.value = "";
-
-      setStatus("Champs réinitialisés.");
+      loadStoredFiles();
       hideError();
+      setStatus("Champs texte réinitialisés.");
     }
 
     saveBtn.addEventListener("click", saveProfile);
     resetBtn.addEventListener("click", resetForm);
+
+    logoImageInput.addEventListener("change", () => {
+      handleImageUpload(
+        logoImageInput,
+        getProfileLogoDataKey,
+        getProfileLogoNameKey,
+        logoPreviewBox,
+        logoFileName,
+        "Aucun logo enregistré",
+        false
+      );
+    });
+
+    signatureImageInput.addEventListener("change", () => {
+      handleImageUpload(
+        signatureImageInput,
+        getProfileSignatureDataKey,
+        getProfileSignatureNameKey,
+        signaturePreviewBox,
+        signatureFileName,
+        "Aucune signature enregistrée",
+        false
+      );
+    });
+
+    carteGriseImageInput.addEventListener("change", () => {
+      handleImageUpload(
+        carteGriseImageInput,
+        getProfileCarteGriseDataKey,
+        getProfileCarteGriseNameKey,
+        carteGrisePreviewBox,
+        carteGriseFileName,
+        "Aucune carte grise enregistrée",
+        true
+      );
+    });
+
+    removeLogoBtn.addEventListener("click", () => {
+      removeStoredFile(
+        getProfileLogoDataKey,
+        getProfileLogoNameKey,
+        logoPreviewBox,
+        logoFileName,
+        "Aucun logo enregistré"
+      );
+    });
+
+    removeSignatureBtn.addEventListener("click", () => {
+      removeStoredFile(
+        getProfileSignatureDataKey,
+        getProfileSignatureNameKey,
+        signaturePreviewBox,
+        signatureFileName,
+        "Aucune signature enregistrée"
+      );
+    });
+
+    removeCarteGriseBtn.addEventListener("click", () => {
+      removeStoredFile(
+        getProfileCarteGriseDataKey,
+        getProfileCarteGriseNameKey,
+        carteGrisePreviewBox,
+        carteGriseFileName,
+        "Aucune carte grise enregistrée"
+      );
+    });
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
