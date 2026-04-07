@@ -1200,65 +1200,58 @@ for (const item of deplacements) {
   y += 10;
   docPdf.setFont("helvetica", "normal");
   docPdf.setFontSize(9.5);
-  docPdf.text(`PDF créé le ${dateCreationPdf}`, margin, y);
-  y += 10;
+ const leftBlockX = 10;
+
+// PDF créé + certifié exact : plus haut et plus collés
+docPdf.setFont("helvetica", "normal");
+docPdf.setFontSize(9.5);
+docPdf.text(`PDF créé le ${dateCreationPdf}`, leftBlockX, 133);
+
+docPdf.setFontSize(10);
+docPdf.text(`Certifié exact le : ${dateCreationPdf}`, leftBlockX, 141);
+
+// Signature sous le texte
 docPdf.setFont("helvetica", "normal");
 docPdf.setFontSize(10);
-docPdf.text("Certifié exact le : " + dateCreationPdf, margin, y);
+docPdf.text("Signature assistant familial :", leftBlockX, 149);
 
-y += 10;
-
-docPdf.setFont("helvetica", "normal");
-docPdf.setFontSize(10);
-
-y += 10;
-docPdf.setFont("helvetica", "normal");
-docPdf.setFontSize(10);
-
-// Texte
-docPdf.text("Signature assistant familial :", margin, y);
-
-// Signature bien alignée
 if (signatureData && isImageDataUrl(signatureData)) {
   try {
-    const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.7);
+    const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.85);
 
     docPdf.addImage(
       convertedSignature.dataUrl,
       "JPEG",
-      margin + 70,   // décale un peu à droite
-      y - 4,         // alignement parfait
-      45,            // largeur un peu plus propre
-      15             // hauteur plus visible
+      leftBlockX + 2,
+      152,
+      36,
+      12
     );
   } catch (error) {
     console.error("Erreur ajout signature PDF :", error);
   }
 }
 
-y += 25;
+// Barèmes sous la signature
+const baremeX = 12;
+let yBareme = 171;
 
+docPdf.setFont("helvetica", "bold");
+docPdf.setFontSize(10);
+docPdf.text("Barèmes utilisés :", baremeX, yBareme);
 
-
-  const baremeX = 12;
-  let yBareme = 154;
-
-  docPdf.setFont("helvetica", "bold");
-  docPdf.setFontSize(10);
-  docPdf.text("Barèmes utilisés :", baremeX, yBareme);
-
-  yBareme += 6;
-  docPdf.setFont("helvetica", "normal");
-  docPdf.setFontSize(9.5);
-  docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, baremeX, yBareme);
-  yBareme += 5.5;
-  docPdf.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, baremeX, yBareme);
-  yBareme += 5.5;
-  docPdf.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, baremeX, yBareme);
-  yBareme += 5.5;
-  docPdf.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, baremeX, yBareme);
-  yBareme += 5.5;
-  docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, baremeX, yBareme);
+yBareme += 6;
+docPdf.setFont("helvetica", "normal");
+docPdf.setFontSize(9.5);
+docPdf.text(`3 CV : d x ${baremes[3].toFixed(3)} €`, baremeX, yBareme);
+yBareme += 5.5;
+docPdf.text(`4 CV : d x ${baremes[4].toFixed(3)} €`, baremeX, yBareme);
+yBareme += 5.5;
+docPdf.text(`5 CV : d x ${baremes[5].toFixed(3)} €`, baremeX, yBareme);
+yBareme += 5.5;
+docPdf.text(`6 CV : d x ${baremes[6].toFixed(3)} €`, baremeX, yBareme);
+yBareme += 5.5;
+docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, baremeX, yBareme);
 
   const cadreX = 112;
   const cadreY = 143;
