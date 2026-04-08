@@ -564,935 +564,927 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <script type="module">
-    import { auth, db } from "./firebase-config.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+  import { auth, db } from "./firebase-config.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-    function getPresenceStorageKey() {
-  const uid = currentUser?.uid || "guest";
-  return `presenceModuleEasyFrais_${uid}`;
-}
-    const MIN_PRESENCE_ROWS = 4;
-    const MAX_PRESENCE_ROWS = 12;
+  function getPresenceStorageKey() {
+    const uid = currentUser?.uid || "guest";
+    return `presenceModuleEasyFrais_${uid}`;
+  }
 
-    let currentUser = null;
-    let selectedPresenceCode = "P";
-    let selectedRelayCode = "P";
-    let daysInPresenceMonth = 31;
-    let daysInRelayMonth = 31;
-    let isUiBound = false;
-    let areTabsBound = false;
-    let isLegendBound = false;
+  const MIN_PRESENCE_ROWS = 4;
+  const MAX_PRESENCE_ROWS = 12;
 
-    const state = {
-      presence: {
-        month: "",
-        afName: "",
-        rectif: "",
-        signatureDataUrl: "",
-        children: Array.from({ length: MIN_PRESENCE_ROWS }, () => ""),
-        grid: Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""))
-      },
-      relay: {
-        month: "",
-        afName: "",
-        notes: "",
-        rows: [createEmptyRelayRow()]
-      }
+  let currentUser = null;
+  let selectedPresenceCode = "P";
+  let selectedRelayCode = "P";
+  let daysInPresenceMonth = 31;
+  let daysInRelayMonth = 31;
+  let isUiBound = false;
+  let areTabsBound = false;
+  let isLegendBound = false;
+
+  const state = {
+    presence: {
+      month: "",
+      afName: "",
+      rectif: "",
+      signatureDataUrl: "",
+      children: Array.from({ length: MIN_PRESENCE_ROWS }, () => ""),
+      grid: Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""))
+    },
+    relay: {
+      month: "",
+      afName: "",
+      notes: "",
+      rows: [createEmptyRelayRow()]
+    }
+  };
+
+  function createEmptyRelayRow() {
+    return {
+      child: "",
+      usualAf: "",
+      days: Array(31).fill("")
     };
+  }
 
-    function createEmptyRelayRow() {
-      return {
-        child: "",
-        usualAf: "",
-        days: Array(31).fill("")
-      };
+  function showToast(message) {
+    const toast = document.getElementById("toast");
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  function getDaysInMonth(monthValue) {
+    if (!monthValue) return 31;
+    const [year, month] = monthValue.split("-").map(Number);
+    if (!year || !month) return 31;
+    return new Date(year, month, 0).getDate();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function normalizeStateShape() {
+    if (!Array.isArray(state.presence.children)) {
+      state.presence.children = Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
     }
 
-    function showToast(message) {
-      const toast = document.getElementById("toast");
-      if (!toast) return;
-      toast.textContent = message;
-      toast.classList.add("show");
-      setTimeout(() => toast.classList.remove("show"), 2200);
+    if (!Array.isArray(state.presence.grid)) {
+      state.presence.grid = Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
     }
 
-    function getDaysInMonth(monthValue) {
-      if (!monthValue) return 31;
-      const [year, month] = monthValue.split("-").map(Number);
-      if (!year || !month) return 31;
-      return new Date(year, month, 0).getDate();
+    while (state.presence.children.length < MIN_PRESENCE_ROWS) {
+      state.presence.children.push("");
     }
 
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+    while (state.presence.grid.length < state.presence.children.length) {
+      state.presence.grid.push(Array(31).fill(""));
     }
 
-    function normalizeStateShape() {
-      if (!Array.isArray(state.presence.children)) {
-        state.presence.children = Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
-      }
+    state.presence.children = state.presence.children.slice(0, MAX_PRESENCE_ROWS);
+    state.presence.grid = state.presence.grid.slice(0, MAX_PRESENCE_ROWS).map((row) => {
+      const normalized = Array.isArray(row) ? row.slice(0, 31) : [];
+      while (normalized.length < 31) normalized.push("");
+      return normalized;
+    });
 
-      if (!Array.isArray(state.presence.grid)) {
-        state.presence.grid = Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
-      }
+    if (typeof state.presence.signatureDataUrl !== "string") {
+      state.presence.signatureDataUrl = "";
+    }
 
-      while (state.presence.children.length < MIN_PRESENCE_ROWS) {
-        state.presence.children.push("");
-      }
+    if (!Array.isArray(state.relay.rows) || state.relay.rows.length === 0) {
+      state.relay.rows = [createEmptyRelayRow()];
+    }
 
-      while (state.presence.grid.length < state.presence.children.length) {
-        state.presence.grid.push(Array(31).fill(""));
-      }
+    state.relay.rows = state.relay.rows.map((row) => ({
+      child: row?.child || "",
+      usualAf: row?.usualAf || "",
+      days: Array.isArray(row?.days)
+        ? [...row.days.slice(0, 31), ...Array(Math.max(0, 31 - row.days.length)).fill("")]
+        : Array(31).fill("")
+    }));
+  }
 
-      state.presence.children = state.presence.children.slice(0, MAX_PRESENCE_ROWS);
-      state.presence.grid = state.presence.grid.slice(0, MAX_PRESENCE_ROWS).map((row) => {
-        const normalized = Array.isArray(row) ? row.slice(0, 31) : [];
-        while (normalized.length < 31) normalized.push("");
-        return normalized;
+  function activateTabs() {
+    if (areTabsBound) return;
+    areTabsBound = true;
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(`tab-${btn.dataset.tab}`)?.classList.add("active");
       });
+    });
+  }
 
-      if (typeof state.presence.signatureDataUrl !== "string") {
-        state.presence.signatureDataUrl = "";
-      }
+  function bindLegend(containerId, callback) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-      if (!Array.isArray(state.relay.rows) || state.relay.rows.length === 0) {
-        state.relay.rows = [createEmptyRelayRow()];
-      }
-
-      state.relay.rows = state.relay.rows.map((row) => ({
-        child: row?.child || "",
-        usualAf: row?.usualAf || "",
-        days: Array.isArray(row?.days)
-          ? [...row.days.slice(0, 31), ...Array(Math.max(0, 31 - row.days.length)).fill("")]
-          : Array(31).fill("")
-      }));
-    }
-
-    function activateTabs() {
-      if (areTabsBound) return;
-      areTabsBound = true;
-
-      document.querySelectorAll(".tab-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-          document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
-          btn.classList.add("active");
-          document.getElementById(`tab-${btn.dataset.tab}`)?.classList.add("active");
-        });
+    container.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        container.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        callback(btn.dataset.code ?? "");
       });
+    });
+  }
+
+  function bindLegendsOnce() {
+    if (isLegendBound) return;
+    isLegendBound = true;
+
+    bindLegend("presenceLegend", (code) => {
+      selectedPresenceCode = code;
+    });
+
+    bindLegend("relayLegend", (code) => {
+      selectedRelayCode = code;
+    });
+  }
+
+  function updateSignaturePreview() {
+    const wrap = document.getElementById("signaturePreviewWrap");
+    const img = document.getElementById("signaturePreview");
+    if (!wrap || !img) return;
+
+    if (state.presence.signatureDataUrl) {
+      img.src = state.presence.signatureDataUrl;
+      wrap.style.display = "block";
+    } else {
+      img.src = "";
+      wrap.style.display = "none";
     }
+  }
 
-    function bindLegend(containerId, callback) {
-      const container = document.getElementById(containerId);
-      if (!container) return;
+  function renderChildrenFields() {
+    const wrap = document.getElementById("childrenFields");
+    if (!wrap) return;
 
-      container.querySelectorAll("button").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          container.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-          callback(btn.dataset.code ?? "");
-        });
-      });
-    }
-
-    function bindLegendsOnce() {
-      if (isLegendBound) return;
-      isLegendBound = true;
-
-      bindLegend("presenceLegend", (code) => {
-        selectedPresenceCode = code;
-      });
-
-      bindLegend("relayLegend", (code) => {
-        selectedRelayCode = code;
-      });
-    }
-
-    function updateSignaturePreview() {
-      const wrap = document.getElementById("signaturePreviewWrap");
-      const img = document.getElementById("signaturePreview");
-
-      if (!wrap || !img) return;
-
-      if (state.presence.signatureDataUrl) {
-        img.src = state.presence.signatureDataUrl;
-        wrap.style.display = "block";
-      } else {
-        img.src = "";
-        wrap.style.display = "none";
-      }
-    }
-
-    function renderChildrenFields() {
-      const wrap = document.getElementById("childrenFields");
-      if (!wrap) return;
-
-      wrap.innerHTML = state.presence.children.map((child, index) => `
-        <div class="field">
-          <label for="presenceChild${index}">Enfant ${index + 1}</label>
-          <div class="child-inline">
-            <input
-              type="text"
-              id="presenceChild${index}"
-              data-child-index="${index}"
-              list="profileChildrenList"
-              placeholder="Nom / prénom"
-              value="${escapeHtml(child || "")}"
-            />
-            ${
-              state.presence.children.length > MIN_PRESENCE_ROWS
-                ? `<button type="button" class="mini-btn mini-btn-danger remove-child-btn" data-child-index="${index}">X</button>`
-                : ""
-            }
-          </div>
+    wrap.innerHTML = state.presence.children.map((child, index) => `
+      <div class="field">
+        <label for="presenceChild${index}">Enfant ${index + 1}</label>
+        <div class="child-inline">
+          <input
+            type="text"
+            id="presenceChild${index}"
+            data-child-index="${index}"
+            list="profileChildrenList"
+            placeholder="Nom / prénom"
+            value="${escapeHtml(child || "")}"
+          />
+          ${
+            state.presence.children.length > MIN_PRESENCE_ROWS
+              ? `<button type="button" class="mini-btn mini-btn-danger remove-child-btn" data-child-index="${index}">X</button>`
+              : ""
+          }
         </div>
-      `).join("");
+      </div>
+    `).join("");
 
-      document.querySelectorAll("input[data-child-index]").forEach((input) => {
-        input.oninput = (e) => {
-          const idx = Number(e.target.dataset.childIndex);
-          state.presence.children[idx] = e.target.value;
-          renderPresenceTable();
-          saveModuleSilently();
-        };
-      });
-
-      document.querySelectorAll(".remove-child-btn").forEach((btn) => {
-        btn.onclick = () => {
-          const idx = Number(btn.dataset.childIndex);
-          state.presence.children.splice(idx, 1);
-          state.presence.grid.splice(idx, 1);
-
-          while (state.presence.children.length < MIN_PRESENCE_ROWS) {
-            state.presence.children.push("");
-            state.presence.grid.push(Array(31).fill(""));
-          }
-
-          renderChildrenFields();
-          renderPresenceTable();
-          saveModuleSilently();
-          showToast("Enfant supprimé");
-        };
-      });
-    }
-
-    function renderPresenceSummary() {
-      const wrap = document.getElementById("presenceSummary");
-      if (!wrap) return;
-
-      wrap.innerHTML = state.presence.children.map((child, row) => {
-        let total = 0;
-        for (let day = 0; day < daysInPresenceMonth; day += 1) {
-          if ((state.presence.grid[row]?.[day] || "") === "P") total += 1;
-        }
-
-        return `
-          <div class="summary-box">
-            <span>${escapeHtml(child || `Enfant ${row + 1}`)}</span>
-            <strong>${total}</strong>
-          </div>
-        `;
-      }).join("");
-    }
-
-    function renderPresenceTable() {
-      const table = document.getElementById("presenceTable");
-      if (!table) return;
-
-      let html = "<thead><tr><th class='left'>Enfant</th>";
-      for (let day = 1; day <= daysInPresenceMonth; day += 1) {
-        html += `<th>${day}</th>`;
-      }
-      html += "<th>Total</th><th>Action</th></tr></thead><tbody>";
-
-      for (let row = 0; row < state.presence.children.length; row += 1) {
-        const childName = escapeHtml(state.presence.children[row] || `Enfant ${row + 1}`);
-        html += `<tr><td class="left" title="${childName}">${childName}</td>`;
-        let total = 0;
-
-        for (let day = 0; day < daysInPresenceMonth; day += 1) {
-          const code = state.presence.grid[row][day] || "";
-          if (code === "P") total += 1;
-          const cls = `code-${code || "empty"}`;
-          html += `<td class="day-cell ${cls}" data-row="${row}" data-day="${day}" data-type="presence">${escapeHtml(code || "-")}</td>`;
-        }
-
-        html += `<td><strong>${total}</strong></td>`;
-        html += `<td><button type="button" class="mini-btn mini-btn-secondary fill-row-btn" data-row="${row}">Mois</button></td>`;
-        html += "</tr>";
-      }
-
-      html += "</tbody>";
-      table.innerHTML = html;
-      bindDayCells();
-      bindFillRowButtons();
-      renderPresenceSummary();
-    }
-
-    function renderRelayTable() {
-      const table = document.getElementById("relayTable");
-      if (!table) return;
-
-      let html = "<thead><tr><th class='left'>Enfant</th><th class='left'>AF habituel(le)</th>";
-      for (let day = 1; day <= daysInRelayMonth; day += 1) {
-        html += `<th>${day}</th>`;
-      }
-      html += "<th>Total</th><th>Action</th></tr></thead><tbody>";
-
-      state.relay.rows.forEach((row, rowIndex) => {
-        let total = 0;
-        html += "<tr>";
-        html += `<td class="left"><input data-relay-field="child" data-row="${rowIndex}" value="${escapeHtml(row.child)}" placeholder="Nom enfant"></td>`;
-        html += `<td class="left"><input data-relay-field="usualAf" data-row="${rowIndex}" value="${escapeHtml(row.usualAf)}" placeholder="Nom AF"></td>`;
-
-        for (let day = 0; day < daysInRelayMonth; day += 1) {
-          const code = row.days[day] || "";
-          if (code === "P") total += 1;
-          const cls = `code-${code || "empty"}`;
-          html += `<td class="day-cell ${cls}" data-row="${rowIndex}" data-day="${day}" data-type="relay">${escapeHtml(code || "-")}</td>`;
-        }
-
-        html += `<td><strong>${total}</strong></td>`;
-        html += `<td><button type="button" class="mini-btn mini-btn-danger relay-delete-btn" data-row="${rowIndex}">X</button></td>`;
-        html += "</tr>";
-      });
-
-      html += "</tbody>";
-      table.innerHTML = html;
-      bindDayCells();
-      bindRelayInputs();
-      bindRelayDeleteButtons();
-    }
-
-    function bindFillRowButtons() {
-      document.querySelectorAll(".fill-row-btn").forEach((btn) => {
-        btn.onclick = () => {
-          const row = Number(btn.dataset.row);
-          for (let day = 0; day < daysInPresenceMonth; day += 1) {
-            state.presence.grid[row][day] = "P";
-          }
-          renderPresenceTable();
-          saveModuleSilently();
-          showToast("Mois complet pour cet enfant");
-        };
-      });
-    }
-
-    function bindDayCells() {
-      document.querySelectorAll(".day-cell").forEach((cell) => {
-        cell.onclick = () => {
-          const row = Number(cell.dataset.row);
-          const day = Number(cell.dataset.day);
-          const type = cell.dataset.type;
-
-          if (type === "presence") {
-            const current = state.presence.grid[row][day];
-            state.presence.grid[row][day] = current === selectedPresenceCode ? "" : selectedPresenceCode;
-            renderPresenceTable();
-            saveModuleSilently();
-            return;
-          }
-
-          if (type === "relay") {
-            const current = state.relay.rows[row].days[day];
-            state.relay.rows[row].days[day] = current === selectedRelayCode ? "" : selectedRelayCode;
-            renderRelayTable();
-            saveModuleSilently();
-          }
-        };
-      });
-    }
-
-    function bindRelayInputs() {
-      document.querySelectorAll("input[data-relay-field]").forEach((input) => {
-        input.oninput = () => {
-          const rowIndex = Number(input.dataset.row);
-          const field = input.dataset.relayField;
-          state.relay.rows[rowIndex][field] = input.value;
-          saveModuleSilently();
-        };
-      });
-    }
-
-    function bindRelayDeleteButtons() {
-      document.querySelectorAll(".relay-delete-btn").forEach((btn) => {
-        btn.onclick = () => {
-          const rowIndex = Number(btn.dataset.row);
-
-          if (state.relay.rows.length === 1) {
-            state.relay.rows[0] = createEmptyRelayRow();
-          } else {
-            state.relay.rows.splice(rowIndex, 1);
-          }
-
-          renderRelayTable();
-          saveModuleSilently();
-          showToast("Ligne relais supprimée");
-        };
-      });
-    }
-
-    function bindFields() {
-      if (isUiBound) return;
-      isUiBound = true;
-
-      document.getElementById("presenceMonth").addEventListener("change", (e) => {
-        state.presence.month = e.target.value;
-        daysInPresenceMonth = getDaysInMonth(state.presence.month);
+    document.querySelectorAll("input[data-child-index]").forEach((input) => {
+      input.oninput = (e) => {
+        const idx = Number(e.target.dataset.childIndex);
+        state.presence.children[idx] = e.target.value;
         renderPresenceTable();
         saveModuleSilently();
-      });
+      };
+    });
 
-      document.getElementById("relayMonth").addEventListener("change", (e) => {
-        state.relay.month = e.target.value;
-        daysInRelayMonth = getDaysInMonth(state.relay.month);
-        renderRelayTable();
-        saveModuleSilently();
-      });
+    document.querySelectorAll(".remove-child-btn").forEach((btn) => {
+      btn.onclick = () => {
+        const idx = Number(btn.dataset.childIndex);
+        state.presence.children.splice(idx, 1);
+        state.presence.grid.splice(idx, 1);
 
-      document.getElementById("presenceAfName").addEventListener("input", (e) => {
-        state.presence.afName = e.target.value;
-        saveModuleSilently();
-      });
-
-      document.getElementById("presenceRectif").addEventListener("input", (e) => {
-        state.presence.rectif = e.target.value;
-        saveModuleSilently();
-      });
-
-      document.getElementById("relayAfName").addEventListener("input", (e) => {
-        state.relay.afName = e.target.value;
-        saveModuleSilently();
-      });
-
-      document.getElementById("relayNotes").addEventListener("input", (e) => {
-        state.relay.notes = e.target.value;
-        saveModuleSilently();
-      });
-
-      document.getElementById("btnAddChild").addEventListener("click", () => {
-        if (state.presence.children.length >= MAX_PRESENCE_ROWS) {
-          showToast("Maximum 12 enfants");
-          return;
+        while (state.presence.children.length < MIN_PRESENCE_ROWS) {
+          state.presence.children.push("");
+          state.presence.grid.push(Array(31).fill(""));
         }
-
-        state.presence.children.push("");
-        state.presence.grid.push(Array(31).fill(""));
 
         renderChildrenFields();
         renderPresenceTable();
         saveModuleSilently();
-        showToast("Nouvel enfant ajouté");
-      });
-
-      document.getElementById("signatureUpload").addEventListener("change", (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!file.type.startsWith("image/")) {
-          showToast("Merci de choisir une image PNG ou JPG");
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = () => {
-          state.presence.signatureDataUrl = reader.result || "";
-          updateSignaturePreview();
-          saveModuleSilently();
-          showToast("Signature importée");
-        };
-        reader.readAsDataURL(file);
-      });
-
-      document.getElementById("btnClearSignature").addEventListener("click", () => {
-        state.presence.signatureDataUrl = "";
-        document.getElementById("signatureUpload").value = "";
-        updateSignaturePreview();
-        saveModuleSilently();
-        showToast("Signature supprimée");
-      });
-
-      document.getElementById("btnFillFullMonth").addEventListener("click", fillFullMonthPresence);
-      document.getElementById("btnClearPresenceMonth").addEventListener("click", clearFullMonthPresence);
-
-      document.getElementById("btnAddRelayRow").addEventListener("click", () => {
-        state.relay.rows.push(createEmptyRelayRow());
-        renderRelayTable();
-        saveModuleSilently();
-        showToast("Nouvelle ligne relais ajoutée");
-      });
-
-      document.getElementById("btnSaveModule").addEventListener("click", saveModule);
-      document.getElementById("btnPdfPresence").addEventListener("click", generatePresencePdf);
-    }
-
-    function fillFromState() {
-      document.getElementById("presenceMonth").value = state.presence.month || "";
-      document.getElementById("presenceAfName").value = state.presence.afName || "";
-      document.getElementById("presenceRectif").value = state.presence.rectif || "";
-      document.getElementById("relayMonth").value = state.relay.month || "";
-      document.getElementById("relayAfName").value = state.relay.afName || "";
-      document.getElementById("relayNotes").value = state.relay.notes || "";
-
-      daysInPresenceMonth = getDaysInMonth(state.presence.month);
-      daysInRelayMonth = getDaysInMonth(state.relay.month);
-
-      renderChildrenFields();
-      renderPresenceTable();
-      renderRelayTable();
-      updateSignaturePreview();
-    }
-
-    function fillFullMonthPresence() {
-      for (let row = 0; row < state.presence.children.length; row += 1) {
-        for (let day = 0; day < daysInPresenceMonth; day += 1) {
-          state.presence.grid[row][day] = "P";
-        }
-      }
-      renderPresenceTable();
-      saveModuleSilently();
-      showToast("Mois complet appliqué");
-    }
-
-    function clearFullMonthPresence() {
-      for (let row = 0; row < state.presence.children.length; row += 1) {
-        for (let day = 0; day < 31; day += 1) {
-          state.presence.grid[row][day] = "";
-        }
-      }
-      renderPresenceTable();
-      saveModuleSilently();
-      showToast("Mois vidé");
-    }
-
-    function saveModule() {
-  localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
-  showToast("Fiche de présence enregistrée");
-}
-    
-
-   function saveModuleSilently() {
-  localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
-}
-    function loadModule() {
-    const raw = localStorage.getItem(getPresenceStorageKey());
-      if (!raw) return;
-
-      try {
-        const parsed = JSON.parse(raw);
-
-        if (parsed?.presence) {
-          state.presence.month = parsed.presence.month || "";
-          state.presence.afName = parsed.presence.afName || "";
-          state.presence.rectif = parsed.presence.rectif || "";
-          state.presence.signatureDataUrl = parsed.presence.signatureDataUrl || "";
-          state.presence.children = parsed.presence.children || Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
-          state.presence.grid = parsed.presence.grid || Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
-        }
-
-        if (parsed?.relay) {
-          state.relay.month = parsed.relay.month || "";
-          state.relay.afName = parsed.relay.afName || "";
-          state.relay.notes = parsed.relay.notes || "";
-          state.relay.rows = parsed.relay.rows || [createEmptyRelayRow()];
-        }
-
-        normalizeStateShape();
-      } catch (error) {
-        console.error("Erreur chargement module présence :", error);
-      }
-    }
-
-    async function loadProfile() {
-      if (!currentUser) return;
-
-      try {
-        const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
-        const snap = await getDoc(profileRef);
-        if (!snap.exists()) return;
-
-        const data = snap.data() || {};
-        const profileName = String(data.fullName || "").trim();
-        const children = String(data.childrenList || "")
-          .split(/\n|,/)
-          .map((item) => item.trim())
-          .filter(Boolean);
-
-        if (!state.presence.afName && profileName) state.presence.afName = profileName;
-        if (!state.relay.afName && profileName) state.relay.afName = profileName;
-
-        children.forEach((child, index) => {
-          if (index < MAX_PRESENCE_ROWS) {
-            if (index >= state.presence.children.length) {
-              state.presence.children.push("");
-              state.presence.grid.push(Array(31).fill(""));
-            }
-            if (!state.presence.children[index]) {
-              state.presence.children[index] = child;
-            }
-          }
-        });
-
-        const datalist = document.getElementById("profileChildrenList");
-        if (datalist) {
-          datalist.innerHTML = "";
-          children.forEach((child) => {
-            const option = document.createElement("option");
-            option.value = child;
-            datalist.appendChild(option);
-          });
-        }
-
-        fillFromState();
-        saveModuleSilently();
-      } catch (error) {
-        console.error("Erreur profil fiche présence :", error);
-      }
-    }
-
-    function formatMonthLabel(monthValue) {
-      if (!monthValue) return "";
-      const [year, month] = monthValue.split("-");
-      return `${month}/${year}`;
-    }
-
-    function drawPdfCell(pdf, x, y, w, h, text = "", align = "center", fontSize = 7) {
-      pdf.rect(x, y, w, h);
-      pdf.setFontSize(fontSize);
-
-      const content = String(text ?? "");
-
-      if (align === "left") {
-        pdf.text(content, x + 1, y + h / 2 + 1.5);
-      } else {
-        const textWidth = pdf.getTextWidth(content);
-        pdf.text(content, x + (w - textWidth) / 2, y + h / 2 + 1.5);
-      }
-    }
-
-    function addSignatureToPdf(pdf, dataUrl, x, y, maxW, maxH) {
-      if (!dataUrl) return;
-
-      try {
-        const format = dataUrl.includes("image/png") ? "PNG" : "JPEG";
-        pdf.addImage(dataUrl, format, x + 2, y + 2, maxW - 4, maxH - 4);
-      } catch (error) {
-        console.error("Erreur ajout signature PDF :", error);
-      }
-    }
-
-    function addPdfToGlobalHistory(blob, fileName, monthLabel) {
-      if (!currentUser) return;
-
-      const storageKey = `historiquePDF_${currentUser.uid}`;
-      const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
-
-      const reader = new FileReader();
-      reader.onloadend = function () {
-        historique.push({
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          mois: monthLabel,
-          nom: fileName,
-          data: reader.result,
-          dateGeneration: new Date().toLocaleString("fr-FR"),
-          type: "Fiche de présence"
-        });
-
-        localStorage.setItem(storageKey, JSON.stringify(historique));
+        showToast("Enfant supprimé");
       };
-      reader.readAsDataURL(blob);
-    }
-
-function generatePresencePdf() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF("landscape", "mm", "a4");
-
-  const monthLabel = formatMonthLabel(state.presence.month);
-  const relayMonthLabel = formatMonthLabel(state.relay.month);
-
-  const leftMargin = 8;
-  const topMargin = 10;
-  const pageWidth = 297;
-  const usableWidth = pageWidth - (leftMargin * 2);
-
-  const rowH = 8;
-  const nameW = 38;
-  const totalW = 12;
-
-  const pdfDaysInPresenceMonth = getDaysInMonth(state.presence.month);
-  const pdfDaysInRelayMonth = getDaysInMonth(state.relay.month);
-
-  const dayWPresence = (usableWidth - nameW - totalW) / pdfDaysInPresenceMonth;
-
-  function drawCell(x, y, w, h, text = "", align = "center", fontSize = 7, bold = false) {
-    pdf.rect(x, y, w, h);
-
-    pdf.setFont("helvetica", bold ? "bold" : "normal");
-    pdf.setFontSize(fontSize);
-
-    const safeText = String(text || "");
-    let textX = x + (w / 2);
-
-    if (align === "left") textX = x + 2;
-    if (align === "right") textX = x + w - 2;
-
-    pdf.text(safeText, textX, y + (h / 2) + 1, {
-      align,
-      baseline: "middle",
-      maxWidth: Math.max(1, w - 2)
     });
   }
 
-  // =========================
-  // PAGE 1 : PRESENCE
-  // =========================
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.text("FEUILLE DE PRESENCE AU DOMICILE DE L'ASSISTANT FAMILIAL", leftMargin, topMargin);
+  function renderPresenceSummary() {
+    const wrap = document.getElementById("presenceSummary");
+    if (!wrap) return;
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.text(`Nom et prénom de l'assistant familial : ${state.presence.afName || ""}`, leftMargin, 18);
-  pdf.text(`Mois : ${monthLabel}`, 220, 18);
+    wrap.innerHTML = state.presence.children.map((child, row) => {
+      let total = 0;
+      for (let day = 0; day < daysInPresenceMonth; day += 1) {
+        if ((state.presence.grid[row]?.[day] || "") === "P") total += 1;
+      }
 
-  let startX = leftMargin;
-  let startY = 25;
-
-  drawCell(startX, startY, nameW, rowH, "ENFANT", "left", 7, true);
-
-  for (let d = 1; d <= pdfDaysInPresenceMonth; d += 1) {
-    drawCell(
-      startX + nameW + (d - 1) * dayWPresence,
-      startY,
-      dayWPresence,
-      rowH,
-      d,
-      "center",
-      6,
-      true
-    );
+      return `
+        <div class="summary-box">
+          <span>${escapeHtml(child || `Enfant ${row + 1}`)}</span>
+          <strong>${total}</strong>
+        </div>
+      `;
+    }).join("");
   }
 
-  drawCell(
-    startX + nameW + pdfDaysInPresenceMonth * dayWPresence,
-    startY,
-    totalW,
-    rowH,
-    "Total",
-    "center",
-    7,
-    true
-  );
+  function renderPresenceTable() {
+    const table = document.getElementById("presenceTable");
+    if (!table) return;
 
-  for (let row = 0; row < state.presence.children.length; row += 1) {
-    const y = startY + rowH * (row + 1);
-    const childName = state.presence.children[row] || `Enfant ${row + 1}`;
-    let total = 0;
+    let html = "<thead><tr><th class='left'>Enfant</th>";
+    for (let day = 1; day <= daysInPresenceMonth; day += 1) {
+      html += `<th>${day}</th>`;
+    }
+    html += "<th>Total</th><th>Action</th></tr></thead><tbody>";
 
-    drawCell(startX, y, nameW, rowH, childName, "left", 7, false);
+    for (let row = 0; row < state.presence.children.length; row += 1) {
+      const childName = escapeHtml(state.presence.children[row] || `Enfant ${row + 1}`);
+      html += `<tr><td class="left" title="${childName}">${childName}</td>`;
+      let total = 0;
 
-    for (let d = 0; d < pdfDaysInPresenceMonth; d += 1) {
-      const code = state.presence.grid[row][d] || "";
-      if (code === "P") total += 1;
+      for (let day = 0; day < daysInPresenceMonth; day += 1) {
+        const code = state.presence.grid[row][day] || "";
+        if (code === "P") total += 1;
+        const cls = `code-${code || "empty"}`;
+        html += `<td class="day-cell ${cls}" data-row="${row}" data-day="${day}" data-type="presence">${escapeHtml(code || "-")}</td>`;
+      }
 
-      let fontSize = 6;
-      if (code === "DVH") fontSize = 5;
+      html += `<td><strong>${total}</strong></td>`;
+      html += `<td><button type="button" class="mini-btn mini-btn-secondary fill-row-btn" data-row="${row}">Mois</button></td>`;
+      html += "</tr>";
+    }
 
+    html += "</tbody>";
+    table.innerHTML = html;
+    bindDayCells();
+    bindFillRowButtons();
+    renderPresenceSummary();
+  }
+
+  function renderRelayTable() {
+    const table = document.getElementById("relayTable");
+    if (!table) return;
+
+    let html = "<thead><tr><th class='left'>Enfant</th><th class='left'>AF habituel(le)</th>";
+    for (let day = 1; day <= daysInRelayMonth; day += 1) {
+      html += `<th>${day}</th>`;
+    }
+    html += "<th>Total</th><th>Action</th></tr></thead><tbody>";
+
+    state.relay.rows.forEach((row, rowIndex) => {
+      let total = 0;
+      html += "<tr>";
+      html += `<td class="left"><input data-relay-field="child" data-row="${rowIndex}" value="${escapeHtml(row.child)}" placeholder="Nom enfant"></td>`;
+      html += `<td class="left"><input data-relay-field="usualAf" data-row="${rowIndex}" value="${escapeHtml(row.usualAf)}" placeholder="Nom AF"></td>`;
+
+      for (let day = 0; day < daysInRelayMonth; day += 1) {
+        const code = row.days[day] || "";
+        if (code === "P") total += 1;
+        const cls = `code-${code || "empty"}`;
+        html += `<td class="day-cell ${cls}" data-row="${rowIndex}" data-day="${day}" data-type="relay">${escapeHtml(code || "-")}</td>`;
+      }
+
+      html += `<td><strong>${total}</strong></td>`;
+      html += `<td><button type="button" class="mini-btn mini-btn-danger relay-delete-btn" data-row="${rowIndex}">X</button></td>`;
+      html += "</tr>";
+    });
+
+    html += "</tbody>";
+    table.innerHTML = html;
+    bindDayCells();
+    bindRelayInputs();
+    bindRelayDeleteButtons();
+  }
+
+  function bindFillRowButtons() {
+    document.querySelectorAll(".fill-row-btn").forEach((btn) => {
+      btn.onclick = () => {
+        const row = Number(btn.dataset.row);
+        for (let day = 0; day < daysInPresenceMonth; day += 1) {
+          state.presence.grid[row][day] = "P";
+        }
+        renderPresenceTable();
+        saveModuleSilently();
+        showToast("Mois complet pour cet enfant");
+      };
+    });
+  }
+
+  function bindDayCells() {
+    document.querySelectorAll(".day-cell").forEach((cell) => {
+      cell.onclick = () => {
+        const row = Number(cell.dataset.row);
+        const day = Number(cell.dataset.day);
+        const type = cell.dataset.type;
+
+        if (type === "presence") {
+          const current = state.presence.grid[row][day];
+          state.presence.grid[row][day] = current === selectedPresenceCode ? "" : selectedPresenceCode;
+          renderPresenceTable();
+          saveModuleSilently();
+          return;
+        }
+
+        if (type === "relay") {
+          const current = state.relay.rows[row].days[day];
+          state.relay.rows[row].days[day] = current === selectedRelayCode ? "" : selectedRelayCode;
+          renderRelayTable();
+          saveModuleSilently();
+        }
+      };
+    });
+  }
+
+  function bindRelayInputs() {
+    document.querySelectorAll("input[data-relay-field]").forEach((input) => {
+      input.oninput = () => {
+        const rowIndex = Number(input.dataset.row);
+        const field = input.dataset.relayField;
+        state.relay.rows[rowIndex][field] = input.value;
+        saveModuleSilently();
+      };
+    });
+  }
+
+  function bindRelayDeleteButtons() {
+    document.querySelectorAll(".relay-delete-btn").forEach((btn) => {
+      btn.onclick = () => {
+        const rowIndex = Number(btn.dataset.row);
+
+        if (state.relay.rows.length === 1) {
+          state.relay.rows[0] = createEmptyRelayRow();
+        } else {
+          state.relay.rows.splice(rowIndex, 1);
+        }
+
+        renderRelayTable();
+        saveModuleSilently();
+        showToast("Ligne relais supprimée");
+      };
+    });
+  }
+
+  function bindFields() {
+    if (isUiBound) return;
+    isUiBound = true;
+
+    document.getElementById("presenceMonth").addEventListener("change", (e) => {
+      state.presence.month = e.target.value;
+      daysInPresenceMonth = getDaysInMonth(state.presence.month);
+      renderPresenceTable();
+      saveModuleSilently();
+    });
+
+    document.getElementById("relayMonth").addEventListener("change", (e) => {
+      state.relay.month = e.target.value;
+      daysInRelayMonth = getDaysInMonth(state.relay.month);
+      renderRelayTable();
+      saveModuleSilently();
+    });
+
+    document.getElementById("presenceAfName").addEventListener("input", (e) => {
+      state.presence.afName = e.target.value;
+      saveModuleSilently();
+    });
+
+    document.getElementById("presenceRectif").addEventListener("input", (e) => {
+      state.presence.rectif = e.target.value;
+      saveModuleSilently();
+    });
+
+    document.getElementById("relayAfName").addEventListener("input", (e) => {
+      state.relay.afName = e.target.value;
+      saveModuleSilently();
+    });
+
+    document.getElementById("relayNotes").addEventListener("input", (e) => {
+      state.relay.notes = e.target.value;
+      saveModuleSilently();
+    });
+
+    document.getElementById("btnAddChild").addEventListener("click", () => {
+      if (state.presence.children.length >= MAX_PRESENCE_ROWS) {
+        showToast("Maximum 12 enfants");
+        return;
+      }
+
+      state.presence.children.push("");
+      state.presence.grid.push(Array(31).fill(""));
+
+      renderChildrenFields();
+      renderPresenceTable();
+      saveModuleSilently();
+      showToast("Nouvel enfant ajouté");
+    });
+
+    document.getElementById("signatureUpload").addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith("image/")) {
+        showToast("Merci de choisir une image PNG ou JPG");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.presence.signatureDataUrl = reader.result || "";
+        updateSignaturePreview();
+        saveModuleSilently();
+        showToast("Signature importée");
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById("btnClearSignature").addEventListener("click", () => {
+      state.presence.signatureDataUrl = "";
+      document.getElementById("signatureUpload").value = "";
+      updateSignaturePreview();
+      saveModuleSilently();
+      showToast("Signature supprimée");
+    });
+
+    document.getElementById("btnFillFullMonth").addEventListener("click", fillFullMonthPresence);
+    document.getElementById("btnClearPresenceMonth").addEventListener("click", clearFullMonthPresence);
+
+    document.getElementById("btnAddRelayRow").addEventListener("click", () => {
+      state.relay.rows.push(createEmptyRelayRow());
+      renderRelayTable();
+      saveModuleSilently();
+      showToast("Nouvelle ligne relais ajoutée");
+    });
+
+    document.getElementById("btnSaveModule").addEventListener("click", saveModule);
+    document.getElementById("btnPdfPresence").addEventListener("click", generatePresencePdf);
+  }
+
+  function fillFromState() {
+    document.getElementById("presenceMonth").value = state.presence.month || "";
+    document.getElementById("presenceAfName").value = state.presence.afName || "";
+    document.getElementById("presenceRectif").value = state.presence.rectif || "";
+    document.getElementById("relayMonth").value = state.relay.month || "";
+    document.getElementById("relayAfName").value = state.relay.afName || "";
+    document.getElementById("relayNotes").value = state.relay.notes || "";
+
+    daysInPresenceMonth = getDaysInMonth(state.presence.month);
+    daysInRelayMonth = getDaysInMonth(state.relay.month);
+
+    renderChildrenFields();
+    renderPresenceTable();
+    renderRelayTable();
+    updateSignaturePreview();
+  }
+
+  function fillFullMonthPresence() {
+    for (let row = 0; row < state.presence.children.length; row += 1) {
+      for (let day = 0; day < daysInPresenceMonth; day += 1) {
+        state.presence.grid[row][day] = "P";
+      }
+    }
+    renderPresenceTable();
+    saveModuleSilently();
+    showToast("Mois complet appliqué");
+  }
+
+  function clearFullMonthPresence() {
+    for (let row = 0; row < state.presence.children.length; row += 1) {
+      for (let day = 0; day < 31; day += 1) {
+        state.presence.grid[row][day] = "";
+      }
+    }
+    renderPresenceTable();
+    saveModuleSilently();
+    showToast("Mois vidé");
+  }
+
+  function saveModule() {
+    localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
+    showToast("Fiche de présence enregistrée");
+  }
+
+  function saveModuleSilently() {
+    localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
+  }
+
+  function loadModule() {
+    const raw = localStorage.getItem(getPresenceStorageKey());
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      if (parsed?.presence) {
+        state.presence.month = parsed.presence.month || "";
+        state.presence.afName = parsed.presence.afName || "";
+        state.presence.rectif = parsed.presence.rectif || "";
+        state.presence.signatureDataUrl = parsed.presence.signatureDataUrl || "";
+        state.presence.children = parsed.presence.children || Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
+        state.presence.grid = parsed.presence.grid || Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
+      }
+
+      if (parsed?.relay) {
+        state.relay.month = parsed.relay.month || "";
+        state.relay.afName = parsed.relay.afName || "";
+        state.relay.notes = parsed.relay.notes || "";
+        state.relay.rows = parsed.relay.rows || [createEmptyRelayRow()];
+      }
+
+      normalizeStateShape();
+    } catch (error) {
+      console.error("Erreur chargement module présence :", error);
+    }
+  }
+
+  async function loadProfile() {
+    if (!currentUser) return;
+
+    try {
+      const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
+      const snap = await getDoc(profileRef);
+      if (!snap.exists()) return;
+
+      const data = snap.data() || {};
+      const profileName = String(data.fullName || "").trim();
+      const children = String(data.childrenList || "")
+        .split(/\n|,/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      if (!state.presence.afName && profileName) state.presence.afName = profileName;
+      if (!state.relay.afName && profileName) state.relay.afName = profileName;
+
+      children.forEach((child, index) => {
+        if (index < MAX_PRESENCE_ROWS) {
+          if (index >= state.presence.children.length) {
+            state.presence.children.push("");
+            state.presence.grid.push(Array(31).fill(""));
+          }
+          if (!state.presence.children[index]) {
+            state.presence.children[index] = child;
+          }
+        }
+      });
+
+      const datalist = document.getElementById("profileChildrenList");
+      if (datalist) {
+        datalist.innerHTML = "";
+        children.forEach((child) => {
+          const option = document.createElement("option");
+          option.value = child;
+          datalist.appendChild(option);
+        });
+      }
+
+      fillFromState();
+      saveModuleSilently();
+    } catch (error) {
+      console.error("Erreur profil fiche présence :", error);
+    }
+  }
+
+  function formatMonthLabel(monthValue) {
+    if (!monthValue) return "";
+    const [year, month] = monthValue.split("-");
+    return `${month}/${year}`;
+  }
+
+  function drawPdfCell(pdf, x, y, w, h, text = "", align = "center", fontSize = 7) {
+    pdf.rect(x, y, w, h);
+    pdf.setFontSize(fontSize);
+
+    const content = String(text ?? "");
+
+    if (align === "left") {
+      pdf.text(content, x + 1, y + h / 2 + 1.5);
+    } else {
+      const textWidth = pdf.getTextWidth(content);
+      pdf.text(content, x + (w - textWidth) / 2, y + h / 2 + 1.5);
+    }
+  }
+
+  function getProfileLogoData() {
+    const uid = currentUser?.uid || "";
+    return localStorage.getItem(`profileLogoData_${uid}`) || "";
+  }
+
+  function addLogoToPdf(pdf, dataUrl, x, y, maxW, maxH) {
+    if (!dataUrl) return;
+
+    try {
+      const format = dataUrl.includes("image/png") ? "PNG" : "JPEG";
+      pdf.addImage(dataUrl, format, x, y, maxW, maxH);
+    } catch (error) {
+      console.error("Erreur ajout logo PDF :", error);
+    }
+  }
+
+  function addSignatureToPdf(pdf, dataUrl, x, y, maxW, maxH) {
+    if (!dataUrl) return;
+
+    try {
+      const format = dataUrl.includes("image/png") ? "PNG" : "JPEG";
+      pdf.addImage(dataUrl, format, x + 2, y + 2, maxW - 4, maxH - 4);
+    } catch (error) {
+      console.error("Erreur ajout signature PDF :", error);
+    }
+  }
+
+  function addPdfToGlobalHistory(blob, fileName, monthLabel) {
+    if (!currentUser) return;
+
+    const storageKey = `historiquePDF_${currentUser.uid}`;
+    const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+    const reader = new FileReader();
+    reader.onloadend = function () {
+      historique.push({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        mois: monthLabel,
+        nom: fileName,
+        data: reader.result,
+        dateGeneration: new Date().toLocaleString("fr-FR"),
+        type: "Fiche de présence"
+      });
+
+      localStorage.setItem(storageKey, JSON.stringify(historique));
+    };
+    reader.readAsDataURL(blob);
+  }
+  function addEasyfraisFooter(pdf) {
+  const pageCount = pdf.getNumberOfPages();
+
+  pdf.setFont("helvetica", "italic");
+  pdf.setFontSize(8);
+  pdf.setTextColor(120, 120, 120);
+
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    pdf.text("Document généré automatiquement par easyfrais.fr", 10, pageHeight - 5);
+  }
+
+  pdf.setTextColor(0, 0, 0);
+}
+
+  function generatePresencePdf() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("landscape", "mm", "a4");
+
+    const monthLabel = formatMonthLabel(state.presence.month);
+    const relayMonthLabel = formatMonthLabel(state.relay.month);
+    const profileLogoData = getProfileLogoData();
+
+    const leftMargin = 8;
+    const topMargin = 10;
+    const pageWidth = 297;
+    const usableWidth = pageWidth - (leftMargin * 2);
+
+    const rowH = 8;
+    const nameW = 38;
+    const totalW = 12;
+
+    const pdfDaysInPresenceMonth = getDaysInMonth(state.presence.month);
+    const pdfDaysInRelayMonth = getDaysInMonth(state.relay.month);
+
+    const dayWPresence = (usableWidth - nameW - totalW) / pdfDaysInPresenceMonth;
+
+    function drawCell(x, y, w, h, text = "", align = "center", fontSize = 7, bold = false) {
+      pdf.rect(x, y, w, h);
+
+      pdf.setFont("helvetica", bold ? "bold" : "normal");
+      pdf.setFontSize(fontSize);
+
+      const safeText = String(text || "");
+      let textX = x + (w / 2);
+
+      if (align === "left") textX = x + 2;
+      if (align === "right") textX = x + w - 2;
+
+      pdf.text(safeText, textX, y + (h / 2) + 1, {
+        align,
+        baseline: "middle",
+        maxWidth: Math.max(1, w - 2)
+      });
+    }
+
+    // PAGE 1
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.text("FEUILLE DE PRESENCE AU DOMICILE DE L'ASSISTANT FAMILIAL", leftMargin, topMargin);
+    addLogoToPdf(pdf, profileLogoData, 260, 6, 24, 16);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.text(`Nom et prénom de l'assistant familial : ${state.presence.afName || ""}`, leftMargin, 18);
+    pdf.text(`Mois : ${monthLabel}`, 220, 18);
+
+    let startX = leftMargin;
+    let startY = 25;
+
+    drawCell(startX, startY, nameW, rowH, "ENFANT", "left", 7, true);
+
+    for (let d = 1; d <= pdfDaysInPresenceMonth; d += 1) {
       drawCell(
-        startX + nameW + d * dayWPresence,
-        y,
+        startX + nameW + (d - 1) * dayWPresence,
+        startY,
         dayWPresence,
         rowH,
-        code,
+        d,
         "center",
-        fontSize,
-        false
+        7,
+        true
       );
     }
 
-    drawCell(
-      startX + nameW + pdfDaysInPresenceMonth * dayWPresence,
-      y,
-      totalW,
-      rowH,
-      total,
-      "center",
-      7,
-      false
-    );
-  }
+    drawCell(startX + nameW + pdfDaysInPresenceMonth * dayWPresence, startY, totalW, rowH, "TOTAL", "center", 6, true);
 
-  let infoY = startY + rowH * (state.presence.children.length + 2) + 6;
+    state.presence.children.forEach((child, rowIndex) => {
+      const y = startY + rowH + rowIndex * rowH;
+      drawCell(startX, y, nameW, rowH, child || `Enfant ${rowIndex + 1}`, "left", 7, false);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(9);
-  pdf.text("Rappel motifs :", leftMargin, infoY);
+      let total = 0;
 
-  pdf.setFont("helvetica", "normal");
-  pdf.text(
-    "P = Présence   I = Internat   DVH = Droits de visite / hébergement   A = Absence   F = Fugue   R = Relais",
-    leftMargin + 22,
-    infoY
-  );
+      for (let d = 0; d < pdfDaysInPresenceMonth; d += 1) {
+        const code = state.presence.grid[rowIndex]?.[d] || "";
+        if (code === "P") total += 1;
 
-  infoY += 10;
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Rectificatif :", leftMargin, infoY);
+        drawCell(
+          startX + nameW + d * dayWPresence,
+          y,
+          dayWPresence,
+          rowH,
+          code,
+          "center",
+          7,
+          false
+        );
+      }
 
-  pdf.setFont("helvetica", "normal");
-  pdf.rect(leftMargin, infoY + 2, 180, 20);
-  pdf.text(state.presence.rectif || "", leftMargin + 2, infoY + 8, { maxWidth: 176 });
+      drawCell(startX + nameW + pdfDaysInPresenceMonth * dayWPresence, y, totalW, rowH, total, "center", 7, false);
+    });
 
-  pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, infoY + 8);
-  pdf.text("Signature :", 220, infoY + 18);
-  pdf.rect(220, infoY + 20, 55, 18);
-  addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, infoY + 20, 55, 18);
+    let bottomY = startY + rowH * (state.presence.children.length + 1) + 10;
 
-  // =========================
-  // PAGE 2 : RELAIS
-  // =========================
-  pdf.addPage();
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Rectificatif / remarque :", leftMargin, bottomY);
+    pdf.setFont("helvetica", "normal");
+    pdf.rect(leftMargin, bottomY + 2, 180, 18);
+    pdf.text(state.presence.rectif || "", leftMargin + 2, bottomY + 8, { maxWidth: 176 });
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.text("FICHE DE RELAIS DU MOIS PRECEDENT", leftMargin, topMargin);
+    pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, bottomY + 8);
+    pdf.text("Signature :", 220, bottomY + 18);
+    pdf.rect(220, bottomY + 20, 55, 18);
+    addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, bottomY + 20, 55, 18);
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
-  pdf.text(`Nom et prénom de l'assistant familial signataire : ${state.relay.afName || ""}`, leftMargin, 18);
-  pdf.text(`Mois : ${relayMonthLabel}`, 220, 18);
+    // PAGE 2
+    pdf.addPage();
 
-  const relayNameW = 34;
-  const relayAfW = 36;
-  const relayTotalW = 12;
-  const relayDayW = (usableWidth - relayNameW - relayAfW - relayTotalW) / pdfDaysInRelayMonth;
+    const relayNameW = 45;
+    const relayAfW = 42;
+    const relayTotalW = 12;
+    const relayDayW = (usableWidth - relayNameW - relayAfW - relayTotalW) / pdfDaysInRelayMonth;
 
-  let relayY = 25;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.text("FICHE DE RELAIS DU MOIS PRECEDENT", leftMargin, topMargin);
+    addLogoToPdf(pdf, profileLogoData, 260, 6, 24, 16);
 
-  drawCell(leftMargin, relayY, relayNameW, rowH, "ENFANT", "left", 7, true);
-  drawCell(leftMargin + relayNameW, relayY, relayAfW, rowH, "AF habituel", "left", 7, true);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.text(`Nom et prénom de l'assistant familial : ${state.relay.afName || ""}`, leftMargin, 18);
+    pdf.text(`Mois : ${relayMonthLabel}`, 220, 18);
 
-  for (let d = 1; d <= pdfDaysInRelayMonth; d += 1) {
-    drawCell(
-      leftMargin + relayNameW + relayAfW + (d - 1) * relayDayW,
-      relayY,
-      relayDayW,
-      rowH,
-      d,
-      "center",
-      6,
-      true
-    );
-  }
+    let relayY = 25;
 
-  drawCell(
-    leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
-    relayY,
-    relayTotalW,
-    rowH,
-    "Total",
-    "center",
-    7,
-    true
-  );
+    drawCell(leftMargin, relayY, relayNameW, rowH, "ENFANT", "left", 7, true);
+    drawCell(leftMargin + relayNameW, relayY, relayAfW, rowH, "AF HABITUEL(LE)", "left", 7, true);
 
-  state.relay.rows.forEach((row, index) => {
-    const y = relayY + rowH * (index + 1);
-    let total = 0;
-
-    drawCell(leftMargin, y, relayNameW, rowH, row.child || "", "left", 7, false);
-    drawCell(leftMargin + relayNameW, y, relayAfW, rowH, row.usualAf || "", "left", 7, false);
-
-    for (let d = 0; d < pdfDaysInRelayMonth; d += 1) {
-      const code = row.days[d] || "";
-      if (code === "P") total += 1;
-
-      let fontSize = 6;
-      if (code === "DVH") fontSize = 5;
-
+    for (let d = 1; d <= pdfDaysInRelayMonth; d += 1) {
       drawCell(
-        leftMargin + relayNameW + relayAfW + d * relayDayW,
-        y,
+        leftMargin + relayNameW + relayAfW + (d - 1) * relayDayW,
+        relayY,
         relayDayW,
         rowH,
-        code,
+        d,
         "center",
-        fontSize,
-        false
+        7,
+        true
       );
     }
 
     drawCell(
       leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
-      y,
+      relayY,
       relayTotalW,
       rowH,
-      total,
+      "TOTAL",
       "center",
-      7,
-      false
+      6,
+      true
     );
-  });
 
-  let relayBottomY = relayY + rowH * (state.relay.rows.length + 2) + 10;
+    state.relay.rows.forEach((row, rowIndex) => {
+      const y = relayY + rowH + rowIndex * rowH;
+      drawCell(leftMargin, y, relayNameW, rowH, row.child || "", "left", 7, false);
+      drawCell(leftMargin + relayNameW, y, relayAfW, rowH, row.usualAf || "", "left", 7, false);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Remarque :", leftMargin, relayBottomY);
-  pdf.setFont("helvetica", "normal");
-  pdf.rect(leftMargin, relayBottomY + 2, 180, 18);
-  pdf.text(state.relay.notes || "", leftMargin + 2, relayBottomY + 8, { maxWidth: 176 });
+      let total = 0;
 
-  pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, relayBottomY + 8);
-  pdf.text("Signature :", 220, relayBottomY + 18);
-  pdf.rect(220, relayBottomY + 20, 55, 18);
-  addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, relayBottomY + 20, 55, 18);
+      for (let d = 0; d < pdfDaysInRelayMonth; d += 1) {
+        const code = row.days[d] || "";
+        if (code === "P") total += 1;
 
-  const fileName = `fiche_presence_${state.presence.month || "sans_mois"}.pdf`;
-  const pdfBlob = pdf.output("blob");
-
-  if (typeof addPdfToGlobalHistory === "function") {
-    addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
-  }
-
-  pdf.save(fileName);
-  showToast("PDF généré et ajouté à l’historique");
-}
-
-    function initDefaults() {
-      const now = new Date();
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
-
-      if (!state.presence.month) state.presence.month = currentMonth;
-      if (!state.relay.month) state.relay.month = previousMonth;
-    }
-
-    onAuthStateChanged(auth, async (user) => {
-      currentUser = user || null;
-
-      if (!currentUser) {
-        window.location.href = "connexion.html";
-        return;
+        drawCell(
+          leftMargin + relayNameW + relayAfW + d * relayDayW,
+          y,
+          relayDayW,
+          rowH,
+          code,
+          "center",
+          7,
+          false
+        );
       }
 
-      loadModule();
-      normalizeStateShape();
-      initDefaults();
-
-      activateTabs();
-      bindLegendsOnce();
-      bindFields();
-      fillFromState();
-
-      await loadProfile();
+      drawCell(
+        leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
+        y,
+        relayTotalW,
+        rowH,
+        total,
+        "center",
+        7,
+        false
+      );
     });
-  </script>
+
+    let relayBottomY = relayY + rowH * (state.relay.rows.length + 2) + 10;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Remarque :", leftMargin, relayBottomY);
+    pdf.setFont("helvetica", "normal");
+    pdf.rect(leftMargin, relayBottomY + 2, 180, 18);
+    pdf.text(state.relay.notes || "", leftMargin + 2, relayBottomY + 8, { maxWidth: 176 });
+
+    pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, relayBottomY + 8);
+    pdf.text("Signature :", 220, relayBottomY + 18);
+    pdf.rect(220, relayBottomY + 20, 55, 18);
+    addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, relayBottomY + 20, 55, 18);
+addEasyfraisFooter(pdf);
+    const fileName = `fiche_presence_${state.presence.month || "sans_mois"}.pdf`;
+    const pdfBlob = pdf.output("blob");
+
+    if (typeof addPdfToGlobalHistory === "function") {
+      addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
+    }
+
+    pdf.save(fileName);
+    showToast("PDF généré et ajouté à l’historique");
+  }
+
+  function initDefaults() {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
+
+    if (!state.presence.month) state.presence.month = currentMonth;
+    if (!state.relay.month) state.relay.month = previousMonth;
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user || null;
+
+    if (!currentUser) {
+      window.location.href = "connexion.html";
+      return;
+    }
+
+    loadModule();
+    normalizeStateShape();
+    initDefaults();
+
+    activateTabs();
+    bindLegendsOnce();
+    bindFields();
+    fillFromState();
+
+    await loadProfile();
+  });
+</script>
 </body>
 </html>
