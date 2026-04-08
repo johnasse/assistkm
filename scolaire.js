@@ -538,7 +538,18 @@ pdf.text("Signature : ", bx + 4, by + 42);
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
 
-  const fileName = `scolaire_${new Date().toISOString().slice(0, 10)}.pdf`;
+ function cleanFileName(text) {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
+const assistantFileName = cleanFileName(assistant);
+const moisLabel = cleanFileName(formatMonthLabel(mois));
+
+const fileName = `Frais_scolaires_${moisLabel}_${assistantFileName}.pdf`;
 
   try {
     await savePdfToHistory(pdf, {
