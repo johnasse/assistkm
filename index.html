@@ -417,54 +417,7 @@
     const userEmail = document.getElementById("userEmail");
     const adminCard = document.getElementById("adminCard");
     const logoutBtn = document.getElementById("logoutBtn");
-    // ===== INACTIVITY SYSTEM =====
-
-const WARNING_TIME = 4.5 * 60 * 1000;
-const LOGOUT_TIME = 5 * 60 * 1000;
-
-let warningTimeout, logoutTimeout, countdownInterval;
-
-const modal = document.getElementById("inactivityModal");
-const countdownEl = document.getElementById("countdown");
-const stayBtn = document.getElementById("stayConnectedBtn");
-
-function showModal() {
-  let timeLeft = 30;
-  countdownEl.textContent = timeLeft;
-  modal.classList.remove("hidden");
-
-  countdownInterval = setInterval(() => {
-    timeLeft--;
-    countdownEl.textContent = timeLeft;
-  }, 1000);
-}
-
-function hideModal() {
-  modal.classList.add("hidden");
-  clearInterval(countdownInterval);
-}
-
-async function logoutUserAuto() {
-  hideModal();
-  await signOut(auth);
-  window.location.href = "connexion.html";
-}
-
-function resetTimers() {
-  clearTimeout(warningTimeout);
-  clearTimeout(logoutTimeout);
-  hideModal();
-
-  warningTimeout = setTimeout(showModal, WARNING_TIME);
-  logoutTimeout = setTimeout(logoutUserAuto, LOGOUT_TIME);
-}
-
-["mousemove","click","keypress","scroll","touchstart"].forEach(event => {
-  document.addEventListener(event, resetTimers, true);
-});
-
-stayBtn?.addEventListener("click", resetTimers);
-
+  
     async function isAdmin(uid) {
       try {
         const adminRef = doc(db, "admins", uid);
@@ -479,7 +432,7 @@ stayBtn?.addEventListener("click", resetTimers);
    onAuthStateChanged(auth, async (user) => {
   if (!user) return;
 
-  resetTimers(); // 🔥 ICI on démarre le système
+ 
 
   if (userEmail) {
     userEmail.textContent = user.email;
@@ -505,13 +458,6 @@ stayBtn?.addEventListener("click", resetTimers);
   </script>
 
   <script type="module" src="auth-guard.js"></script>
-  <div id="inactivityModal" class="inactivity-modal hidden">
-  <div class="inactivity-modal-content">
-    <h3>Inactivité détectée</h3>
-    <p>Déconnexion dans <span id="countdown">30</span> secondes.</p>
-    <button id="stayConnectedBtn">Rester connecté</button>
-  </div>
-</div>
-<script type="module" src="js/inactivity.js"></script>
+<script type="module" src="inactivity.js"></script>
 </body>
 </html>
