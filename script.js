@@ -4,6 +4,7 @@ import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 
 let map = null;
 let directionsService = null;
@@ -129,14 +130,30 @@ document.addEventListener("DOMContentLoaded", () => {
   initGoogleServicesIfAvailable();
 });
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "connexion.html";
     return;
   }
 
   currentUid = user.uid;
-  loadUserData();
+
+  if (!ensureGlobalPinExists()) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  const ok = await requireGlobalPin({
+    title: "Accès au module kilométrique",
+    message: "Entre ton code PIN pour accéder à ce module."
+  });
+
+  if (!ok) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  await loadUserData();
 });
 
 async function loadUserData() {
@@ -853,7 +870,9 @@ function renderDeplacements() {
     `;
     body.appendChild(tr);
 }
-
+if (typeof window.maskChildrenNames === "function") {
+  window.maskChildrenNames();
+}
   document.querySelectorAll(".table-action-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       supprimerDeplacement(Number(btn.dataset.id));

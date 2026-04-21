@@ -4,6 +4,7 @@ import { savePdfToHistory } from "./pdf-history.js";
 import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 
 const STORAGE_KEY = "parkingModuleEasyFrais";
 
@@ -613,4 +614,8 @@ onAuthStateChanged(auth, async (user) => {
   renderTable();
   bindEvents();
   await loadProfileParking();
+})
+const ok = await requireGlobalPin({
+  title: "Accès au module parking",
+  message: "Entre ton code PIN pour accéder à ce module."
 });

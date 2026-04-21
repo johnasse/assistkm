@@ -1,3 +1,4 @@
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
@@ -660,6 +661,45 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   uid = user.uid;
 
+  // 🔒 Vérifie PIN
+  if (!ensureGlobalPinExists()) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  // 🔒 Demande PIN
+  const ok = await requireGlobalPin({
+    title: "Accès au module Noël",
+    message: "Entre ton code PIN pour accéder à ce module."
+  });
+
+  if (!ok) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  // ✅ Chargement normal
+  if ($("assistantNomNoel")) {
+    $("assistantNomNoel").value =
+      localStorage.getItem(`assistantNomNoel_${uid}`) ||
+      localStorage.getItem(`assistantNom_${uid}`) ||
+      "";
+  }
+
+  if ($("moisNoel")) {
+    $("moisNoel").value =
+      localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
+  }
+
+  loadData();
+  bindEvents();
+  render();
+  await loadProfileNoel();
+});
+
+  currentUser = user;
+  uid = user.uid;
+
   $("assistantNomLoisirs").value =
     localStorage.getItem(`assistantNomLoisirs_${uid}`) ||
     localStorage.getItem(`assistantNom_${uid}`) ||
@@ -672,4 +712,3 @@ onAuthStateChanged(auth, async (user) => {
   bindEvents();
   render();
   await loadProfileLoisirs();
-});

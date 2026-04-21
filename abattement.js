@@ -1,6 +1,7 @@
 import { auth, requirePremium } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
+
 let uid = null;
 let lignesAbattement = [];
 let listeEnfantsAbattementMemo = [];

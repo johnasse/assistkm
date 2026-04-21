@@ -1,7 +1,7 @@
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { getStorage, ref, deleteObject } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
-
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 const storage = getStorage();
 
 let currentUser = null;
@@ -122,19 +122,46 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "connexion.html";
     return;
   }
 
   currentUser = user;
+
+  // 🔒 Vérifie que le PIN existe
+  if (!ensureGlobalPinExists()) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  // 🔒 Demande le PIN
+  const ok = await requireGlobalPin({
+    title: "Accès à l’historique",
+    message: "Entre ton code PIN pour accéder à ce module."
+  });
+
+  if (!ok) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  // ✅ Chargement normal
   loadHistorique();
   renderHistorique();
 
-  // 🔥 AJOUT ICI
   document.getElementById("btnMergeSelected")?.addEventListener("click", mergeSelectedPDFs);
 });
+  
+
+  currentUser = user;
+  loadHistorique();
+  renderHistorique();
+  
+
+  // 🔥 AJOUT ICI
+  document.getElementById("btnMergeSelected")?.addEventListener("click", mergeSelectedPDFs);
 // ===== FUSION PDF =====
 async function mergeSelectedPDFs() {
   const checkboxes = document.querySelectorAll(".pdfCheck:checked");

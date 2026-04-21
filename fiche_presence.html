@@ -567,6 +567,7 @@
   import { auth, db } from "./firebase-config.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
   import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+  import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 
   function getPresenceStorageKey() {
     const uid = currentUser?.uid || "guest";
@@ -1466,25 +1467,41 @@ addEasyfraisFooter(pdf);
     if (!state.relay.month) state.relay.month = previousMonth;
   }
 
-  onAuthStateChanged(auth, async (user) => {
-    currentUser = user || null;
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user || null;
 
-    if (!currentUser) {
-      window.location.href = "connexion.html";
-      return;
-    }
+  if (!currentUser) {
+    window.location.href = "connexion.html";
+    return;
+  }
 
-    loadModule();
-    normalizeStateShape();
-    initDefaults();
+  if (!ensureGlobalPinExists()) {
+    window.location.href = "index.html";
+    return;
+  }
 
-    activateTabs();
-    bindLegendsOnce();
-    bindFields();
-    fillFromState();
-
-    await loadProfile();
+  const ok = await requireGlobalPin({
+    title: "Accès à la fiche de présence",
+    message: "Entre ton code PIN pour accéder à ce module."
   });
+
+  if (!ok) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  loadModule();
+  normalizeStateShape();
+  initDefaults();
+
+  activateTabs();
+  bindLegendsOnce();
+  bindFields();
+  fillFromState();
+
+  await loadProfile();
+});
+
 </script>
 <script type="module" src="inactivity.js"></script>
 </body>

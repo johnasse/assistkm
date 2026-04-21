@@ -4,6 +4,7 @@ import { savePdfToHistory } from "./pdf-history.js";
 import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 
 let fraisAutres = [];
 let uid = null;
@@ -661,6 +662,37 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   currentUser = user;
+  currentUid = user.uid; // garde cette ligne seulement si la page utilise currentUid
+
+  if (!ensureGlobalPinExists()) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  const ok = await requireGlobalPin({
+    title: "Accès sécurisé",
+    message: "Entre ton code PIN pour accéder à ce module."
+  });
+
+  if (!ok) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  // ✅ ici tu mets le chargement normal du module
+  if (typeof loadUserData === "function") {
+    await loadUserData();
+  }
+
+  if (typeof loadProfile === "function") {
+    await loadProfile(user.uid);
+  }
+
+  if (typeof renderHistorique === "function") {
+    renderHistorique();
+  }
+});
+  currentUser = user;
   uid = user.uid;
 
   if ($("assistantNomAutres")) {
@@ -679,4 +711,3 @@ onAuthStateChanged(auth, async (user) => {
   bindEvents();
   render();
   await loadProfileAutres();
-});

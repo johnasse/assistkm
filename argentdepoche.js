@@ -1,7 +1,7 @@
 import { savePdfToHistory } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 const DEFAULT_RATES = {
   "0-11": 10.00,
   "12-15": 20.00,

@@ -6,9 +6,7 @@ function formatChildNameSecure(fullName) {
     .split(/\s+/)
     .filter(Boolean);
 
-  if (parts.length === 1) {
-    return parts[0];
-  }
+  if (parts.length === 1) return parts[0];
 
   const firstName = parts[0];
   const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
@@ -18,27 +16,21 @@ function formatChildNameSecure(fullName) {
 
 function maskChildrenNames() {
   document.querySelectorAll("[data-child]").forEach((el) => {
-    const originalText = el.getAttribute("data-child-value") || el.textContent?.trim();
+    const original = el.getAttribute("data-original") || el.textContent?.trim();
+    if (!original) return;
 
-    if (!originalText) return;
+    el.setAttribute("data-original", original);
+    const masked = formatChildNameSecure(original);
 
-    el.setAttribute("data-child-value", originalText);
-    el.textContent = formatChildNameSecure(originalText);
+    if (el.textContent !== masked) {
+      el.textContent = masked;
+    }
   });
 }
 
-function observeChanges() {
-  const observer = new MutationObserver(() => {
-    maskChildrenNames();
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-}
+// rend la fonction dispo globalement
+window.maskChildrenNames = maskChildrenNames;
 
 document.addEventListener("DOMContentLoaded", () => {
   maskChildrenNames();
-  observeChanges();
 });
