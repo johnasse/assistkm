@@ -840,7 +840,7 @@ function renderDeplacements() {
  for (const item of deplacements) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${escapeHtml(item.enfant)}</td>
+      <td data-child>${escapeHtml(item.enfant)}</td>
       <td>${escapeHtml(item.motif)}</td>
       <td>${formatDateFr(item.dateTrajet)}</td>
       <td>${escapeHtml(item.heureDebut || "-")}</td>
