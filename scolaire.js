@@ -1,6 +1,7 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
+import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -549,7 +550,7 @@ pdf.text("Signature : ", bx + 4, by + 42);
 const assistantFileName = cleanFileName(assistant);
 const moisLabel = cleanFileName(formatMonthLabel(mois));
 
-const fileName = `Frais_scolaires_${moisLabel}_${assistantFileName}.pdf`;
+const fileName = generateFileName("Frais_scolaires", mois, assistant);
 
   try {
     await savePdfToHistory(pdf, {

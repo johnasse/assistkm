@@ -1,6 +1,7 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
+import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 let fraisLoisirs = [];
@@ -574,7 +575,7 @@ pdf.text("Signature : ", cadreX + 4, cadreY + 42);
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
 
-const fileName = `loisirs_${new Date().toISOString().slice(0, 10)}.pdf`;
+const fileName = generateFileName("Frais_loisirs", mois, assistant);
 
 try {
   await savePdfToHistory(pdf, {

@@ -1,6 +1,7 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
+import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -1351,7 +1352,7 @@ docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, baremeX, yBareme)
     }
   }
 
-  const fileName = `etat_frais_kilometriques_${moisEtat || "mois"}.pdf`;
+const fileName = generateFileName("Frais_kilometriques", moisEtat, assistantNom);
 
 addEasyfraisFooter(docPdf);
 

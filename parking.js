@@ -1,6 +1,7 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
+import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -508,7 +509,7 @@ const by = stopY + 32;
 
   addEasyfraisFooter(pdf);
 
-  const fileName = `parking_${getFileNameMonth(moisValue)}.pdf`;
+const fileName = generateFileName("Frais_parking", moisValue, assistantNom);
 
   try {
     await savePdfToHistory(pdf, {

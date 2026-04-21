@@ -1,6 +1,7 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
+import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -578,7 +579,7 @@ drawCellText(pdf, montantLines, tableX + colDate + colEnfant + colDetail, rowY, 
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
 
-  const fileName = `autres_${new Date().toISOString().slice(0, 10)}.pdf`;
+ const fileName = generateFileName("Autres_frais", mois, assistant);
 
   try {
     await savePdfToHistory(pdf, {

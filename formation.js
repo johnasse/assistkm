@@ -1,6 +1,7 @@
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
+import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -524,7 +525,7 @@ async function genererPDF() {
   await ajouterImagesAuPdf(pdf);
   addEasyfraisFooter(pdf);
 
-  const fileName = `formation_${new Date().toISOString().slice(0, 10)}.pdf`;
+const fileName = generateFileName("Frais_formation", mois, assistant);
 
   try {
     await savePdfToHistory(pdf, {
