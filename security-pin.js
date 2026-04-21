@@ -1,11 +1,17 @@
 import { auth } from "./firebase-config.js";
 
+const PIN_DURATION = 5 * 60 * 1000; // 5 minutes
+
 function getUid() {
   return auth.currentUser?.uid || "guest";
 }
 
 function getGlobalPinKey() {
   return `easyfrais_global_pin_${getUid()}`;
+}
+
+function getPinUnlockKey() {
+  return `easyfrais_pin_unlock_until_${getUid()}`;
 }
 
 export function getGlobalPin() {
@@ -33,6 +39,20 @@ export function ensureGlobalPinExists() {
   setGlobalPin(newPin);
   alert("Code PIN enregistré avec succès.");
   return true;
+}
+
+export function isPinStillValid() {
+  const unlockUntil = Number(localStorage.getItem(getPinUnlockKey()) || "0");
+  return Date.now() < unlockUntil;
+}
+
+export function unlockPinFor5Minutes() {
+  const unlockUntil = Date.now() + PIN_DURATION;
+  localStorage.setItem(getPinUnlockKey(), String(unlockUntil));
+}
+
+export function clearPinUnlock() {
+  localStorage.removeItem(getPinUnlockKey());
 }
 
 export function showPinModal({
@@ -96,25 +116,33 @@ export function showPinModal({
         </div>
 
         <div style="display:flex; gap:10px; justify-content:center; margin-top:18px;">
-          <button id="globalPinCancelBtn" type="button" style="
-            padding:10px 14px;
-            border:none;
-            border-radius:10px;
-            background:#e5e7eb;
-            cursor:pointer;
-          ">
+          <button
+            id="globalPinCancelBtn"
+            type="button"
+            style="
+              padding:10px 14px;
+              border:none;
+              border-radius:10px;
+              background:#e5e7eb;
+              cursor:pointer;
+            "
+          >
             Annuler
           </button>
 
-          <button id="globalPinValidateBtn" type="button" style="
-            padding:10px 14px;
-            border:none;
-            border-radius:10px;
-            background:#2563eb;
-            color:white;
-            cursor:pointer;
-            font-weight:700;
-          ">
+          <button
+            id="globalPinValidateBtn"
+            type="button"
+            style="
+              padding:10px 14px;
+              border:none;
+              border-radius:10px;
+              background:#2563eb;
+              color:white;
+              cursor:pointer;
+              font-weight:700;
+            "
+          >
             Valider
           </button>
         </div>
@@ -130,6 +158,11 @@ export function showPinModal({
   const error = document.getElementById("globalPinError");
   const validateBtn = document.getElementById("globalPinValidateBtn");
   const cancelBtn = document.getElementById("globalPinCancelBtn");
+
+  if (!titleEl || !messageEl || !input || !error || !validateBtn || !cancelBtn) {
+    onCancel();
+    return;
+  }
 
   titleEl.textContent = title;
   messageEl.textContent = message;
@@ -155,6 +188,7 @@ export function showPinModal({
     const saved = getGlobalPin();
 
     if (entered === saved) {
+      unlockPinFor5Minutes();
       close();
       onSuccess();
     } else {
@@ -181,6 +215,11 @@ export function showPinModal({
 
 export function requireGlobalPin(options = {}) {
   return new Promise((resolve) => {
+    if (isPinStillValid()) {
+      resolve(true);
+      return;
+    }
+
     showPinModal({
       ...options,
       onSuccess: () => resolve(true),
@@ -207,6 +246,7 @@ export function changeGlobalPin() {
   }
 
   setGlobalPin(newPin);
+  clearPinUnlock();
   alert("Code PIN mis à jour.");
   return true;
 }

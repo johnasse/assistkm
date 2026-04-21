@@ -1,6 +1,6 @@
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-
+import { clearPinUnlock } from "./security-pin.js";
 // ===== CONFIG =====
 const WARNING_TIME = 4.5 * 60 * 1000;
 const LOGOUT_TIME = 5 * 60 * 1000;
@@ -153,6 +153,9 @@ function hideModal() {
 async function logoutUser() {
   hideModal();
   clearInterval(sessionCountdownInterval);
+
+  // 🔥 RESET DU PIN
+  clearPinUnlock();
 
   try {
     await signOut(auth);
