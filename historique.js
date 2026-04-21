@@ -131,4 +131,55 @@ onAuthStateChanged(auth, (user) => {
   currentUser = user;
   loadHistorique();
   renderHistorique();
+
+  // 🔥 AJOUT ICI
+  document.getElementById("btnMergeSelected")?.addEventListener("click", mergeSelectedPDFs);
 });
+// ===== FUSION PDF =====
+async function mergeSelectedPDFs() {
+  const checkboxes = document.querySelectorAll(".pdfCheck:checked");
+
+  if (checkboxes.length < 2) {
+    alert("Sélectionne au moins 2 PDF à fusionner.");
+    return;
+  }
+
+  const { PDFDocument } = window.PDFLib;
+  const mergedPdf = await PDFDocument.create();
+
+  for (const checkbox of checkboxes) {
+    const id = checkbox.dataset.id;
+    const pdf = historique.find(p => String(p.id) === String(id));
+
+    if (!pdf) continue;
+
+    let pdfBytes;
+
+    if (pdf.downloadURL) {
+      const response = await fetch(pdf.downloadURL);
+      pdfBytes = await response.arrayBuffer();
+    } else if (pdf.data) {
+      const base64 = pdf.data.split(",")[1];
+      pdfBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    } else {
+      continue;
+    }
+
+    const loadedPdf = await PDFDocument.load(pdfBytes);
+    const pages = await mergedPdf.copyPages(loadedPdf, loadedPdf.getPageIndices());
+
+    pages.forEach(page => mergedPdf.addPage(page));
+  }
+
+  const mergedBytes = await mergedPdf.save();
+
+  const blob = new Blob([mergedBytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "fusion_easyfrais.pdf";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
