@@ -74,12 +74,29 @@ function initActivityListeners() {
     }
   });
 }
-
+function addSecurityBadge() {
+  const badge = document.createElement("div");
+  badge.textContent = "🔒 Session sécurisée • Déconnexion automatique";
+  badge.style = `
+    position:fixed;
+    bottom:10px;
+    left:10px;
+    font-size:12px;
+    background:#eef2ff;
+    color:#3730a3;
+    padding:6px 10px;
+    border-radius:999px;
+    z-index:9999;
+    font-weight:600;
+  `;
+  document.body.appendChild(badge);
+}
 // ===== INIT =====
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
   createModal();
   initActivityListeners();
+  addSecurityBadge(); // 👈 AJOUT ICI
   resetTimers();
 });
