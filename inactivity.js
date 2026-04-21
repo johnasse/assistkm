@@ -26,6 +26,8 @@ function createModal() {
 }
 
 let warningTimeout, logoutTimeout, countdownInterval;
+let sessionCountdownInterval;
+let remainingSeconds = LOGOUT_TIME / 1000;
 
 function showModal() {
   const modal = document.getElementById("inactivityModal");
@@ -46,17 +48,18 @@ function hideModal() {
   modal.style.display = "none";
   clearInterval(countdownInterval);
 }
-
 async function logoutUser() {
   hideModal();
+  clearInterval(sessionCountdownInterval);
   await signOut(auth);
   window.location.href = "connexion.html";
 }
-
 function resetTimers() {
   clearTimeout(warningTimeout);
   clearTimeout(logoutTimeout);
   hideModal();
+
+  startSessionCountdown();
 
   warningTimeout = setTimeout(showModal, WARNING_TIME);
   logoutTimeout = setTimeout(logoutUser, LOGOUT_TIME);
@@ -97,6 +100,57 @@ onAuthStateChanged(auth, (user) => {
 
   createModal();
   initActivityListeners();
-  addSecurityBadge(); // 👈 AJOUT ICI
+  addSecurityBadge();
   resetTimers();
 });
+function addSecurityBadge() {
+  if (document.getElementById("securityBadge")) return;
+
+  const badge = document.createElement("div");
+  badge.id = "securityBadge";
+  badge.style = `
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    font-size: 12px;
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 8px 12px;
+    border-radius: 999px;
+    z-index: 9999;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  `;
+  badge.textContent = "🔒 Session sécurisée • Déconnexion dans 05:00";
+  document.body.appendChild(badge);
+}
+
+function formatCountdown(seconds) {
+  const min = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const sec = String(seconds % 60).padStart(2, "0");
+  return `${min}:${sec}`;
+}
+
+function updateSecurityBadge() {
+  const badge = document.getElementById("securityBadge");
+  if (!badge) return;
+
+  badge.textContent = `🔒 Session sécurisée • Déconnexion dans ${formatCountdown(remainingSeconds)}`;
+}
+
+function startSessionCountdown() {
+  clearInterval(sessionCountdownInterval);
+  remainingSeconds = LOGOUT_TIME / 1000;
+  updateSecurityBadge();
+
+  sessionCountdownInterval = setInterval(() => {
+    remainingSeconds--;
+
+    if (remainingSeconds < 0) {
+      clearInterval(sessionCountdownInterval);
+      return;
+    }
+
+    updateSecurityBadge();
+  }, 1000);
+}
