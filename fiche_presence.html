@@ -1446,7 +1446,33 @@
     pdf.rect(220, relayBottomY + 20, 55, 18);
     addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, relayBottomY + 20, 55, 18);
 addEasyfraisFooter(pdf);
-    const fileName = `fiche_presence_${state.presence.month || "sans_mois"}.pdf`;
+    function formatMonthYear(monthValue) {
+  if (!monthValue) return "sans_mois";
+  
+  const [year, month] = monthValue.split("-");
+  
+  const moisNoms = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+  ];
+  
+  return `${moisNoms[parseInt(month, 10) - 1]} ${year}`;
+}
+
+function cleanFileName(str) {
+  return (str || "af")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .toLowerCase();
+}
+
+const nomAF = cleanFileName(state.presence.afName);
+const moisFormat = formatMonthYear(state.presence.month);
+
+const fileName = `feuille_de_presence_${nomAF}_${moisFormat}.pdf`;
+
+pdf.save(fileName);
     const pdfBlob = pdf.output("blob");
 
     if (typeof addPdfToGlobalHistory === "function") {
