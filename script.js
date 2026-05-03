@@ -130,30 +130,14 @@ document.addEventListener("DOMContentLoaded", () => {
   initGoogleServicesIfAvailable();
 });
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = "connexion.html";
     return;
   }
 
   currentUid = user.uid;
-
-  if (!ensureGlobalPinExists()) {
-    window.location.href = "index.html";
-    return;
-  }
-
-  const ok = await requireGlobalPin({
-    title: "Accès au module kilométrique",
-    message: "Entre ton code PIN pour accéder à ce module."
-  });
-
-  if (!ok) {
-    window.location.href = "index.html";
-    return;
-  }
-
-  await loadUserData();
+  loadUserData();
 });
 
 async function loadUserData() {

@@ -450,6 +450,7 @@ function exportPdfAbattement() {
 function bindEvents() {
   if (eventsBound) return;
   eventsBound = true;
+  el("btnImportPresence")?.addEventListener("click", importerDepuisPresence);
 
   el("anneeAbattement")?.addEventListener("change", () => {
     updateSmicFields();
@@ -517,3 +518,53 @@ onAuthStateChanged(auth, async (user) => {
   uid = user.uid;
   await initModule();
 });
+function importerDepuisPresence() {
+  const uidSafe = uid || "guest";
+  const anneeSelectionnee = Number(el("anneeAbattement").value);
+  const key = `presenceAbattement_${uidSafe}_${anneeSelectionnee}`;
+  const archive = JSON.parse(localStorage.getItem(key) || "[]");
+
+  if (!archive.length) {
+    alert("Aucune présence enregistrée pour cette année.");
+    return;
+  }
+
+  let importCount = 0;
+
+  archive.forEach((item) => {
+    if (!item.enfant || !item.mois || !item.jours) return;
+
+    const existe = lignesAbattement.some(l =>
+      l.enfant === item.enfant && Number(l.mois) === Number(item.mois)
+    );
+
+    if (existe) return;
+
+    const ligne = {
+      enfant: item.enfant,
+      mois: Number(item.mois),
+      jours: Number(item.jours),
+      heuresParJour: 8,
+      modeAccueil: "non_permanent",
+      majoration: false,
+      revenu: 0,
+      abattement: 0
+    };
+
+    ligne.abattement = calculerAbattementLigne(ligne);
+    lignesAbattement.push(ligne);
+
+    if (!listeEnfantsAbattementMemo.includes(item.enfant)) {
+      listeEnfantsAbattementMemo.push(item.enfant);
+    }
+
+    importCount++;
+  });
+
+  saveLignes();
+  saveEnfants();
+  renderListeEnfantsAbattement();
+  calculerAbattement();
+
+  alert(`${importCount} ligne(s) importée(s) depuis les fiches de présence.`);
+}

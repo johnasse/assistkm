@@ -495,15 +495,15 @@
           <button type="button" class="btn btn-danger" id="btnClearPresenceMonth">Vider le mois</button>
         </div>
 
-        <div class="legend" id="presenceLegend">
-          <button type="button" class="active" data-code="P">P</button>
-          <button type="button" data-code="I">I</button>
-          <button type="button" data-code="DVH">DVH</button>
-          <button type="button" data-code="A">A</button>
-          <button type="button" data-code="F">F</button>
-          <button type="button" data-code="R">R</button>
-          <button type="button" data-code="">Vider</button>
-        </div>
+       <div class="legend" id="presenceLegend">
+  <button type="button" data-code="PP">Accueil permanent</button>
+  <button type="button" data-code="I">Internat</button>
+  <button type="button" data-code="DVH">Droit de visite et d'hébergement</button>
+  <button type="button" data-code="A">Adaptation</button>
+  <button type="button" data-code="F">Formation</button>
+  <button type="button" data-code="R">Relais</button>
+  <button type="button" data-code="">Vider</button>
+</div>
 
         <div class="small-note">
           Clique sur une case pour appliquer le code sélectionné. Si tu recliques sur le même code, la case se vide. Total = nombre de jours marqués « P ».
@@ -574,7 +574,7 @@
     return `presenceModuleEasyFrais_${uid}`;
   }
 
-  const MIN_PRESENCE_ROWS = 4;
+  const MIN_PRESENCE_ROWS = 2;
   const MAX_PRESENCE_ROWS = 12;
 
   let currentUser = null;
@@ -644,9 +644,12 @@
       state.presence.grid = Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
     }
 
-    while (state.presence.children.length < MIN_PRESENCE_ROWS) {
-      state.presence.children.push("");
-    }
+   // Ne pas recréer d'enfants vides automatiquement
+if (state.presence.children.length < MIN_PRESENCE_ROWS) {
+  while (state.presence.children.length < MIN_PRESENCE_ROWS) {
+    state.presence.children.push("");
+  }
+}
 
     while (state.presence.grid.length < state.presence.children.length) {
       state.presence.grid.push(Array(31).fill(""));
@@ -654,6 +657,28 @@
 
     state.presence.children = state.presence.children.slice(0, MAX_PRESENCE_ROWS);
     state.presence.grid = state.presence.grid.slice(0, MAX_PRESENCE_ROWS).map((row) => {
+      // 🔥 SUPPRIMER LES ENFANTS VIDES (sauf minimum)
+const filteredChildren = [];
+const filteredGrid = [];
+
+state.presence.children.forEach((child, index) => {
+  const hasName = child && child.trim() !== "";
+  const hasData = state.presence.grid[index]?.some(v => v);
+
+  if (hasName || hasData) {
+    filteredChildren.push(child);
+    filteredGrid.push(state.presence.grid[index]);
+  }
+});
+
+// garder minimum 2 lignes
+while (filteredChildren.length < MIN_PRESENCE_ROWS) {
+  filteredChildren.push("");
+  filteredGrid.push(Array(31).fill(""));
+}
+
+state.presence.children = filteredChildren;
+state.presence.grid = filteredGrid;
       const normalized = Array.isArray(row) ? row.slice(0, 31) : [];
       while (normalized.length < 31) normalized.push("");
       return normalized;
@@ -790,7 +815,10 @@
     wrap.innerHTML = state.presence.children.map((child, row) => {
       let total = 0;
       for (let day = 0; day < daysInPresenceMonth; day += 1) {
-        if ((state.presence.grid[row]?.[day] || "") === "P") total += 1;
+        if (
+  state.presence.grid[row]?.[day] === "P" ||
+  state.presence.grid[row]?.[day] === "PP"
+) total += 1;
       }
 
       return `
@@ -819,7 +847,7 @@
 
       for (let day = 0; day < daysInPresenceMonth; day += 1) {
         const code = state.presence.grid[row][day] || "";
-        if (code === "P") total += 1;
+        if (code === "P" || code === "PP") total += 1;
         const cls = `code-${code || "empty"}`;
         html += `<td class="day-cell ${cls}" data-row="${row}" data-day="${day}" data-type="presence">${escapeHtml(code || "-")}</td>`;
       }
@@ -1072,14 +1100,58 @@
     showToast("Mois vidé");
   }
 
-  function saveModule() {
-    localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
-    showToast("Fiche de présence enregistrée");
-  }
+ function saveModule() {
+  localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
+  savePresenceForAbattement();
+  showToast("Fiche de présence enregistrée");
+}
+ function savePresenceForAbattement() {
+  const uidSafe = currentUser?.uid || "guest";
+  const monthValue = state.presence.month;
 
-  function saveModuleSilently() {
-    localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
-  }
+  if (!monthValue) return;
+
+  const [year, month] = monthValue.split("-").map(Number);
+  const key = `presenceAbattement_${uidSafe}_${year}`;
+  const archive = JSON.parse(localStorage.getItem(key) || "[]");
+
+  state.presence.children.forEach((enfant, rowIndex) => {
+    if (!enfant) return;
+
+    let totalJours = 0;
+
+    for (let day = 0; day < daysInPresenceMonth; day++) {
+      if (
+        state.presence.grid[rowIndex]?.[day] === "P" ||
+        state.presence.grid[rowIndex]?.[day] === "PP"
+      ) {
+        totalJours++;
+      }
+    }
+
+    const existingIndex = archive.findIndex(item =>
+      item.enfant === enfant && item.mois === month
+    );
+
+    const isPermanent = state.presence.grid[rowIndex].includes("PP");
+
+    const item = {
+      enfant,
+      annee: year,
+      mois: month,
+      jours: totalJours,
+      modeAccueil: isPermanent ? "permanent" : "non_permanent"
+    };
+
+    if (existingIndex >= 0) {
+      archive[existingIndex] = item;
+    } else {
+      archive.push(item);
+    }
+  });
+
+  localStorage.setItem(key, JSON.stringify(archive));
+}
 
   function loadModule() {
     const raw = localStorage.getItem(getPresenceStorageKey());
@@ -1292,9 +1364,13 @@
     pdf.setFontSize(9);
     pdf.text(`Nom et prénom de l'assistant familial : ${state.presence.afName || ""}`, leftMargin, 18);
     pdf.text(`Mois : ${monthLabel}`, 220, 18);
+    pdf.setFont("helvetica", "normal");
+pdf.setFontSize(7);
 
+
+pdf.setFontSize(6);
     let startX = leftMargin;
-    let startY = 25;
+    let startY = 36;
 
     drawCell(startX, startY, nameW, rowH, "ENFANT", "left", 7, true);
 
@@ -1321,7 +1397,7 @@
 
       for (let d = 0; d < pdfDaysInPresenceMonth; d += 1) {
         const code = state.presence.grid[rowIndex]?.[d] || "";
-        if (code === "P") total += 1;
+        if (code === "P" || code === "PP") total += 1;
 
         drawCell(
           startX + nameW + d * dayWPresence,
@@ -1338,18 +1414,42 @@
       drawCell(startX + nameW + pdfDaysInPresenceMonth * dayWPresence, y, totalW, rowH, total, "center", 7, false);
     });
 
-    let bottomY = startY + rowH * (state.presence.children.length + 1) + 10;
+    let bottomY = startY + rowH * (state.presence.children.length + 1) + 6;
 
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Rectificatif / remarque :", leftMargin, bottomY);
-    pdf.setFont("helvetica", "normal");
-    pdf.rect(leftMargin, bottomY + 2, 180, 18);
-    pdf.text(state.presence.rectif || "", leftMargin + 2, bottomY + 8, { maxWidth: 176 });
+// LÉGENDE
+pdf.setFont("helvetica", "normal");
+pdf.setFontSize(6);
 
-    pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, bottomY + 8);
-    pdf.text("Signature :", 220, bottomY + 18);
-    pdf.rect(220, bottomY + 20, 55, 18);
-    addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, bottomY + 20, 55, 18);
+const legendY = bottomY;
+const legendH = 8;
+const legendX = leftMargin;
+const legendW = usableWidth;
+
+pdf.rect(legendX, legendY, legendW, legendH);
+
+const legends = [
+  "Internat (I)",
+  "DVH parents / autres (DVH*)",
+  "Adaptation (A)",
+  "Présence domicile AF (P)",
+  "Formation (F)",
+  "Relais hors échanges (R)",
+  "Accueil permanent (PP)"
+];
+
+const colW = legendW / legends.length;
+
+legends.forEach((text, index) => {
+  const x = legendX + index * colW;
+  pdf.rect(x, legendY, colW, legendH);
+  pdf.text(text, x + colW / 2, legendY + 5, { align: "center" });
+});
+
+pdf.setFontSize(6);
+pdf.text("* DVH : droits de visite et d’hébergement", legendX + 2, legendY + legendH + 4);
+
+// Décalage pour la suite
+bottomY = legendY + legendH + 8;
 
     // PAGE 2
     pdf.addPage();
@@ -1407,7 +1507,7 @@
 
       for (let d = 0; d < pdfDaysInRelayMonth; d += 1) {
         const code = row.days[d] || "";
-        if (code === "P") total += 1;
+        if (code === "P" || code === "PP") total += 1;
 
         drawCell(
           leftMargin + relayNameW + relayAfW + d * relayDayW,
@@ -1472,18 +1572,15 @@ const moisFormat = formatMonthYear(state.presence.month);
 
 const fileName = `feuille_de_presence_${nomAF}_${moisFormat}.pdf`;
 
+const pdfBlob = pdf.output("blob");
+
+if (typeof addPdfToGlobalHistory === "function") {
+  addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
+}
+
 pdf.save(fileName);
-    const pdfBlob = pdf.output("blob");
-
-    if (typeof addPdfToGlobalHistory === "function") {
-      addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
-    }
-
-    pdf.save(fileName);
-    showToast("PDF généré et ajouté à l’historique");
-  }
-
-  function initDefaults() {
+}
+function initDefaults() {
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
