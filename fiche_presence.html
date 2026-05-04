@@ -578,7 +578,7 @@
   const MAX_PRESENCE_ROWS = 12;
 
   let currentUser = null;
-  let selectedPresenceCode = "P";
+let selectedPresenceCode = "PP";
   let selectedRelayCode = "P";
   let daysInPresenceMonth = 31;
   let daysInRelayMonth = 31;
@@ -899,19 +899,22 @@ state.presence.grid = filteredGrid;
     bindRelayDeleteButtons();
   }
 
-  function bindFillRowButtons() {
-    document.querySelectorAll(".fill-row-btn").forEach((btn) => {
-      btn.onclick = () => {
-        const row = Number(btn.dataset.row);
-        for (let day = 0; day < daysInPresenceMonth; day += 1) {
-          state.presence.grid[row][day] = "P";
-        }
-        renderPresenceTable();
-        saveModuleSilently();
-        showToast("Mois complet pour cet enfant");
-      };
-    });
-  }
+ function bindFillRowButtons() {
+  document.querySelectorAll(".fill-row-btn").forEach((btn) => {
+    btn.onclick = () => {
+      const row = Number(btn.dataset.row);
+      const code = selectedPresenceCode || "PP";
+
+      for (let day = 0; day < daysInPresenceMonth; day += 1) {
+        state.presence.grid[row][day] = code;
+      }
+
+      renderPresenceTable();
+      saveModuleSilently();
+      showToast(`Mois complet en ${code}`);
+    };
+  });
+}
 
   function bindDayCells() {
     document.querySelectorAll(".day-cell").forEach((cell) => {
@@ -1078,16 +1081,19 @@ state.presence.grid = filteredGrid;
     updateSignaturePreview();
   }
 
-  function fillFullMonthPresence() {
-    for (let row = 0; row < state.presence.children.length; row += 1) {
-      for (let day = 0; day < daysInPresenceMonth; day += 1) {
-        state.presence.grid[row][day] = "P";
-      }
+function fillFullMonthPresence() {
+  const code = selectedPresenceCode || "PP";
+
+  for (let row = 0; row < state.presence.children.length; row += 1) {
+    for (let day = 0; day < daysInPresenceMonth; day += 1) {
+      state.presence.grid[row][day] = code;
     }
-    renderPresenceTable();
-    saveModuleSilently();
-    showToast("Mois complet appliqué");
   }
+
+  renderPresenceTable();
+  saveModuleSilently();
+  showToast(`Mois complet en ${code}`);
+}
 
   function clearFullMonthPresence() {
     for (let row = 0; row < state.presence.children.length; row += 1) {

@@ -540,16 +540,19 @@ function importerDepuisPresence() {
 
     if (existe) return;
 
-    const ligne = {
-      enfant: item.enfant,
-      mois: Number(item.mois),
-      jours: Number(item.jours),
-      heuresParJour: 8,
-      modeAccueil: "non_permanent",
-      majoration: false,
-      revenu: 0,
-      abattement: 0
-    };
+    const modeAccueil = item.modeAccueil || "non_permanent";
+const isPermanent = modeAccueil === "permanent";
+
+const ligne = {
+  enfant: item.enfant,
+  mois: Number(item.mois),
+  jours: Number(item.jours),
+  heuresParJour: isPermanent ? 24 : 8,
+  modeAccueil: isPermanent ? "permanent" : "non_permanent",
+  majoration: false,
+  revenu: 0,
+  abattement: 0
+};
 
     ligne.abattement = calculerAbattementLigne(ligne);
     lignesAbattement.push(ligne);
