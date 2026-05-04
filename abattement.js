@@ -180,10 +180,57 @@ function renderLignesAbattement() {
     tbody.innerHTML = `<tr><td colspan="9" class="muted">Aucune ligne enregistrée.</td></tr>`;
     return;
   }
+  lignesAbattement.sort((a, b) => {
+  const enfantA = (a.enfant || "").toLowerCase();
+  const enfantB = (b.enfant || "").toLowerCase();
 
-  tbody.innerHTML = lignesAbattement.map((ligne, index) => `
+  if (enfantA !== enfantB) {
+    return enfantA.localeCompare(enfantB, "fr");
+  }
+
+  return Number(a.mois || 0) - Number(b.mois || 0);
+});
+
+let enfantActuel = "";
+let totalJours = 0;
+let totalAbattement = 0;
+
+let html = "";
+
+lignesAbattement.forEach((ligne, index) => {
+  const changementEnfant = ligne.enfant !== enfantActuel;
+
+  // 👉 Si on change d'enfant → afficher le total du précédent
+  if (changementEnfant && enfantActuel !== "") {
+    html += `
+      <tr>
+        <td colspan="9" style="background:#f1f5f9;font-weight:700;padding:8px;">
+          Total ${escapeHtml(enfantActuel)} : ${totalJours} jours / ${formatCurrency(totalAbattement)}
+        </td>
+      </tr>
+    `;
+    totalJours = 0;
+    totalAbattement = 0;
+  }
+
+  // 👉 Nouveau titre enfant
+  if (changementEnfant) {
+    html += `
+      <tr>
+        <td colspan="9" style="background:#eff6ff;font-weight:800;text-align:left;padding:10px;">
+          ${escapeHtml(ligne.enfant)}
+        </td>
+      </tr>
+    `;
+    enfantActuel = ligne.enfant;
+  }
+
+  totalJours += Number(ligne.jours || 0);
+  totalAbattement += Number(ligne.abattement || 0);
+
+  html += `
     <tr>
-      <td>${escapeHtml(ligne.enfant)}</td>
+      <td></td>
       <td>${MOIS_LABELS[ligne.mois] || ligne.mois}</td>
       <td>${Number(ligne.jours || 0)}</td>
       <td>${Number(ligne.heuresParJour || 0).toFixed(2)}</td>
@@ -193,9 +240,22 @@ function renderLignesAbattement() {
       <td>${formatCurrency(ligne.abattement)}</td>
       <td><button class="btn btn-light" type="button" data-remove-ligne="${index}" style="padding:8px 12px;">Supprimer</button></td>
     </tr>
-  `).join("");
+  `;
+});
+
+// 👉 Ajouter le dernier total
+if (enfantActuel !== "") {
+  html += `
+    <tr>
+      <td colspan="9" style="background:#f1f5f9;font-weight:700;padding:8px;">
+        Total ${escapeHtml(enfantActuel)} : ${totalJours} jours / ${formatCurrency(totalAbattement)}
+      </td>
+    </tr>
+  `;
 }
 
+tbody.innerHTML = html;
+}
 function renderDetailCalcul() {
   const container = el("detailCalculAbattement");
   if (!container) return;
@@ -271,6 +331,16 @@ function calculerAbattement() {
     totalAbattement += abattement;
     return { ...ligne, abattement };
   });
+  lignesAbattement.sort((a, b) => {
+  const enfantA = (a.enfant || "").toLowerCase();
+  const enfantB = (b.enfant || "").toLowerCase();
+
+  if (enfantA !== enfantB) {
+    return enfantA.localeCompare(enfantB, "fr");
+  }
+
+  return Number(a.mois || 0) - Number(b.mois || 0);
+});
 
   saveLignes();
   renderLignesAbattement();
@@ -397,54 +467,185 @@ function exportPdfAbattement() {
   }
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF();
+  const pdf = new jsPDF("portrait", "mm", "a4");
 
   const annee = el("anneeAbattement")?.value || "";
+  const revenuReference = Number(el("revenuTotalReference")?.value || 0);
+
+  lignesAbattement.sort((a, b) => {
+    const enfantA = (a.enfant || "").toLowerCase();
+    const enfantB = (b.enfant || "").toLowerCase();
+
+    if (enfantA !== enfantB) {
+      return enfantA.localeCompare(enfantB, "fr");
+    }
+
+    return Number(a.mois || 0) - Number(b.mois || 0);
+  });
+
   let y = 15;
+  const left = 12;
+  const pageW = 210;
 
-  pdf.setFontSize(18);
-  pdf.text("Abattement fiscal", 14, y);
-  y += 10;
-
-  pdf.setFontSize(11);
-  pdf.text(`Année : ${annee}`, 14, y); y += 7;
-  pdf.text(`Revenu total de référence : ${Number(el("revenuTotalReference")?.value || 0).toFixed(2)} €`, 14, y); y += 10;
-
-  pdf.setFontSize(12);
-  pdf.text("Lignes :", 14, y);
-  y += 8;
-
-  if (!lignesAbattement.length) {
-    pdf.setFontSize(10);
-    pdf.text("Aucune ligne enregistrée.", 14, y);
-    y += 8;
-  } else {
-    lignesAbattement.forEach((ligne, index) => {
-      const texte = `${index + 1}. ${ligne.enfant} - ${MOIS_LABELS[ligne.mois]} - ${ligne.jours} jour(s) - mode ${ligne.modeAccueil === "permanent" ? "permanent 24h" : "non permanent"} - ${ligne.majoration ? "majoré" : "non majoré"} - revenu ${Number(ligne.revenu).toFixed(2)} € - abattement ${Number(ligne.abattement).toFixed(2)} €`;
-      const lignesTexte = pdf.splitTextToSize(texte, 180);
-      pdf.setFontSize(10);
-      pdf.text(lignesTexte, 14, y);
-      y += lignesTexte.length * 6 + 2;
-      if (y > 270) {
-        pdf.addPage();
-        y = 15;
-      }
-    });
+  function checkPage(extra = 20) {
+    if (y + extra > 285) {
+      pdf.addPage();
+      y = 15;
+    }
   }
 
-  y += 6;
-  const totalRevenus = lignesAbattement.reduce((sum, ligne) => sum + Number(ligne.revenu || 0), 0);
-  const totalAbattement = lignesAbattement.reduce((sum, ligne) => sum + Number(ligne.abattement || 0), 0);
-  const revenuReference = Number(el("revenuTotalReference")?.value || 0);
+function cell(text, x, w, h = 8, bold = false) {
+  pdf.setDrawColor(200); // AVANT
+  pdf.rect(x, y, w, h);
+
+  pdf.setFont("helvetica", bold ? "bold" : "normal");
+  pdf.setFontSize(8);
+
+  pdf.text(String(text ?? ""), x + w / 2, y + 5.2, {
+    align: "center",
+    maxWidth: w - 4
+  });
+}
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(18);
+  pdf.text(`ABATTEMENT FISCAL ${annee}`, left, y);
+  y += 10;
+
+  const totalRevenus = lignesAbattement.reduce((s, l) => s + Number(l.revenu || 0), 0);
+  const totalAbattement = lignesAbattement.reduce((s, l) => s + Number(l.abattement || 0), 0);
   const imposable = Math.max(0, revenuReference - totalAbattement);
 
-  pdf.setFontSize(12);
-  pdf.text(`Total revenus des lignes : ${totalRevenus.toFixed(2)} €`, 14, y); y += 8;
-  pdf.text(`Revenu total de référence : ${revenuReference.toFixed(2)} €`, 14, y); y += 8;
-  pdf.text(`Total abattement : ${totalAbattement.toFixed(2)} €`, 14, y); y += 8;
-  pdf.text(`Montant imposable : ${imposable.toFixed(2)} €`, 14, y);
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  pdf.rect(left, y, 186, 26);
+  pdf.text(`Revenu total de référence : ${formatCurrency(revenuReference)}`, left + 4, y + 7);
+  pdf.text(`Total abattement : ${formatCurrency(totalAbattement)}`, left + 4, y + 15);
+  pdf.text(`Montant imposable : ${formatCurrency(imposable)}`, left + 4, y + 23);
+  y += 36;
 
-  pdf.save(`abattement_${annee}.pdf`);
+  let enfantActuel = "";
+let totalJoursEnfant = 0;
+let totalAbattementEnfant = 0;
+
+lignesAbattement.forEach((ligne) => {
+  const changementEnfant = ligne.enfant !== enfantActuel;
+
+  if (changementEnfant) {
+
+    // TOTAL précédent
+    if (enfantActuel !== "") {
+      checkPage(12);
+y += 4; // 👈 AJOUT ICI (important)
+
+pdf.setDrawColor(180);
+
+
+      pdf.setFillColor(235, 238, 242);
+      pdf.rect(left, y, 186, 9, "F");
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.setTextColor(30, 41, 59);
+
+      pdf.text(
+        `TOTAL ${enfantActuel.toUpperCase()} : ${totalJoursEnfant} jours / ${formatCurrency(totalAbattementEnfant)}`,
+        left + 4,
+        y + 6
+      );
+
+      pdf.setTextColor(0, 0, 0);
+
+      y += 14;
+
+      totalJoursEnfant = 0;
+      totalAbattementEnfant = 0;
+    }
+
+    // TITRE
+    pdf.setFillColor(220, 230, 245);
+    pdf.rect(left, y, 186, 8, "F");
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+
+    pdf.setTextColor(0, 51, 153);
+    pdf.text(ligne.enfant.toUpperCase(), left + 2, y + 5.5);
+    pdf.setTextColor(0, 0, 0);
+
+    y += 10;
+
+    // HEADER
+    cell("Mois", left, 35, 8, true);
+    cell("Jours", left + 35, 22, 8, true);
+    cell("Heures", left + 57, 25, 8, true);
+    cell("Mode", left + 82, 48, 8, true);
+    cell("Abattement", left + 130, 56, 8, true);
+    y += 8;
+
+    enfantActuel = ligne.enfant;
+  }
+
+  // LIGNE
+  const modeLabel = ligne.modeAccueil === "permanent" ? "Permanent 24h" : "Non permanent";
+
+  cell(MOIS_LABELS[ligne.mois] || ligne.mois, left, 35);
+  cell(Number(ligne.jours || 0), left + 35, 22);
+  cell(Number(ligne.heuresParJour || 0).toFixed(2), left + 57, 25);
+  cell(modeLabel, left + 82, 48);
+  cell(formatCurrency(ligne.abattement), left + 130, 56);
+  y += 8;
+
+  totalJoursEnfant += Number(ligne.jours || 0);
+  totalAbattementEnfant += Number(ligne.abattement || 0);
+});
+// 👉 DERNIER TOTAL
+if (enfantActuel !== "") {
+  checkPage(12);
+
+  pdf.setDrawColor(180);
+ y += 4; // 👈 espace AVANT le total
+
+pdf.setDrawColor(180);
+
+
+  pdf.setFillColor(235, 238, 242);
+  pdf.rect(left, y, 186, 9, "F");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(30, 41, 59);
+
+  pdf.text(
+    `TOTAL ${enfantActuel.toUpperCase()} : ${totalJoursEnfant} jours / ${formatCurrency(totalAbattementEnfant)}`,
+    left + 4,
+    y + 6
+  );
+
+  pdf.setTextColor(0, 0, 0);
+
+  y += 14;
+}
+// 👉 BLOC FINAL
+checkPage(30);
+
+pdf.setFont("helvetica", "bold");
+pdf.setFontSize(11);
+pdf.rect(left, y, 186, 26);
+
+pdf.text(`Total revenus des lignes : ${formatCurrency(totalRevenus)}`, left + 4, y + 7);
+pdf.text(`Total abattement : ${formatCurrency(totalAbattement)}`, left + 4, y + 15);
+pdf.text(`Montant imposable : ${formatCurrency(imposable)}`, left + 4, y + 23);
+
+// footer
+pdf.setFont("helvetica", "italic");
+pdf.setFontSize(8);
+
+pdf.text(`PDF généré le ${new Date().toLocaleDateString("fr-FR")}`, left, 292);
+pdf.text("Document généré automatiquement par easyfrais.fr", left, 287);
+
+// save
+pdf.save(`abattement_${annee}.pdf`);
 }
 
 function bindEvents() {
