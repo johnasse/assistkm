@@ -322,7 +322,7 @@ function renderDetailCalcul() {
 
   container.innerHTML = `
     <div class="result-line">
-      <span>Total revenus des lignes</span>
+      <span>Total indemnités perçues</span>
       <span class="strong">${formatCurrency(totalRevenusLignes)}</span>
     </div>
     <div class="result-line">
@@ -331,7 +331,7 @@ function renderDetailCalcul() {
     </div>
     ${details}
     <div class="result-line">
-      <span>Total abattement</span>
+      <span>Abattement fiscal</span>
       <span class="strong">${formatCurrency(totalAbattement)}</span>
     </div>
     <div class="result-line">
@@ -664,8 +664,8 @@ pdf.setFont("helvetica", "bold");
 pdf.setFontSize(11);
 pdf.rect(left, y, 186, 26);
 
-pdf.text(`Total revenus des lignes : ${formatCurrency(totalRevenus)}`, left + 4, y + 7);
-pdf.text(`Total abattement : ${formatCurrency(totalAbattement)}`, left + 4, y + 15);
+pdf.text(`Total indemnités perçues : ${formatCurrency(totalRevenus)}`, left + 4, y + 7);
+pdf.text(`Abattement fiscal : ${formatCurrency(totalAbattement)}`, left + 4, y + 15);
 pdf.text(`Montant imposable : ${formatCurrency(imposable)}`, left + 4, y + 23);
 
 // footer
