@@ -27,6 +27,19 @@ const MOIS_LABELS = {
   11: "Novembre",
   12: "Décembre"
 };
+function getJoursDansMois(mois, annee) {
+  return new Date(Number(annee), Number(mois), 0).getDate();
+}
+
+function remplirJoursSelonMois() {
+  const mois = Number(el("moisLigne")?.value || 1);
+  const annee = Number(el("anneeAbattement")?.value || new Date().getFullYear());
+  const joursInput = el("joursAccueil");
+
+  if (!joursInput) return;
+
+  joursInput.value = getJoursDansMois(mois, annee);
+}
 
 function el(id) {
   return document.getElementById(id);
@@ -116,13 +129,20 @@ function updateHeuresFieldState() {
   const heuresInput = el("heuresParJour");
   if (!heuresInput) return;
 
+  const container = heuresInput.parentElement;
+
   if (mode === "permanent") {
     heuresInput.value = "24";
     heuresInput.disabled = true;
     heuresInput.classList.add("readonly-style");
+
+    if (container) container.style.display = "none"; // 👈 cache propre
   } else {
     heuresInput.disabled = false;
     heuresInput.classList.remove("readonly-style");
+
+    if (container) container.style.display = "block"; // 👈 affiche
+
     if (!heuresInput.value || Number(heuresInput.value) <= 0) {
       heuresInput.value = "8";
     }
@@ -360,11 +380,18 @@ function calculerAbattement() {
 
 function resetSaisieLigne() {
   if (el("moisLigne")) el("moisLigne").value = "1";
-  if (el("joursAccueil")) el("joursAccueil").value = "0";
+  remplirJoursSelonMois();
   if (el("heuresParJour")) el("heuresParJour").value = "8";
-  if (el("revenuLigne")) el("revenuLigne").value = "0";
-  if (el("modeAccueilLigne")) el("modeAccueilLigne").value = "non_permanent";
+
+  // 👇 valeurs par défaut
+  if (el("entretienLigne")) el("entretienLigne").value = "523.28";
+  if (el("habillementLigne")) el("habillementLigne").value = "47.33";
+  if (el("rentreeLigne")) el("rentreeLigne").value = "0";
+  if (el("noelLigne")) el("noelLigne").value = "0";
+
+  if (el("modeAccueilLigne")) el("modeAccueilLigne").value = "permanent";
   if (el("majorationLigne")) el("majorationLigne").value = "non";
+
   updateHeuresFieldState();
 }
 
@@ -410,7 +437,8 @@ function ajouterLigneAbattement() {
   const modeAccueil = el("modeAccueilLigne")?.value || "non_permanent";
   const majoration = (el("majorationLigne")?.value || "non") === "oui";
   const heuresParJour = modeAccueil === "permanent" ? 24 : Number(el("heuresParJour")?.value || 0);
-  const revenu = Number(el("revenuLigne")?.value || 0);
+ const entretien = Number(el("entretienLigne")?.value || 0);
+const revenu = entretien;
 
   if (!enfant) {
     alert("Choisis un enfant.");
@@ -427,16 +455,17 @@ function ajouterLigneAbattement() {
     return;
   }
 
-  const ligne = {
-    enfant,
-    mois,
-    jours,
-    heuresParJour,
-    modeAccueil,
-    majoration,
-    revenu,
-    abattement: 0
-  };
+const ligne = {
+  enfant,
+  mois,
+  jours,
+  heuresParJour,
+  modeAccueil,
+  majoration,
+  entretien,
+  revenu,
+  abattement: 0
+};
 
   ligne.abattement = calculerAbattementLigne(ligne);
   lignesAbattement.push(ligne);
@@ -585,6 +614,8 @@ pdf.setDrawColor(180);
 
     enfantActuel = ligne.enfant;
   }
+  // 🔴 AJOUT ICI
+checkPage(10);
 
   // LIGNE
   const modeLabel = ligne.modeAccueil === "permanent" ? "Permanent 24h" : "Non permanent";
@@ -654,9 +685,12 @@ function bindEvents() {
   el("btnImportPresence")?.addEventListener("click", importerDepuisPresence);
 
   el("anneeAbattement")?.addEventListener("change", () => {
-    updateSmicFields();
-    calculerAbattement();
-  });
+  updateSmicFields();
+  remplirJoursSelonMois();
+  calculerAbattement();
+});
+
+el("moisLigne")?.addEventListener("change", remplirJoursSelonMois);
 
   el("smicAvantNov")?.addEventListener("input", calculerAbattement);
   el("smicApresNov")?.addEventListener("input", calculerAbattement);
@@ -664,6 +698,7 @@ function bindEvents() {
 
   el("modeAccueilLigne")?.addEventListener("change", () => {
     updateHeuresFieldState();
+    remplirJoursSelonMois();
     calculerAbattement();
   });
 
@@ -694,20 +729,24 @@ function bindEvents() {
 
 async function initModule() {
   const allowed = await requirePremium();
-
+if (el("modeAccueilLigne")) {
+  el("modeAccueilLigne").value = "permanent";
+}
+updateHeuresFieldState();
   if (!allowed) {
     showLock();
     return;
   }
 
-  showApp();
-  updateSmicFields();
-  loadData();
-  bindEvents();
-  updateHeuresFieldState();
-  renderListeEnfantsAbattement();
-  renderLignesAbattement();
-  calculerAbattement();
+showApp();
+updateSmicFields();
+loadData();
+bindEvents();
+updateHeuresFieldState();
+remplirJoursSelonMois();
+renderListeEnfantsAbattement();
+renderLignesAbattement();
+calculerAbattement();
 }
 
 onAuthStateChanged(auth, async (user) => {

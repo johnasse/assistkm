@@ -344,67 +344,87 @@
         <section class="card">
           <h2>Ajouter une ligne</h2>
 
+<div class="row-2">
+  <div class="field">
+    <label for="enfantLigne">Enfant</label>
+    <select id="enfantLigne">
+      <option value="">Choisir un enfant</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="moisLigne">Mois</label>
+    <select id="moisLigne">
+      <option value="1">Janvier</option>
+      <option value="2">Février</option>
+      <option value="3">Mars</option>
+      <option value="4">Avril</option>
+      <option value="5">Mai</option>
+      <option value="6">Juin</option>
+      <option value="7">Juillet</option>
+      <option value="8">Août</option>
+      <option value="9">Septembre</option>
+      <option value="10">Octobre</option>
+      <option value="11">Novembre</option>
+      <option value="12">Décembre</option>
+    </select>
+  </div>
+</div>
           <div class="row-2">
-            <div class="field">
-              <label for="enfantLigne">Enfant</label>
-              <select id="enfantLigne">
-                <option value="">Choisir un enfant</option>
-              </select>
-            </div>
+  <div class="field">
+    <label for="modeAccueilLigne">Mode d'accueil</label>
+    <select id="modeAccueilLigne">
+      <option value="non_permanent">Non permanent</option>
+      <option value="permanent">Permanent 24h</option>
+    </select>
+  </div>
 
-            <div class="field">
-              <label for="moisLigne">Mois</label>
-              <select id="moisLigne">
-                <option value="1">Janvier</option>
-                <option value="2">Février</option>
-                <option value="3">Mars</option>
-                <option value="4">Avril</option>
-                <option value="5">Mai</option>
-                <option value="6">Juin</option>
-                <option value="7">Juillet</option>
-                <option value="8">Août</option>
-                <option value="9">Septembre</option>
-                <option value="10">Octobre</option>
-                <option value="11">Novembre</option>
-                <option value="12">Décembre</option>
-              </select>
-            </div>
-          </div>
+  <div class="field">
+    <label for="majorationLigne">Majoration</label>
+    <select id="majorationLigne">
+      <option value="non">Non</option>
+      <option value="oui">Oui</option>
+    </select>
+  </div>
+</div>
 
-          <div class="row-2">
-            <div class="field">
-              <label for="modeAccueilLigne">Mode d'accueil</label>
-              <select id="modeAccueilLigne">
-                <option value="non_permanent">Non permanent</option>
-                <option value="permanent">Permanent 24h</option>
-              </select>
-            </div>
+<div class="row-3">
+  <div class="field">
+    <label for="joursAccueil">Jours d'accueil</label>
+    <input type="number" id="joursAccueil" min="0" step="1" value="0" />
+  </div>
 
-            <div class="field">
-              <label for="majorationLigne">Majoration</label>
-              <select id="majorationLigne">
-                <option value="non">Non</option>
-                <option value="oui">Oui</option>
-              </select>
-            </div>
-          </div>
+  <div class="field">
+    <label for="heuresParJour">Heures / jour</label>
+    <input type="number" id="heuresParJour" min="0" step="0.5" value="8" />
+  </div>
 
-          <div class="row-3">
-            <div class="field">
-              <label for="joursAccueil">Jours d'accueil</label>
-              <input type="number" id="joursAccueil" min="0" step="1" value="0" />
-            </div>
+  <div></div>
+</div>
 
-            <div class="field">
-              <label for="heuresParJour">Heures / jour</label>
-              <input type="number" id="heuresParJour" min="0" step="0.5" value="8" />
-            </div>
+<div class="row-2">
+  <div class="field">
+    <label for="entretienLigne">Entretien (€)</label>
+    <input type="number" id="entretienLigne" min="0" step="0.01" value="523.28" />
+  </div>
 
-            <div class="field">
-              <label for="revenuLigne">Revenu de la ligne (€)</label>
-              <input type="number" id="revenuLigne" min="0" step="0.01" value="0" />
-            </div>
-          </div>
+  <div class="field">
+    <label for="habillementLigne">Habillement (€)</label>
+    <input type="number" id="habillementLigne" min="0" step="0.01" value="47.33" />
+  </div>
+</div>
+
+<div class="row-2">
+  <div class="field">
+    <label for="rentreeLigne">Rentrée scolaire (€)</label>
+    <input type="number" id="rentreeLigne" min="0" step="0.01" value="0" />
+  </div>
+
+  <div class="field">
+    <label for="noelLigne">Noël (€)</label>
+    <input type="number" id="noelLigne" min="0" step="0.01" value="0" />
+  </div>
+</div>
 
           <div class="btn-row">
             <button class="btn btn-green" id="btnAjouterLigneAbattement" type="button">Ajouter la ligne</button>
