@@ -379,8 +379,15 @@ function calculerAbattement() {
 }
 
 function resetSaisieLigne() {
-  if (el("moisLigne")) el("moisLigne").value = "1";
-  remplirJoursSelonMois();
+  const moisInput = el("moisLigne");
+
+if (moisInput) {
+  const moisActuel = Number(moisInput.value || 1);
+  const moisSuivant = moisActuel >= 12 ? 12 : moisActuel + 1;
+  moisInput.value = String(moisSuivant);
+}
+
+remplirJoursSelonMois();
   if (el("heuresParJour")) el("heuresParJour").value = "8";
 
   // 👇 valeurs par défaut
@@ -438,7 +445,10 @@ function ajouterLigneAbattement() {
   const majoration = (el("majorationLigne")?.value || "non") === "oui";
   const heuresParJour = modeAccueil === "permanent" ? 24 : Number(el("heuresParJour")?.value || 0);
  const entretien = Number(el("entretienLigne")?.value || 0);
-const revenu = entretien;
+ const habillement = Number(el("habillementLigne")?.value || 0);
+const rentree = Number(el("rentreeLigne")?.value || 0);
+const noel = Number(el("noelLigne")?.value || 0);
+const revenu = entretien + habillement + rentree + noel;
 
   if (!enfant) {
     alert("Choisis un enfant.");
@@ -454,7 +464,15 @@ const revenu = entretien;
     alert("Le nombre d'heures doit être supérieur à 0.");
     return;
   }
+const doublon = lignesAbattement.some(ligne =>
+  (ligne.enfant || "").trim().toLowerCase() === (enfant || "").trim().toLowerCase() &&
+  Number(ligne.mois) === Number(mois)
+);
 
+if (doublon) {
+  alert(`Une ligne existe déjà pour ${enfant} en ${MOIS_LABELS[mois]}.`);
+  return;
+}
 const ligne = {
   enfant,
   mois,
@@ -488,7 +506,32 @@ function viderToutesLesLignes() {
   saveLignes();
   calculerAbattement();
 }
+function viderLignesEnfantSelectionne() {
+  const enfant = el("enfantLigne")?.value || "";
 
+  if (!enfant) {
+    alert("Choisis d'abord un enfant.");
+    return;
+  }
+
+  const lignesEnfant = lignesAbattement.filter(ligne =>
+    (ligne.enfant || "").trim().toLowerCase() === enfant.trim().toLowerCase()
+  );
+
+  if (!lignesEnfant.length) {
+    alert(`Aucune ligne trouvée pour ${enfant}.`);
+    return;
+  }
+
+  if (!confirm(`Supprimer toutes les lignes de ${enfant} ?`)) return;
+
+  lignesAbattement = lignesAbattement.filter(ligne =>
+    (ligne.enfant || "").trim().toLowerCase() !== enfant.trim().toLowerCase()
+  );
+
+  saveLignes();
+  calculerAbattement();
+}
 function exportPdfAbattement() {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     alert("La librairie PDF est introuvable.");
@@ -504,179 +547,188 @@ function exportPdfAbattement() {
   lignesAbattement.sort((a, b) => {
     const enfantA = (a.enfant || "").toLowerCase();
     const enfantB = (b.enfant || "").toLowerCase();
-
-    if (enfantA !== enfantB) {
-      return enfantA.localeCompare(enfantB, "fr");
-    }
-
+    if (enfantA !== enfantB) return enfantA.localeCompare(enfantB, "fr");
     return Number(a.mois || 0) - Number(b.mois || 0);
   });
 
   let y = 15;
-  const left = 12;
-  const pageW = 210;
+  const left = 10;
+  const pageWidth = 210;
+  const usableWidth = 190;
+
+  const totalIndemnites = lignesAbattement.reduce((s, l) => s + Number(l.revenu || 0), 0);
+  const totalAbattement = lignesAbattement.reduce((s, l) => s + Number(l.abattement || 0), 0);
+  const montantImposable = Math.max(0, revenuReference - totalAbattement);
 
   function checkPage(extra = 20) {
-    if (y + extra > 285) {
+    if (y + extra > 280) {
       pdf.addPage();
       y = 15;
+      addFooter();
     }
   }
 
-function cell(text, x, w, h = 8, bold = false) {
-  pdf.setDrawColor(200); // AVANT
-  pdf.rect(x, y, w, h);
+  function addFooter() {
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`PDF généré le ${new Date().toLocaleDateString("fr-FR")}`, left, 290);
+    pdf.text("Document généré automatiquement par easyfrais.fr", pageWidth - 10, 290, { align: "right" });
+    pdf.setTextColor(0, 0, 0);
+  }
 
-  pdf.setFont("helvetica", bold ? "bold" : "normal");
-  pdf.setFontSize(8);
+  function text(label, x, yy, options = {}) {
+    pdf.setFont("helvetica", options.bold ? "bold" : "normal");
+    pdf.setFontSize(options.size || 9);
+    pdf.text(String(label ?? ""), x, yy, options.align ? { align: options.align } : undefined);
+  }
 
-  pdf.text(String(text ?? ""), x + w / 2, y + 5.2, {
-    align: "center",
-    maxWidth: w - 4
-  });
-}
+  function money(value) {
+    return formatCurrency(value);
+  }
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(18);
-  pdf.text(`ABATTEMENT FISCAL ${annee}`, left, y);
-  y += 10;
+  function drawSummaryBox(title, rows) {
+    checkPage(12 + rows.length * 8);
+    pdf.setDrawColor(180);
+    pdf.setFillColor(245, 248, 252);
+    pdf.rect(left, y, usableWidth, 10 + rows.length * 8, "FD");
 
-  const totalRevenus = lignesAbattement.reduce((s, l) => s + Number(l.revenu || 0), 0);
-  const totalAbattement = lignesAbattement.reduce((s, l) => s + Number(l.abattement || 0), 0);
-  const imposable = Math.max(0, revenuReference - totalAbattement);
+    text(title, left + 4, y + 7, { bold: true, size: 11 });
+    y += 12;
 
-  pdf.setFontSize(10);
-  pdf.setFont("helvetica", "normal");
-  pdf.rect(left, y, 186, 26);
-  pdf.text(`Revenu total de référence : ${formatCurrency(revenuReference)}`, left + 4, y + 7);
-  pdf.text(`Total abattement : ${formatCurrency(totalAbattement)}`, left + 4, y + 15);
-  pdf.text(`Montant imposable : ${formatCurrency(imposable)}`, left + 4, y + 23);
-  y += 36;
+    rows.forEach(([label, value, strong]) => {
+      text(label, left + 5, y + 5, { bold: strong });
+      text(value, left + usableWidth - 5, y + 5, { bold: strong, align: "right" });
+      y += 8;
+    });
 
-  let enfantActuel = "";
-let totalJoursEnfant = 0;
-let totalAbattementEnfant = 0;
+    y += 6;
+  }
 
-lignesAbattement.forEach((ligne) => {
-  const changementEnfant = ligne.enfant !== enfantActuel;
-
-  if (changementEnfant) {
-
-    // TOTAL précédent
-    if (enfantActuel !== "") {
-      checkPage(12);
-y += 4; // 👈 AJOUT ICI (important)
-
-pdf.setDrawColor(180);
-
-
-      pdf.setFillColor(235, 238, 242);
-      pdf.rect(left, y, 186, 9, "F");
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      pdf.setTextColor(30, 41, 59);
-
-      pdf.text(
-        `TOTAL ${enfantActuel.toUpperCase()} : ${totalJoursEnfant} jours / ${formatCurrency(totalAbattementEnfant)}`,
-        left + 4,
-        y + 6
-      );
-
-      pdf.setTextColor(0, 0, 0);
-
-      y += 14;
-
-      totalJoursEnfant = 0;
-      totalAbattementEnfant = 0;
-    }
-
-    // TITRE
-    pdf.setFillColor(220, 230, 245);
-    pdf.rect(left, y, 186, 8, "F");
+  function drawTableHeader() {
+    pdf.setFillColor(230, 238, 250);
+    pdf.setDrawColor(180);
+    pdf.rect(left, y, usableWidth, 8, "FD");
 
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
+    pdf.setFontSize(7.5);
 
-    pdf.setTextColor(0, 51, 153);
-    pdf.text(ligne.enfant.toUpperCase(), left + 2, y + 5.5);
-    pdf.setTextColor(0, 0, 0);
+    pdf.text("Mois", left + 3, y + 5.5);
+    pdf.text("Jours", left + 31, y + 5.5);
+    pdf.text("Mode", left + 49, y + 5.5);
+    pdf.text("Entretien", left + 82, y + 5.5);
+    pdf.text("Habil.", left + 108, y + 5.5);
+    pdf.text("Rentrée", left + 130, y + 5.5);
+    pdf.text("Noël", left + 154, y + 5.5);
+    pdf.text("Abattement", left + 177, y + 5.5, { align: "right" });
 
-    y += 10;
-
-    // HEADER
-    cell("Mois", left, 35, 8, true);
-    cell("Jours", left + 35, 22, 8, true);
-    cell("Heures", left + 57, 25, 8, true);
-    cell("Mode", left + 82, 48, 8, true);
-    cell("Abattement", left + 130, 56, 8, true);
     y += 8;
-
-    enfantActuel = ligne.enfant;
   }
-  // 🔴 AJOUT ICI
-checkPage(10);
 
-  // LIGNE
-  const modeLabel = ligne.modeAccueil === "permanent" ? "Permanent 24h" : "Non permanent";
+  function drawLine(ligne) {
+    checkPage(10);
 
-  cell(MOIS_LABELS[ligne.mois] || ligne.mois, left, 35);
-  cell(Number(ligne.jours || 0), left + 35, 22);
-  cell(Number(ligne.heuresParJour || 0).toFixed(2), left + 57, 25);
-  cell(modeLabel, left + 82, 48);
-  cell(formatCurrency(ligne.abattement), left + 130, 56);
-  y += 8;
+    pdf.setDrawColor(220);
+    pdf.line(left, y + 8, left + usableWidth, y + 8);
 
-  totalJoursEnfant += Number(ligne.jours || 0);
-  totalAbattementEnfant += Number(ligne.abattement || 0);
-});
-// 👉 DERNIER TOTAL
-if (enfantActuel !== "") {
-  checkPage(12);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
 
-  pdf.setDrawColor(180);
- y += 4; // 👈 espace AVANT le total
+    const modeLabel = ligne.modeAccueil === "permanent" ? "Permanent 24h" : "Non permanent";
 
-pdf.setDrawColor(180);
+    pdf.text(MOIS_LABELS[ligne.mois] || String(ligne.mois), left + 3, y + 5);
+    pdf.text(String(Number(ligne.jours || 0)), left + 33, y + 5);
+    pdf.text(modeLabel, left + 49, y + 5);
+    pdf.text(money(ligne.entretien || 0), left + 100, y + 5, { align: "right" });
+    pdf.text(money(ligne.habillement || 0), left + 123, y + 5, { align: "right" });
+    pdf.text(money(ligne.rentree || 0), left + 147, y + 5, { align: "right" });
+    pdf.text(money(ligne.noel || 0), left + 168, y + 5, { align: "right" });
+    pdf.text(money(ligne.abattement || 0), left + 186, y + 5, { align: "right" });
 
+    y += 8;
+  }
 
-  pdf.setFillColor(235, 238, 242);
-  pdf.rect(left, y, 186, 9, "F");
+  // TITRE
+  pdf.setFillColor(30, 64, 175);
+  pdf.rect(0, 0, 210, 28, "F");
 
+  pdf.setTextColor(255, 255, 255);
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(30, 41, 59);
+  pdf.setFontSize(18);
+  pdf.text(`ABATTEMENT FISCAL ${annee}`, left, 18);
 
-  pdf.text(
-    `TOTAL ${enfantActuel.toUpperCase()} : ${totalJoursEnfant} jours / ${formatCurrency(totalAbattementEnfant)}`,
-    left + 4,
-    y + 6
-  );
+  pdf.setFontSize(9);
+  pdf.text("Assistant familial - Récapitulatif fiscal", pageWidth - 10, 18, { align: "right" });
 
   pdf.setTextColor(0, 0, 0);
+  y = 38;
 
-  y += 14;
-}
-// 👉 BLOC FINAL
-checkPage(30);
+  drawSummaryBox("Synthèse générale", [
+    ["Total indemnités perçues", money(totalIndemnites), true],
+    ["Revenu total de référence", money(revenuReference), false],
+    ["Abattement fiscal", money(totalAbattement), true],
+    ["Montant imposable estimé", money(montantImposable), true]
+  ]);
 
-pdf.setFont("helvetica", "bold");
-pdf.setFontSize(11);
-pdf.rect(left, y, 186, 26);
+  let enfantActuel = "";
+  let totalJoursEnfant = 0;
+  let totalIndemnitesEnfant = 0;
+  let totalAbattementEnfant = 0;
 
-pdf.text(`Total indemnités perçues : ${formatCurrency(totalRevenus)}`, left + 4, y + 7);
-pdf.text(`Abattement fiscal : ${formatCurrency(totalAbattement)}`, left + 4, y + 15);
-pdf.text(`Montant imposable : ${formatCurrency(imposable)}`, left + 4, y + 23);
+  lignesAbattement.forEach((ligne, index) => {
+    const changementEnfant = ligne.enfant !== enfantActuel;
 
-// footer
-pdf.setFont("helvetica", "italic");
-pdf.setFontSize(8);
+    if (changementEnfant) {
+      if (enfantActuel !== "") {
+        drawSummaryBox(`Total ${enfantActuel}`, [
+          ["Jours d'accueil", `${totalJoursEnfant} jours`, false],
+          ["Indemnités perçues", money(totalIndemnitesEnfant), true],
+          ["Abattement fiscal", money(totalAbattementEnfant), true]
+        ]);
+      }
 
-pdf.text(`PDF généré le ${new Date().toLocaleDateString("fr-FR")}`, left, 292);
-pdf.text("Document généré automatiquement par easyfrais.fr", left, 287);
+      enfantActuel = ligne.enfant;
+      totalJoursEnfant = 0;
+      totalIndemnitesEnfant = 0;
+      totalAbattementEnfant = 0;
 
-// save
-pdf.save(`abattement_${annee}.pdf`);
+      checkPage(20);
+      pdf.setFillColor(219, 234, 254);
+      pdf.rect(left, y, usableWidth, 9, "F");
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(11);
+      pdf.setTextColor(30, 64, 175);
+      pdf.text(String(enfantActuel).toUpperCase(), left + 4, y + 6);
+      pdf.setTextColor(0, 0, 0);
+
+      y += 11;
+      drawTableHeader();
+    }
+
+    drawLine(ligne);
+
+    totalJoursEnfant += Number(ligne.jours || 0);
+    totalIndemnitesEnfant += Number(ligne.revenu || 0);
+    totalAbattementEnfant += Number(ligne.abattement || 0);
+  });
+
+  if (enfantActuel !== "") {
+    drawSummaryBox(`Total ${enfantActuel}`, [
+      ["Jours d'accueil", `${totalJoursEnfant} jours`, false],
+      ["Indemnités perçues", money(totalIndemnitesEnfant), true],
+      ["Abattement fiscal", money(totalAbattementEnfant), true]
+    ]);
+  }
+
+  drawSummaryBox("Résultat final", [
+    ["Total indemnités perçues", money(totalIndemnites), true],
+    ["Abattement fiscal", money(totalAbattement), true],
+    ["Montant imposable estimé", money(montantImposable), true]
+  ]);
+
+  addFooter();
+  pdf.save(`abattement_fiscal_${annee}.pdf`);
 }
 
 function bindEvents() {
@@ -711,6 +763,7 @@ el("moisLigne")?.addEventListener("change", remplirJoursSelonMois);
   el("btnViderLignesAbattement")?.addEventListener("click", viderToutesLesLignes);
   el("btnCalculerAbattement")?.addEventListener("click", calculerAbattement);
   el("btnPdfAbattement")?.addEventListener("click", exportPdfAbattement);
+  el("btnViderLignesEnfant")?.addEventListener("click", viderLignesEnfantSelectionne);
 
   el("listeEnfantsAbattement")?.addEventListener("click", (event) => {
     const target = event.target;
@@ -775,8 +828,9 @@ function importerDepuisPresence() {
     if (!item.enfant || !item.mois || !item.jours) return;
 
     const existe = lignesAbattement.some(l =>
-      l.enfant === item.enfant && Number(l.mois) === Number(item.mois)
-    );
+  (l.enfant || "").trim().toLowerCase() === (item.enfant || "").trim().toLowerCase() &&
+  Number(l.mois) === Number(item.mois)
+);
 
     if (existe) return;
 
