@@ -2,6 +2,8 @@ import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { requirePdfAccess } from "./premium.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 
 const DEFAULT_RATES = {
   "0-11": 47.33,
@@ -13,6 +15,37 @@ let eventsBound = false;
 
 const $ = (id) => document.getElementById(id);
 
+async function loadCloudData() {
+  try {
+    const cloud = await loadModuleData(currentUid, "habillement");
+
+    if (!cloud) return;
+
+    if (cloud.expenses) {
+      localStorage.setItem(
+        getStorageKey(),
+        JSON.stringify(cloud.expenses)
+      );
+    }
+
+    if (cloud.settings) {
+      localStorage.setItem(
+        getSettingsKey(),
+        JSON.stringify(cloud.settings)
+      );
+    }
+
+    if (cloud.rates) {
+      localStorage.setItem(
+        getRatesKey(),
+        JSON.stringify(cloud.rates)
+      );
+    }
+
+  } catch (error) {
+    console.error("Erreur chargement cloud habillement :", error);
+  }
+}
 function formatEuro(value) {
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
@@ -91,7 +124,7 @@ function loadRatesIntoInputs() {
   $("rate12_21").value = rates["12-21"].toFixed(2);
 }
 
-function saveRates() {
+async function saveRates() {
   const rate0_11 = parseFloat($("rate0_11")?.value);
   const rate12_21 = parseFloat($("rate12_21")?.value);
 
@@ -111,6 +144,15 @@ function saveRates() {
   };
 
   localStorage.setItem(getRatesKey(), JSON.stringify(rates));
+  await saveModuleData(currentUid, "habillement", {
+  expenses: getExpenses(),
+  settings: {
+    childName: $("childName")?.value || "",
+    year: $("yearSelect")?.value || "",
+    ageBracket: $("ageBracket")?.value || ""
+  },
+  rates
+});
   updateSummary();
   alert("Barèmes enregistrés avec succès.");
 }
@@ -124,7 +166,7 @@ function getAnnualBudget() {
   return Number((getCurrentMonthlyRate() * 12).toFixed(2));
 }
 
-function saveSettings() {
+async function saveSettings(){
   const settings = {
     childName: $("childName")?.value.trim() || "",
     year: $("yearSelect")?.value || "",
@@ -132,6 +174,11 @@ function saveSettings() {
   };
 
   localStorage.setItem(getSettingsKey(), JSON.stringify(settings));
+  await saveModuleData(currentUid, "habillement", {
+  expenses: getExpenses(),
+  settings,
+  rates: getCurrentRatesFromInputs()
+});
 }
 
 function loadSettings() {
@@ -162,8 +209,18 @@ function getExpenses() {
   }
 }
 
-function saveExpenses(expenses) {
+async function saveExpenses(expenses) {
   localStorage.setItem(getStorageKey(), JSON.stringify(expenses));
+
+  await saveModuleData(currentUid, "habillement", {
+    expenses,
+    settings: {
+      childName: $("childName")?.value || "",
+      year: $("yearSelect")?.value || "",
+      ageBracket: $("ageBracket")?.value || ""
+    },
+    rates: getCurrentRatesFromInputs()
+  });
 }
 
 function updateSummary() {
@@ -307,8 +364,8 @@ async function addExpense(event) {
     justificatif
   });
 
-  saveExpenses(expenses);
-  saveSettings();
+  await saveExpenses(expenses);
+await saveSettings();
   clearExpenseForm();
 
   $("expenseDate").value = new Date().toISOString().split("T")[0];
@@ -342,12 +399,12 @@ function viewJustificatif(id) {
   win.document.close();
 }
 
-function deleteExpense(id) {
+async function deleteExpense(id) {
   const confirmation = confirm("Voulez-vous vraiment supprimer cette dépense ?");
   if (!confirmation) return;
 
   const updatedExpenses = getExpenses().filter((item) => item.id !== id);
-  saveExpenses(updatedExpenses);
+  await saveExpenses(updatedExpenses);
   updateSummary();
   renderHistory();
 }
@@ -585,7 +642,7 @@ const signature = getProfileSignatureData();
 
   const filename = `habillement_${new Date().toISOString().slice(0, 10)}.pdf`;
 
-  savePdfToHistory(pdf, {
+  await savePdfToHistory(pdf, {
     mois: year,
     nom: filename,
     type: "Habillement"
@@ -615,20 +672,20 @@ function bindEvents() {
   if (eventsBound) return;
   eventsBound = true;
 
-  $("childName").addEventListener("input", () => {
-    saveSettings();
+  $("childName").addEventListener("input", async () => {
+    await saveSettings();
     updateSummary();
     renderHistory();
   });
 
-  $("yearSelect").addEventListener("input", () => {
-    saveSettings();
+  $("yearSelect").addEventListener("input", async () => {
+    await saveSettings();
     updateSummary();
     renderHistory();
   });
 
-  $("ageBracket").addEventListener("change", () => {
-    saveSettings();
+  $("ageBracket").addEventListener("change", async () => {
+    await saveSettings();
     updateSummary();
     renderHistory();
   });
@@ -647,13 +704,32 @@ function bindEvents() {
   $("expenseFiles").addEventListener("change", updateNomJustificatif);
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
+
   if (!user) {
     window.location.href = "login.html";
     return;
   }
 
   currentUid = user.uid;
+
+  if (!ensureGlobalPinExists()) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  const ok = await requireGlobalPin({
+    title: "Accès sécurisé",
+    message: "Entre ton code PIN pour accéder au module habillement."
+  });
+
+  if (!ok) {
+    window.location.href = "index.html";
+    return;
+  }
+
+await loadCloudData();
+
   bindEvents();
   refreshAll();
 });
