@@ -39,6 +39,10 @@ function remplirJoursSelonMois() {
   if (!joursInput) return;
 
   joursInput.value = getJoursDansMois(mois, annee);
+  const entretienInput = el("entretienLigne");
+if (entretienInput) {
+  entretienInput.value = (Number(joursInput.value) * 17).toFixed(2);
+}
 }
 
 function el(id) {
@@ -391,7 +395,10 @@ remplirJoursSelonMois();
   if (el("heuresParJour")) el("heuresParJour").value = "8";
 
   // 👇 valeurs par défaut
-  if (el("entretienLigne")) el("entretienLigne").value = "523.28";
+  if (el("entretienLigne")) {
+  const jours = Number(el("joursAccueil")?.value || 0);
+  el("entretienLigne").value = (jours * 17).toFixed(2);
+}
   if (el("habillementLigne")) el("habillementLigne").value = "47.33";
   if (el("rentreeLigne")) el("rentreeLigne").value = "0";
   if (el("noelLigne")) el("noelLigne").value = "0";
@@ -444,7 +451,8 @@ function ajouterLigneAbattement() {
   const modeAccueil = el("modeAccueilLigne")?.value || "non_permanent";
   const majoration = (el("majorationLigne")?.value || "non") === "oui";
   const heuresParJour = modeAccueil === "permanent" ? 24 : Number(el("heuresParJour")?.value || 0);
- const entretien = Number(el("entretienLigne")?.value || 0);
+ const entretienParJour = 17;
+const entretien = jours * entretienParJour;
  const habillement = Number(el("habillementLigne")?.value || 0);
 const rentree = Number(el("rentreeLigne")?.value || 0);
 const noel = Number(el("noelLigne")?.value || 0);
@@ -740,6 +748,13 @@ function bindEvents() {
   updateSmicFields();
   remplirJoursSelonMois();
   calculerAbattement();
+});
+el("joursAccueil")?.addEventListener("input", () => {
+  const jours = Number(el("joursAccueil")?.value || 0);
+
+  if (el("entretienLigne")) {
+    el("entretienLigne").value = (jours * 17).toFixed(2);
+  }
 });
 
 el("moisLigne")?.addEventListener("change", remplirJoursSelonMois);
