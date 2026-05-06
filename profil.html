@@ -690,21 +690,29 @@ import {
     }
 
     function renderImagePreview(box, fileNameEl, dataUrl, fileName, placeholderText) {
-      if (!dataUrl) {
-        clearPreview(box, fileNameEl, placeholderText);
-        return;
-      }
+  if (!dataUrl) {
+    clearPreview(box, fileNameEl, placeholderText);
+    return;
+  }
 
-      if (isImageDataUrl(dataUrl)) {
-        box.innerHTML = `<img src="${dataUrl}" alt="">`;
-      } else if (isPdfDataUrl(dataUrl)) {
-        box.innerHTML = `<div class="preview-placeholder">PDF enregistré</div>`;
-      } else {
-        box.innerHTML = `<div class="preview-placeholder">Fichier enregistré</div>`;
-      }
+  if (
+    isImageDataUrl(dataUrl) ||
+    (typeof dataUrl === "string" && dataUrl.startsWith("http"))
+  ) {
 
-      fileNameEl.textContent = fileName ? `Fichier : ${fileName}` : "";
-    }
+    box.innerHTML = `<img src="${dataUrl}" alt="">`;
+
+  } else if (isPdfDataUrl(dataUrl)) {
+
+    box.innerHTML = `<div class="preview-placeholder">PDF enregistré</div>`;
+
+  } else {
+
+    box.innerHTML = `<div class="preview-placeholder">Fichier enregistré</div>`;
+  }
+
+  fileNameEl.textContent = fileName ? `Fichier : ${fileName}` : "";
+}
 
     function getProfileData() {
       return {
