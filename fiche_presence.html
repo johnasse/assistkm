@@ -568,6 +568,7 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
   import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
   import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
+  import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
   function getPresenceStorageKey() {
     const uid = currentUser?.uid || "guest";
@@ -1106,10 +1107,12 @@ function fillFullMonthPresence() {
     showToast("Mois vidé");
   }
 
- function saveModule() {
+ async function saveModuleSilently() {
+  if (!currentUser) return;
+
+  await saveModuleData(currentUser.uid, "presence", state);
+
   localStorage.setItem(getPresenceStorageKey(), JSON.stringify(state));
-  savePresenceForAbattement();
-  showToast("Fiche de présence enregistrée");
 }
  function savePresenceForAbattement() {
   const uidSafe = currentUser?.uid || "guest";
@@ -1159,34 +1162,38 @@ function fillFullMonthPresence() {
   localStorage.setItem(key, JSON.stringify(archive));
 }
 
-  function loadModule() {
-    const raw = localStorage.getItem(getPresenceStorageKey());
-    if (!raw) return;
+  async function loadModule() {
+  if (!currentUser) return;
 
-    try {
-      const parsed = JSON.parse(raw);
+  try {
+    const cloudData = await loadModuleData(currentUser.uid, "presence");
 
-      if (parsed?.presence) {
-        state.presence.month = parsed.presence.month || "";
-        state.presence.afName = parsed.presence.afName || "";
-        state.presence.rectif = parsed.presence.rectif || "";
-        state.presence.signatureDataUrl = parsed.presence.signatureDataUrl || "";
-        state.presence.children = parsed.presence.children || Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
-        state.presence.grid = parsed.presence.grid || Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
-      }
+    const parsed = cloudData || JSON.parse(
+      localStorage.getItem(getPresenceStorageKey()) || "{}"
+    );
 
-      if (parsed?.relay) {
-        state.relay.month = parsed.relay.month || "";
-        state.relay.afName = parsed.relay.afName || "";
-        state.relay.notes = parsed.relay.notes || "";
-        state.relay.rows = parsed.relay.rows || [createEmptyRelayRow()];
-      }
-
-      normalizeStateShape();
-    } catch (error) {
-      console.error("Erreur chargement module présence :", error);
+    if (parsed?.presence) {
+      state.presence.month = parsed.presence.month || "";
+      state.presence.afName = parsed.presence.afName || "";
+      state.presence.rectif = parsed.presence.rectif || "";
+      state.presence.signatureDataUrl = parsed.presence.signatureDataUrl || "";
+      state.presence.children = parsed.presence.children || Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
+      state.presence.grid = parsed.presence.grid || Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
     }
+
+    if (parsed?.relay) {
+      state.relay.month = parsed.relay.month || "";
+      state.relay.afName = parsed.relay.afName || "";
+      state.relay.notes = parsed.relay.notes || "";
+      state.relay.rows = parsed.relay.rows || [createEmptyRelayRow()];
+    }
+
+    normalizeStateShape();
+
+  } catch (error) {
+    console.error("Erreur chargement module présence :", error);
   }
+}
 
   async function loadProfile() {
     if (!currentUser) return;
@@ -1619,7 +1626,7 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  loadModule();
+  await loadModule();
   normalizeStateShape();
   initDefaults();
 
