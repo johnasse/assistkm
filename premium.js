@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { auth, db } from "./firebase-config.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import {
   getFirestore,
@@ -15,20 +15,7 @@ import {
   increment
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-/* CONFIG FIREBASE */
-const firebaseConfig = {
-  apiKey: "AIzaSyCc9uGltdHfmKmnVOcqIYAY7nD6qHnykeo",
-  authDomain: "assistkm-24d0a.firebaseapp.com",
-  projectId: "assistkm-24d0a",
-  storageBucket: "assistkm-24d0a.firebasestorage.app",
-  messagingSenderId: "172856206943",
-  appId: "1:172856206943:web:b3db987c7f353679721dea",
-  measurementId: "G-PF0T2NEVZM"
-};
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 /* STRIPE */
 const STRIPE_PRICE_ID = "price_1TBXzxCA2m5OcqFbLcvPpl8n";
@@ -501,5 +488,3 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-/* EXPORTS UTILES */
-export { auth, db, app };

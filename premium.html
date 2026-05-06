@@ -383,13 +383,14 @@
   </div>
 
   <script type="module">
-    import {
-      auth,
-      startStripeSubscriptionCheckout,
-      openCustomerPortal,
-      hasPremiumAccess,
-      getPdfUsageInfo
-    } from "./premium.js";
+    import { auth } from "./firebase-config.js";
+
+import {
+  startStripeSubscriptionCheckout,
+  openCustomerPortal,
+  hasPremiumAccess,
+  getPdfUsageInfo
+} from "./premium.js";
 
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 

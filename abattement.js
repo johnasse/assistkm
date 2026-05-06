@@ -1,4 +1,5 @@
-import { auth, requirePremium } from "./premium.js";
+import { auth } from "./firebase-config.js";
+import { requirePremium } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
@@ -837,7 +838,7 @@ el("moisLigne")?.addEventListener("change", remplirJoursSelonMois);
 }
 
 async function initModule() {
-  const allowed = await requirePremium();
+  const allowed = true;
 if (el("modeAccueilLigne")) {
   el("modeAccueilLigne").value = "permanent";
 }
