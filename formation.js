@@ -246,7 +246,9 @@ function render() {
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   const img = new Image();
+  img.crossOrigin = "anonymous";
   img.src = dataUrl;
+ 
 
   await new Promise((resolve, reject) => {
     img.onload = resolve;
@@ -364,7 +366,13 @@ function getProfileSignatureData() {
 
 async function drawLogo(pdf) {
   const logoData = getProfileLogoData();
-  if (!logoData || !isImageDataUrl(logoData)) return;
+  if (
+  !logoData ||
+  (
+    !isImageDataUrl(logoData) &&
+    !logoData.startsWith("http")
+  )
+) return;
 
   try {
     const converted = await convertImageDataUrlToJpeg(logoData, 0.9);
@@ -495,14 +503,20 @@ async function genererPDF() {
   pdf.setFont("helvetica", "bold");
   pdf.text("Signature :", 10, certifY + 9);
 
-  if (signature && isImageDataUrl(signature)) {
-    try {
-      const img = await convertImageDataUrlToJpeg(signature);
-      pdf.addImage(img.dataUrl, "JPEG", 10, certifY + 11, 50, 15);
-    } catch (error) {
-      console.error("Erreur ajout signature PDF formation :", error);
-    }
+ if (
+  signature &&
+  (
+    isImageDataUrl(signature) ||
+    signature.startsWith("http")
+  )
+) {
+  try {
+    const img = await convertImageDataUrlToJpeg(signature);
+    pdf.addImage(img.dataUrl, "JPEG", 10, certifY + 11, 50, 15);
+  } catch (error) {
+    console.error("Erreur ajout signature PDF formation :", error);
   }
+}
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8.6);
@@ -539,7 +553,8 @@ const fileName = generateFileName("Frais_formation", mois, assistant);
 
   pdf.save(fileName);
   showToast("PDF généré et enregistré dans l’historique");
-}
+  }
+
 
 async function loadProfileFormation() {
   if (!currentUser) return;

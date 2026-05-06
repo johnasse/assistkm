@@ -1,6 +1,7 @@
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { requirePdfAccess } from "./premium.js";
 
 const DEFAULT_RATES = {
   "0-11": 47.33,
@@ -50,7 +51,17 @@ function getStorageKey() {
   const year = ($("yearSelect")?.value || new Date().getFullYear()).toString().trim();
   return `habillement_${getUID()}_${child}_${year}`;
 }
+function getProfileLogoData() {
+  return localStorage.getItem(`profileLogoData_${getUID()}`) || "";
+}
 
+function getProfileSignatureData() {
+  return localStorage.getItem(`profileSignatureData_${getUID()}`) || "";
+}
+
+function isImageDataUrl(value) {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
 function getSavedRates() {
   const savedRates = localStorage.getItem(getRatesKey());
   if (!savedRates) return { ...DEFAULT_RATES };
@@ -408,6 +419,7 @@ function renderHistory() {
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   const img = new Image();
+  img.crossOrigin = "anonymous";
   img.src = dataUrl;
 
   await new Promise((resolve, reject) => {
@@ -475,8 +487,38 @@ async function ajouterImagesAuPdf(pdf, expenses) {
     }
   }
 }
+async function drawLogo(pdf) {
+  const logoData = getProfileLogoData();
 
-async function genererPDFHabillement() {
+  if (
+    !logoData ||
+    (
+      !isImageDataUrl(logoData) &&
+      !logoData.startsWith("http")
+    )
+  ) return;
+
+  try {
+    const converted = await convertImageDataUrlToJpeg(logoData, 0.9);
+
+    let w = converted.width;
+    let h = converted.height;
+
+    const ratio = Math.min(30 / w, 20 / h, 1);
+    w *= ratio;
+    h *= ratio;
+
+    pdf.addImage(converted.dataUrl, "JPEG", 10, 8, w, h);
+  } catch (error) {
+    console.error("Erreur logo PDF habillement :", error);
+  }
+}
+
+  async function genererPDFHabillement() {
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
+
   const expenses = getExpenses();
 
   if (!expenses.length) {
@@ -486,6 +528,9 @@ async function genererPDFHabillement() {
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
+  await drawLogo(pdf);
+
+const signature = getProfileSignatureData();
 
   let y = 10;
 
@@ -520,6 +565,21 @@ async function genererPDFHabillement() {
       y = 10;
     }
   });
+  if (
+  signature &&
+  (
+    isImageDataUrl(signature) ||
+    signature.startsWith("http")
+  )
+) {
+  try {
+    const img = await convertImageDataUrlToJpeg(signature);
+    pdf.text("Signature :", 10, 260);
+    pdf.addImage(img.dataUrl, "JPEG", 10, 263, 50, 15);
+  } catch (error) {
+    console.error("Erreur signature PDF habillement :", error);
+  }
+}
 
   await ajouterImagesAuPdf(pdf, expenses);
 
