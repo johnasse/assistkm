@@ -144,7 +144,16 @@ onAuthStateChanged(auth, (user) => {
 async function loadUserData() {
   if (!currentUid) return;
 
-  deplacements = await loadModuleData(currentUid, "kilometrique") || [];
+  const cloudData = await loadModuleData(currentUid, "kilometrique");
+
+if (Array.isArray(cloudData)) {
+  deplacements = cloudData;
+} else if (Array.isArray(cloudData?.deplacements)) {
+  deplacements = cloudData.deplacements;
+} else {
+  deplacements = [];
+}
+
 
   loadSavedInfos();
   loadBaremes();
@@ -944,7 +953,9 @@ function clearLogo() {
 }
 
 async function saveDeplacements() {
-  await saveModuleData(currentUid, "kilometrique", deplacements);
+  await saveModuleData(currentUid, "kilometrique", {
+    deplacements
+  });
 }
 
 function getLogoDataKey() {
