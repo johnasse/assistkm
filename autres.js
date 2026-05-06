@@ -401,13 +401,14 @@ async function drawLogo(pdf) {
 }
 
 async function genererPDF() {
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
+
   if (!fraisAutres.length) {
     alert("Aucune dépense à exporter.");
     return;
   }
-
-  const allowed = await requirePdfAccess();
-  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "mm", "a4");
