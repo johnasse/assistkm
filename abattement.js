@@ -2,6 +2,8 @@ import { auth } from "./firebase-config.js";
 import { requirePremium, requirePdfAccess } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { saveModuleData, loadModuleData } from "./cloud-sync.js";
+import { savePdfToHistory } from "./pdf-history.js";
+import { generateFileName } from "./utils.js";
 
 let uid = null;
 let lignesAbattement = [];
@@ -780,7 +782,23 @@ if (!allowed) return;
   ]);
 
   addFooter();
-  pdf.save(`abattement_fiscal_${annee}.pdf`);
+  const fileName = generateFileName(
+  "abattement_fiscal",
+  `${annee}`,
+  "assistant"
+);
+
+try {
+  await savePdfToHistory(pdf, {
+    nom: fileName,
+    mois: String(annee),
+    type: "Abattement fiscal"
+  });
+} catch (error) {
+  console.error("Erreur historique PDF abattement :", error);
+}
+
+pdf.save(fileName);
 }
 
 function bindEvents() {
