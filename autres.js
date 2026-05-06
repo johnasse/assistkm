@@ -470,7 +470,6 @@ const colMontant = 38;
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
   pdf.rect(tableX, tableY, colDate, headerH);
-pdf.rect(tableX, tableY, colDate, headerH);
 pdf.rect(tableX + colDate, tableY, colEnfant, headerH);
 pdf.rect(tableX + colDate + colEnfant, tableY, colDetail, headerH);
 pdf.rect(tableX + colDate + colEnfant + colDetail, tableY, colMontant, headerH);
@@ -515,7 +514,7 @@ pdf.rect(tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH);
 drawCellText(pdf, dateLines, tableX, rowY, colDate, rowH, "center");
 drawCellText(pdf, enfantText, tableX + colDate, rowY, colEnfant, rowH, "center");
 drawCellText(pdf, detailLines, tableX + colDate + colEnfant, rowY, colDetail, rowH, "center");
-drawCellText(pdf, montantLines, tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH, "center");;
+drawCellText(pdf, montantLines, tableX + colDate + colEnfant + colDetail, rowY, colMontant, rowH, "center");
 
     rowY += rowH;
   }
