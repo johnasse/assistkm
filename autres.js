@@ -662,7 +662,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   currentUser = user;
-  currentUid = user.uid; // garde cette ligne seulement si la page utilise currentUid
+  uid = user.uid;
 
   if (!ensureGlobalPinExists()) {
     window.location.href = "index.html";
@@ -678,22 +678,6 @@ onAuthStateChanged(auth, async (user) => {
     window.location.href = "index.html";
     return;
   }
-
-  // ✅ ici tu mets le chargement normal du module
-  if (typeof loadUserData === "function") {
-    await loadUserData();
-  }
-
-  if (typeof loadProfile === "function") {
-    await loadProfile(user.uid);
-  }
-
-  if (typeof renderHistorique === "function") {
-    renderHistorique();
-  }
-});
-  currentUser = user;
-  uid = user.uid;
 
   if ($("assistantNomAutres")) {
     $("assistantNomAutres").value =
@@ -711,3 +695,6 @@ onAuthStateChanged(auth, async (user) => {
   bindEvents();
   render();
   await loadProfileAutres();
+});
+
+
