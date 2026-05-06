@@ -1,4 +1,4 @@
-import { auth, db } from "./firebase-config.js";
+import { auth, db, storage } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { generateFileName } from "./utils.js";
@@ -6,6 +6,10 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/f
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 import { saveModuleData, loadModuleData } from "./cloud-sync.js";
+import {
+  ref,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
 let map = null;
 let directionsService = null;
@@ -1012,16 +1016,33 @@ async function genererPDFMensuel() {
   const totalMontantEstime = deplacements.reduce((sum, item) => sum + item.montant, 0);
   const baremes = getBaremesFromInputs();
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
-  const signatureData = localStorage.getItem(getSignatureDataKey());
-  const carteGriseData = localStorage.getItem(getCarteGriseDataKey());
-  const logoData = localStorage.getItem(getLogoDataKey());
+  const logoData =
+  await getDownloadURL(ref(storage, `users/${currentUid}/profileLogoData_${currentUid}`)).catch(() =>
+    localStorage.getItem(getLogoDataKey())
+  );
+
+const signatureData =
+  await getDownloadURL(ref(storage, `users/${currentUid}/profileSignatureData_${currentUid}`)).catch(() =>
+    localStorage.getItem(getSignatureDataKey())
+  );
+
+const carteGriseData =
+  await getDownloadURL(ref(storage, `users/${currentUid}/profileCarteGriseData_${currentUid}`)).catch(() =>
+    localStorage.getItem(getCarteGriseDataKey())
+  );
 
   const margin = 10;
   const pageWidth = docPdf.internal.pageSize.getWidth();
   let y = 14;
 
   async function drawLogo() {
-    if (!logoData || !isImageDataUrl(logoData)) return;
+    if (
+  !logoData ||
+  (
+    !isImageDataUrl(logoData) &&
+    !logoData.startsWith("http")
+  )
+) return;
 
     try {
       const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
@@ -1152,7 +1173,13 @@ for (const item of deplacements) {
         y
       );
 
-      if (logoData && isImageDataUrl(logoData)) {
+      if (
+  logoData &&
+  (
+    isImageDataUrl(logoData) ||
+    logoData.startsWith("http")
+  )
+) {
         try {
           const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
 
@@ -1232,7 +1259,13 @@ docPdf.setFont("helvetica", "normal");
 docPdf.setFontSize(10);
 docPdf.text("Signature assistant familial :", leftBlockX, 149);
 
-if (signatureData && isImageDataUrl(signatureData)) {
+if (
+  signatureData &&
+  (
+    isImageDataUrl(signatureData) ||
+    signatureData.startsWith("http")
+  )
+) {
   try {
     const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.85);
 
@@ -1321,7 +1354,13 @@ docPdf.text(`7 CV et plus : d x ${baremes[7].toFixed(3)} €`, baremeX, yBareme)
 
 
 
-  if (carteGriseData && isImageDataUrl(carteGriseData)) {
+  if (
+  carteGriseData &&
+  (
+    isImageDataUrl(carteGriseData) ||
+    carteGriseData.startsWith("http")
+  )
+) {
     try {
       const convertedCarte = await convertImageDataUrlToJpeg(carteGriseData, 0.92);
 
@@ -1563,7 +1602,8 @@ function fileToBase64(file) {
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.92) {
   const img = new Image();
-  img.src = dataUrl;
+img.crossOrigin = "anonymous";
+img.src = dataUrl;
 
   await new Promise((resolve, reject) => {
     img.onload = resolve;
