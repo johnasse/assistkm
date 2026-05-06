@@ -575,10 +575,15 @@
   <script type="module">
  
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
-    import { auth, db } from "./firebase-config.js";
+    import { auth, db, storage } from "./firebase-config.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
     import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-
+import {
+  ref,
+  uploadString,
+  getDownloadURL,
+  deleteObject
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
     const statusMsg = document.getElementById("statusMsg");
     const errorMsg = document.getElementById("errorMsg");
     const saveBtn = document.getElementById("saveBtn");
@@ -739,58 +744,124 @@ import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
       fields.childrenList.value = data.childrenList || "";
     }
 
-    function loadStoredFiles() {
-      renderImagePreview(
-        logoPreviewBox,
-        logoFileName,
-        localStorage.getItem(getProfileLogoDataKey()),
-        localStorage.getItem(getProfileLogoNameKey()) || "",
-        "Aucun logo enregistré"
-      );
+    async function loadStoredFiles() {
+  try {
 
-      renderImagePreview(
-        signaturePreviewBox,
-        signatureFileName,
-        localStorage.getItem(getProfileSignatureDataKey()),
-        localStorage.getItem(getProfileSignatureNameKey()) || "",
-        "Aucune signature enregistrée"
-      );
+    const logoRef = ref(
+      storage,
+      `users/${currentUser.uid}/${getProfileLogoDataKey()}`
+    );
 
-      renderImagePreview(
-        carteGrisePreviewBox,
-        carteGriseFileName,
-        localStorage.getItem(getProfileCarteGriseDataKey()),
-        localStorage.getItem(getProfileCarteGriseNameKey()) || "",
-        "Aucune carte grise enregistrée"
-      );
-    }
+    const logoUrl = await getDownloadURL(logoRef).catch(() => null);
 
-    async function handleImageUpload(input, dataKey, nameKey, previewBox, fileNameEl, placeholderText, allowedPdf = false) {
-      const file = input.files?.[0];
-      if (!file) return;
+    renderImagePreview(
+      logoPreviewBox,
+      logoFileName,
+      logoUrl,
+      "logo",
+      "Aucun logo enregistré"
+    );
 
-      const isImage = file.type && file.type.startsWith("image/");
-      const isPdf = allowedPdf && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+    const signatureRef = ref(
+      storage,
+      `users/${currentUser.uid}/${getProfileSignatureDataKey()}`
+    );
 
-      if (!isImage && !isPdf) {
-        alert(allowedPdf ? "Merci de choisir une image ou un PDF." : "Merci de choisir une image.");
-        input.value = "";
-        return;
-      }
+    const signatureUrl =
+      await getDownloadURL(signatureRef).catch(() => null);
 
-      try {
-        const data = await fileToBase64(file);
-        localStorage.setItem(dataKey(), data);
-        localStorage.setItem(nameKey(), file.name);
-        renderImagePreview(previewBox, fileNameEl, data, file.name, placeholderText);
-        setStatus("Fichier enregistré localement dans le profil.");
-      } catch (error) {
-        console.error(error);
-        showError("Impossible de lire le fichier sélectionné.");
-      } finally {
-        input.value = "";
-      }
-    }
+    renderImagePreview(
+      signaturePreviewBox,
+      signatureFileName,
+      signatureUrl,
+      "signature",
+      "Aucune signature enregistrée"
+    );
+
+    const carteRef = ref(
+      storage,
+      `users/${currentUser.uid}/${getProfileCarteGriseDataKey()}`
+    );
+
+    const carteUrl =
+      await getDownloadURL(carteRef).catch(() => null);
+
+    renderImagePreview(
+      carteGrisePreviewBox,
+      carteGriseFileName,
+      carteUrl,
+      "carte-grise",
+      "Aucune carte grise enregistrée"
+    );
+
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+   async function handleImageUpload(
+  input,
+  dataKey,
+  nameKey,
+  previewBox,
+  fileNameEl,
+  placeholderText,
+  allowedPdf = false
+) {
+  const file = input.files?.[0];
+
+  if (!file || !currentUser) return;
+
+  const isImage = file.type && file.type.startsWith("image/");
+  const isPdf =
+    allowedPdf &&
+    (file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf"));
+
+  if (!isImage && !isPdf) {
+    alert(
+      allowedPdf
+        ? "Merci de choisir une image ou un PDF."
+        : "Merci de choisir une image."
+    );
+
+    input.value = "";
+    return;
+  }
+
+  try {
+    setStatus("Upload du fichier vers le cloud...");
+
+    const data = await fileToBase64(file);
+
+    const storagePath =
+      `users/${currentUser.uid}/${dataKey()}`;
+
+    const storageRef = ref(storage, storagePath);
+
+    await uploadString(storageRef, data, "data_url");
+
+    const downloadURL = await getDownloadURL(storageRef);
+
+    localStorage.setItem(dataKey(), downloadURL);
+    localStorage.setItem(nameKey(), file.name);
+
+    renderImagePreview(
+      previewBox,
+      fileNameEl,
+      downloadURL,
+      file.name,
+      placeholderText
+    );
+
+    setStatus("Fichier synchronisé avec le cloud.");
+  } catch (error) {
+    console.error(error);
+    showError("Impossible d’envoyer le fichier.");
+  } finally {
+    input.value = "";
+  }
+}
 
     function removeStoredFile(dataKey, nameKey, previewBox, fileNameEl, placeholderText) {
       localStorage.removeItem(dataKey());
