@@ -246,6 +246,7 @@ function render() {
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   const img = new Image();
+  img.crossOrigin = "anonymous";
   img.src = dataUrl;
 
   await new Promise((resolve, reject) => {
@@ -355,9 +356,13 @@ function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
     currentY += lineGap;
   });
 }
-function getProfileLogoData() {
-  return localStorage.getItem(`profileLogoData_${uid}`) || "";
+async function getProfileLogoData() {
+  return currentProfile?.logoUrl ||
+    currentProfile?.logoData ||
+    localStorage.getItem(`profileLogoData_${uid}`) ||
+    "";
 }
+
 
 function getProfileSignatureData() {
   return localStorage.getItem(`profileSignatureData_${uid}`) || "";
@@ -368,8 +373,14 @@ function getAssistantName() {
 }
 
 async function drawLogo(pdf) {
-  const logoData = getProfileLogoData();
-  if (!logoData || !isImageDataUrl(logoData)) return;
+  const logoData = await getProfileLogoData();
+  if (
+  !logoData ||
+  (
+    !isImageDataUrl(logoData) &&
+    !logoData.startsWith("http")
+  )
+) return;
 
   try {
     const convertedLogo = await convertImageDataUrlToJpeg(logoData, 0.92);
@@ -542,7 +553,13 @@ drawCellText(pdf, montantLines, tableX + colDate + colEnfant + colDetail, rowY, 
   pdf.setFont("helvetica", "bold");
   pdf.text("Signature de l’assistant(e) familial(e) :", 12, certifY + 12);
 
-  if (signatureData && isImageDataUrl(signatureData)) {
+  if (
+  signatureData &&
+  (
+    isImageDataUrl(signatureData) ||
+    signatureData.startsWith("http")
+  )
+) {
     try {
       const convertedSignature = await convertImageDataUrlToJpeg(signatureData, 0.9);
       pdf.addImage(convertedSignature.dataUrl, "JPEG", 12, certifY + 14, 52, 15);
