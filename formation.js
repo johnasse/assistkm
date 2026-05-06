@@ -4,6 +4,8 @@ import { savePdfToHistory } from "./pdf-history.js";
 import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
+import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 
 let fraisFormation = [];
 let uid = null;
@@ -30,12 +32,28 @@ function formatMonthLabel(monthValue) {
   return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
-function saveData() {
+async function saveData() {
   localStorage.setItem(getStorageKey(), JSON.stringify(fraisFormation));
+
+  if (uid) {
+    await saveModuleData(uid, "formation", fraisFormation);
+  }
 }
 
-function loadData() {
-  fraisFormation = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+async function loadData() {
+  try {
+    const cloudData = await loadModuleData(uid, "formation");
+
+    fraisFormation =
+      cloudData ||
+      JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+  } catch (error) {
+    console.error("Erreur chargement cloud formation :", error);
+
+    fraisFormation = JSON.parse(
+      localStorage.getItem(getStorageKey()) || "[]"
+    );
+  }
 }
 
 function formatDateFr(dateStr) {
@@ -148,7 +166,7 @@ async function ajouterFrais() {
     justificatif
   });
 
-  saveData();
+  await saveData();
   render();
   resetForm();
   showToast("Dépense ajoutée");
@@ -179,19 +197,19 @@ function voirJustificatif(id) {
   win.document.close();
 }
 
-function supprimerFrais(id) {
+async function supprimerFrais(id) {
   fraisFormation = fraisFormation.filter((x) => x.id !== id);
-  saveData();
+  await saveData();
   render();
   showToast("Dépense supprimée");
 }
 
-function viderListe() {
+async function viderListe() {
   if (!fraisFormation.length) return;
   if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
 
   fraisFormation = [];
-  saveData();
+  await saveData();
   render();
   showToast("Liste vidée");
 }
@@ -201,13 +219,26 @@ function render() {
   if (!body) return;
 
   body.innerHTML = "";
-
   if (!fraisFormation.length) {
-    body.innerHTML = `<tr><td colspan="8" class="empty-cell">Aucune dépense enregistrée</td></tr>`;
-    if ($("totalLignesFormation")) $("totalLignesFormation").textContent = "0";
-    if ($("totalMontantFormation")) $("totalMontantFormation").textContent = "0,00 €";
-    return;
+  body.innerHTML = `
+    <tr>
+      <td colspan="8" class="empty-cell">
+        Aucune dépense enregistrée
+      </td>
+    </tr>
+  `;
+
+  if ($("totalLignesFormation")) {
+    $("totalLignesFormation").textContent = "0";
   }
+
+  if ($("totalMontantFormation")) {
+    $("totalMontantFormation").textContent = "0,00 €";
+  }
+
+  return;
+}
+
 
   fraisFormation.forEach((item) => {
     const tr = document.createElement("tr");
@@ -357,11 +388,21 @@ function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
 }
 
 function getProfileLogoData() {
-  return localStorage.getItem(`profileLogoData_${uid}`) || "";
+  return (
+    currentProfile?.logoUrl ||
+    currentProfile?.logoData ||
+    localStorage.getItem(`profileLogoData_${uid}`) ||
+    ""
+  );
 }
 
 function getProfileSignatureData() {
-  return localStorage.getItem(`profileSignatureData_${uid}`) || "";
+  return (
+    currentProfile?.signatureUrl ||
+    currentProfile?.signatureData ||
+    localStorage.getItem(`profileSignatureData_${uid}`) ||
+    ""
+  );
 }
 
 async function drawLogo(pdf) {
@@ -391,13 +432,14 @@ async function drawLogo(pdf) {
 }
 
 async function genererPDF() {
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
+
   if (!fraisFormation.length) {
     alert("Aucune dépense à exporter.");
     return;
   }
-
-  const allowed = await requirePdfAccess();
-  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "mm", "a4");
@@ -609,6 +651,20 @@ onAuthStateChanged(auth, async (user) => {
 
   currentUser = user;
   uid = user.uid;
+  if (!ensureGlobalPinExists()) {
+  window.location.href = "index.html";
+  return;
+}
+
+const ok = await requireGlobalPin({
+  title: "Accès sécurisé",
+  message: "Entre ton code PIN pour accéder au module formation."
+});
+
+if (!ok) {
+  window.location.href = "index.html";
+  return;
+}
 
   if ($("assistantNomFormation")) {
     $("assistantNomFormation").value =
@@ -622,8 +678,8 @@ onAuthStateChanged(auth, async (user) => {
       localStorage.getItem(`moisFormation_${uid}`) || getDefaultMonthValue();
   }
 
-  loadData();
-  bindEvents();
-  render();
   await loadProfileFormation();
+await loadData();
+bindEvents();
+render();
 });
