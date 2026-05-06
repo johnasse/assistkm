@@ -569,6 +569,7 @@
   import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
   import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
   import { saveModuleData, loadModuleData } from "./cloud-sync.js";
+import { requirePdfAccess } from "./premium.js";
 
   function getPresenceStorageKey() {
     const uid = currentUser?.uid || "guest";
@@ -1326,7 +1327,9 @@ function fillFullMonthPresence() {
   pdf.setTextColor(0, 0, 0);
 }
 
-  function generatePresencePdf() {
+  async function generatePresencePdf() {
+    const allowed = await requirePdfAccess();
+if (!allowed) return;
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("landscape", "mm", "a4");
 
