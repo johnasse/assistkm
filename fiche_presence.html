@@ -570,6 +570,7 @@
   import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
   import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 import { requirePdfAccess } from "./premium.js";
+import { savePdfToHistory } from "./pdf-history.js";
 
   function getPresenceStorageKey() {
     const uid = currentUser?.uid || "guest";
@@ -580,6 +581,7 @@ import { requirePdfAccess } from "./premium.js";
   const MAX_PRESENCE_ROWS = 12;
 
   let currentUser = null;
+  let currentProfile = null;
 let selectedPresenceCode = "PP";
   let selectedRelayCode = "P";
   let daysInPresenceMonth = 31;
@@ -1205,6 +1207,7 @@ function fillFullMonthPresence() {
       if (!snap.exists()) return;
 
       const data = snap.data() || {};
+      currentProfile = data;
       const profileName = String(data.fullName || "").trim();
       const children = String(data.childrenList || "")
         .split(/\n|,/)
@@ -1249,24 +1252,14 @@ function fillFullMonthPresence() {
     return `${month}/${year}`;
   }
 
-  function drawPdfCell(pdf, x, y, w, h, text = "", align = "center", fontSize = 7) {
-    pdf.rect(x, y, w, h);
-    pdf.setFontSize(fontSize);
+  async function getProfileLogoData() {
+  const uid = currentUser?.uid || "";
 
-    const content = String(text ?? "");
-
-    if (align === "left") {
-      pdf.text(content, x + 1, y + h / 2 + 1.5);
-    } else {
-      const textWidth = pdf.getTextWidth(content);
-      pdf.text(content, x + (w - textWidth) / 2, y + h / 2 + 1.5);
-    }
-  }
-
-  function getProfileLogoData() {
-    const uid = currentUser?.uid || "";
-    return localStorage.getItem(`profileLogoData_${uid}`) || "";
-  }
+  return currentProfile?.logoUrl ||
+    currentProfile?.logoData ||
+    localStorage.getItem(`profileLogoData_${uid}`) ||
+    "";
+}
 
   function addLogoToPdf(pdf, dataUrl, x, y, maxW, maxH) {
     if (!dataUrl) return;
@@ -1290,27 +1283,6 @@ function fillFullMonthPresence() {
     }
   }
 
-  function addPdfToGlobalHistory(blob, fileName, monthLabel) {
-    if (!currentUser) return;
-
-    const storageKey = `historiquePDF_${currentUser.uid}`;
-    const historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
-
-    const reader = new FileReader();
-    reader.onloadend = function () {
-      historique.push({
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        mois: monthLabel,
-        nom: fileName,
-        data: reader.result,
-        dateGeneration: new Date().toLocaleString("fr-FR"),
-        type: "Fiche de présence"
-      });
-
-      localStorage.setItem(storageKey, JSON.stringify(historique));
-    };
-    reader.readAsDataURL(blob);
-  }
   function addEasyfraisFooter(pdf) {
   const pageCount = pdf.getNumberOfPages();
 
@@ -1335,7 +1307,7 @@ if (!allowed) return;
 
     const monthLabel = formatMonthLabel(state.presence.month);
     const relayMonthLabel = formatMonthLabel(state.relay.month);
-    const profileLogoData = getProfileLogoData();
+    const profileLogoData = await getProfileLogoData();
 
     const leftMargin = 8;
     const topMargin = 10;
@@ -1381,7 +1353,6 @@ if (!allowed) return;
     pdf.text(`Nom et prénom de l'assistant familial : ${state.presence.afName || ""}`, leftMargin, 18);
     pdf.text(`Mois : ${monthLabel}`, 220, 18);
     pdf.setFont("helvetica", "normal");
-pdf.setFontSize(7);
 
 
 pdf.setFontSize(6);
@@ -1588,13 +1559,24 @@ const moisFormat = formatMonthYear(state.presence.month);
 
 const fileName = `feuille_de_presence_${nomAF}_${moisFormat}.pdf`;
 
-const pdfBlob = pdf.output("blob");
-
-if (typeof addPdfToGlobalHistory === "function") {
-  addPdfToGlobalHistory(pdfBlob, fileName, monthLabel);
+try {
+  await savePdfToHistory(pdf, {
+    nom: fileName,
+    mois: monthLabel,
+    type: "Fiche de présence"
+  });
+} catch (error) {
+  console.error("Erreur historique PDF présence :", error);
 }
 
+savePresenceForAbattement();
+
 pdf.save(fileName);
+}
+async function saveModule() {
+  await saveModuleSilently();
+  savePresenceForAbattement();
+  showToast("Fiche enregistrée");
 }
 function initDefaults() {
     const now = new Date();
