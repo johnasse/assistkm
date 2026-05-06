@@ -838,7 +838,7 @@ el("moisLigne")?.addEventListener("change", remplirJoursSelonMois);
 }
 
 async function initModule() {
-  const allowed = true;
+  const allowed = await requirePremium();
 if (el("modeAccueilLigne")) {
   el("modeAccueilLigne").value = "permanent";
 }
