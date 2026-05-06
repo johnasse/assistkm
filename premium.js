@@ -199,7 +199,6 @@ export async function requirePremium() {
 
   return true;
 }
-
 export async function updatePremiumBadge(elementId = "premiumStatus") {
   const el = getEl(elementId);
   if (!el) return;
