@@ -1,5 +1,5 @@
 import { auth } from "./firebase-config.js";
-import { requirePremium } from "./premium.js";
+import { requirePremium, requirePdfAccess } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
@@ -582,7 +582,9 @@ function viderLignesEnfantSelectionne() {
   saveLignes();
   calculerAbattement();
 }
-function exportPdfAbattement() {
+async function exportPdfAbattement() {
+  const allowed = await requirePdfAccess();
+if (!allowed) return;
   if (!window.jspdf || !window.jspdf.jsPDF) {
     alert("La librairie PDF est introuvable.");
     return;
