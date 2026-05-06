@@ -1,7 +1,8 @@
 import { savePdfToHistory } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
+import { requirePdfAccess } from "./premium.js";
 const DEFAULT_RATES = {
   "0-11": 10.00,
   "12-15": 20.00,
@@ -430,6 +431,7 @@ function renderHistory() {
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
   const img = new Image();
+  img.crossOrigin = "anonymous";
   img.src = dataUrl;
 
   await new Promise((resolve, reject) => {
@@ -499,6 +501,8 @@ async function ajouterImagesAuPdf(pdf, movements) {
 }
 
 async function genererPDFArgentPoche() {
+  const allowed = await requirePdfAccess();
+if (!allowed) return;
   const movements = getMovements();
 
   if (!movements.length) {
@@ -549,13 +553,17 @@ async function genererPDFArgentPoche() {
 
   const filename = `argentdepoche_${new Date().toISOString().slice(0, 10)}.pdf`;
 
-  savePdfToHistory(pdf, {
+  try {
+  await savePdfToHistory(pdf, {
     mois: year,
     nom: filename,
     type: "Argent de poche"
   });
+} catch (error) {
+  console.error("Erreur historique PDF argent de poche :", error);
+}
 
-  pdf.save(filename);
+pdf.save(filename);
 }
 
 function initDefaultValues() {
@@ -612,13 +620,27 @@ function bindEvents() {
   $("expenseFiles").addEventListener("change", updateNomJustificatif);
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "login.html";
     return;
   }
 
   currentUid = user.uid;
+  if (!ensureGlobalPinExists()) {
+  window.location.href = "index.html";
+  return;
+}
+
+const ok = await requireGlobalPin({
+  title: "Accès sécurisé",
+  message: "Entre ton code PIN pour accéder au module argent de poche."
+});
+
+if (!ok) {
+  window.location.href = "index.html";
+  return;
+}
   bindEvents();
   refreshAll();
 });
