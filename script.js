@@ -5,6 +5,7 @@ import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
 let map = null;
 let directionsService = null;
@@ -143,7 +144,7 @@ onAuthStateChanged(auth, (user) => {
 async function loadUserData() {
   if (!currentUid) return;
 
-  deplacements = JSON.parse(localStorage.getItem(getDeplacementsKey()) || "[]");
+  deplacements = await loadModuleData(currentUid, "kilometrique") || [];
 
   loadSavedInfos();
   loadBaremes();
@@ -773,7 +774,7 @@ function calculerTrajet() {
   });
 }
 
-function ajouterDeplacement() {
+async function ajouterDeplacement() {
   if (totalDistanceKm <= 0) {
     alert("Merci de calculer le trajet avant d'ajouter le déplacement.");
     return;
@@ -818,7 +819,7 @@ function ajouterDeplacement() {
     montant: Number(totalAmount.toFixed(2))
   });
 
-  saveDeplacements();
+  await saveDeplacements();
   renderDeplacements();
   showToast("Déplacement ajouté");
   resetFormAfterAdd();
@@ -867,21 +868,21 @@ if (typeof window.maskChildrenNames === "function") {
 }
 
 
-function supprimerDeplacement(id) {
+async function supprimerDeplacement(id) {
   deplacements = deplacements.filter((item) => item.id !== id);
-  saveDeplacements();
+  await saveDeplacements();
   renderDeplacements();
   showToast("Déplacement supprimé");
 }
 
-function viderListe() {
+async function viderListe() {
   if (deplacements.length === 0) return;
 
   const ok = confirm("Voulez-vous vraiment vider toute la liste ?");
   if (!ok) return;
 
   deplacements = [];
-  saveDeplacements();
+  await saveDeplacements();
   renderDeplacements();
   showToast("Liste vidée");
 
@@ -942,9 +943,10 @@ function clearLogo() {
   showToast("Logo supprimé");
 }
 
-function saveDeplacements() {
-  localStorage.setItem(getDeplacementsKey(), JSON.stringify(deplacements));
+async function saveDeplacements() {
+  await saveModuleData(currentUid, "kilometrique", deplacements);
 }
+
 function getLogoDataKey() {
   return `logoKilometriqueData_${getUid()}`;
 }
