@@ -1,6 +1,6 @@
 import { auth, requirePremium } from "./premium.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
 let uid = null;
 let lignesAbattement = [];
@@ -88,23 +88,64 @@ function showApp() {
   if (app) app.style.display = "block";
 }
 
-function saveLignes() {
+async function saveLignes() {
   localStorage.setItem(getLignesKey(), JSON.stringify(lignesAbattement));
+
+  await saveModuleData(uid, "abattement", {
+    lignesAbattement,
+    listeEnfantsAbattementMemo,
+    revenuTotalReference: el("revenuTotalReference")?.value || "0"
+  });
 }
 
-function saveEnfants() {
+async function saveEnfants() {
   localStorage.setItem(getEnfantsKey(), JSON.stringify(listeEnfantsAbattementMemo));
+
+  await saveModuleData(uid, "abattement", {
+    lignesAbattement,
+    listeEnfantsAbattementMemo,
+    revenuTotalReference: el("revenuTotalReference")?.value || "0"
+  });
 }
 
-function saveRevenuReference() {
-  localStorage.setItem(getRevenuReferenceKey(), el("revenuTotalReference")?.value || "0");
+async function saveRevenuReference() {
+  localStorage.setItem(
+    getRevenuReferenceKey(),
+    el("revenuTotalReference")?.value || "0"
+  );
+
+  await saveModuleData(uid, "abattement", {
+    lignesAbattement,
+    listeEnfantsAbattementMemo,
+    revenuTotalReference: el("revenuTotalReference")?.value || "0"
+  });
 }
 
-function loadData() {
-  lignesAbattement = JSON.parse(localStorage.getItem(getLignesKey()) || "[]");
-  listeEnfantsAbattementMemo = JSON.parse(localStorage.getItem(getEnfantsKey()) || "[]");
+async function loadData() {
+  const cloudData = await loadModuleData(uid, "abattement");
+
+  if (cloudData) {
+    lignesAbattement = cloudData.lignesAbattement || [];
+    listeEnfantsAbattementMemo =
+      cloudData.listeEnfantsAbattementMemo || [];
+
+    if (el("revenuTotalReference")) {
+      el("revenuTotalReference").value =
+        cloudData.revenuTotalReference || "0";
+    }
+
+    return;
+  }
+
+  lignesAbattement =
+    JSON.parse(localStorage.getItem(getLignesKey()) || "[]");
+
+  listeEnfantsAbattementMemo =
+    JSON.parse(localStorage.getItem(getEnfantsKey()) || "[]");
+
   if (el("revenuTotalReference")) {
-    el("revenuTotalReference").value = localStorage.getItem(getRevenuReferenceKey()) || "0";
+    el("revenuTotalReference").value =
+      localStorage.getItem(getRevenuReferenceKey()) || "0";
   }
 }
 
@@ -808,7 +849,7 @@ updateHeuresFieldState();
 
 showApp();
 updateSmicFields();
-loadData();
+await loadData();
 bindEvents();
 updateHeuresFieldState();
 remplirJoursSelonMois();
