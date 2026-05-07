@@ -5,6 +5,7 @@ import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
 let fraisNoel = [];
 let uid = null;
@@ -31,12 +32,61 @@ function formatMonthLabel(monthValue) {
   return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
-function saveData() {
-  localStorage.setItem(getStorageKey(), JSON.stringify(fraisNoel));
+async function saveData() {
+
+  localStorage.setItem(
+    getStorageKey(),
+    JSON.stringify(fraisNoel)
+  );
+
+  await saveModuleData(uid, "noel", {
+    fraisNoel,
+    assistantNom: $("assistantNomNoel")?.value || "",
+    mois: $("moisNoel")?.value || ""
+  });
 }
 
-function loadData() {
-  fraisNoel = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+async function loadData() {
+
+  try {
+
+    const cloud = await loadModuleData(uid, "noel");
+
+    if (cloud?.fraisNoel) {
+      fraisNoel = cloud.fraisNoel;
+    } else {
+      fraisNoel = JSON.parse(
+        localStorage.getItem(getStorageKey()) || "[]"
+      );
+    }
+
+    if (
+      cloud?.assistantNom &&
+      $("assistantNomNoel") &&
+      !$("assistantNomNoel").value.trim()
+    ) {
+      $("assistantNomNoel").value = cloud.assistantNom;
+    }
+
+    if (
+  cloud?.mois &&
+  $("moisNoel") &&
+  !$("moisNoel").value
+) {
+      $("moisNoel").value = cloud.mois;
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Erreur chargement cloud Noël :",
+      error
+    );
+
+    fraisNoel = JSON.parse(
+      localStorage.getItem(getStorageKey()) || "[]"
+    );
+  }
 }
 
 function formatDateFr(dateStr) {
@@ -149,7 +199,7 @@ async function ajouterFrais() {
     justificatif
   });
 
-  saveData();
+  await saveData();
   render();
   resetForm();
   showToast("Dépense ajoutée");
@@ -180,19 +230,19 @@ function voirJustificatif(id) {
   win.document.close();
 }
 
-function supprimerFrais(id) {
+async function supprimerFrais(id) {
   fraisNoel = fraisNoel.filter((x) => x.id !== id);
-  saveData();
+  await saveData();
   render();
   showToast("Dépense supprimée");
 }
 
-function viderListe() {
+async function viderListe() {
   if (!fraisNoel.length) return;
   if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
 
   fraisNoel = [];
-  saveData();
+  await saveData();
   render();
   showToast("Liste vidée");
 }
@@ -210,7 +260,11 @@ function render() {
     return;
   }
 
-  fraisNoel.forEach((item) => {
+  const sorted = [...fraisNoel].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+
+sorted.forEach((item) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${formatDateFr(item.date)}</td>
@@ -357,13 +411,22 @@ function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
 }
 
 function getProfileLogoData() {
-  return localStorage.getItem(`profileLogoData_${uid}`) || "";
+  return (
+    currentProfile?.logoUrl ||
+    currentProfile?.logoData ||
+    localStorage.getItem(`profileLogoData_${uid}`) ||
+    ""
+  );
 }
 
 function getProfileSignatureData() {
-  return localStorage.getItem(`profileSignatureData_${uid}`) || "";
+  return (
+    currentProfile?.signatureUrl ||
+    currentProfile?.signatureData ||
+    localStorage.getItem(`profileSignatureData_${uid}`) ||
+    ""
+  );
 }
-
 async function drawLogo(pdf) {
   const logoData = getProfileLogoData();
   if (!logoData || !isImageDataUrl(logoData)) return;
@@ -385,13 +448,15 @@ async function drawLogo(pdf) {
 }
 
 async function genererPDF() {
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
+
   if (!fraisNoel.length) {
     alert("Aucune dépense à exporter.");
     return;
   }
 
-  const allowed = await requirePdfAccess();
-  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "mm", "a4");
@@ -616,13 +681,25 @@ function bindEvents() {
   $("btnViderNoel")?.addEventListener("click", viderListe);
   $("justificatifNoel")?.addEventListener("change", updateNomJustificatif);
 
-  $("assistantNomNoel")?.addEventListener("input", () => {
-    localStorage.setItem(`assistantNomNoel_${uid}`, $("assistantNomNoel").value.trim());
-  });
+  $("assistantNomNoel")?.addEventListener("input", async () => {
 
-  $("moisNoel")?.addEventListener("change", () => {
-    localStorage.setItem(`moisNoel_${uid}`, $("moisNoel").value);
-  });
+  localStorage.setItem(
+    `assistantNomNoel_${uid}`,
+    $("assistantNomNoel").value.trim()
+  );
+
+  await saveData();
+});
+
+  $("moisNoel")?.addEventListener("change", async () => {
+
+  localStorage.setItem(
+    `moisNoel_${uid}`,
+    $("moisNoel").value
+  );
+
+  await saveData();
+});
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -631,47 +708,23 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
+
   currentUser = user;
   uid = user.uid;
-
-  // 🔒 Vérifie PIN
   if (!ensureGlobalPinExists()) {
-    window.location.href = "index.html";
-    return;
-  }
+  window.location.href = "index.html";
+  return;
+}
 
-  // 🔒 Demande PIN
-  const ok = await requireGlobalPin({
-    title: "Accès au module Noël",
-    message: "Entre ton code PIN pour accéder à ce module."
-  });
-
-  if (!ok) {
-    window.location.href = "index.html";
-    return;
-  }
-
-  // ✅ Chargement normal
-  if ($("assistantNomNoel")) {
-    $("assistantNomNoel").value =
-      localStorage.getItem(`assistantNomNoel_${uid}`) ||
-      localStorage.getItem(`assistantNom_${uid}`) ||
-      "";
-  }
-
-  if ($("moisNoel")) {
-    $("moisNoel").value =
-      localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
-  }
-
-  loadData();
-  bindEvents();
-  render();
-  await loadProfileNoel();
+const ok = await requireGlobalPin({
+  title: "Accès au module Noël",
+  message: "Entre ton code PIN pour accéder à ce module."
 });
 
-  currentUser = user;
-  uid = user.uid;
+if (!ok) {
+  window.location.href = "index.html";
+  return;
+}
 
   if ($("assistantNomNoel")) {
     $("assistantNomNoel").value =
@@ -685,7 +738,9 @@ onAuthStateChanged(auth, async (user) => {
       localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
   }
 
-  loadData();
-  bindEvents();
-  render();
   await loadProfileNoel();
+await loadData();
+
+bindEvents();
+render();
+  });
