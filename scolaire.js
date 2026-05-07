@@ -5,6 +5,7 @@ import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
 let fraisScolaires = [];
 let uid = null;
@@ -31,12 +32,45 @@ function formatMonthLabel(monthValue) {
   return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
-function saveData() {
+async function saveData() {
   localStorage.setItem(getStorageKey(), JSON.stringify(fraisScolaires));
+
+  await saveModuleData(uid, "scolaire", {
+    fraisScolaires,
+    assistantNom: $("assistantNomScolaire")?.value || "",
+    mois: $("moisScolaire")?.value || ""
+  });
 }
 
-function loadData() {
-  fraisScolaires = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+async function loadData() {
+  try {
+    const cloud = await loadModuleData(uid, "scolaire");
+
+    if (cloud?.fraisScolaires) {
+      fraisScolaires = cloud.fraisScolaires;
+    } else {
+      fraisScolaires = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+    }
+
+    if (
+      cloud?.assistantNom &&
+      $("assistantNomScolaire") &&
+      !$("assistantNomScolaire").value.trim()
+    ) {
+      $("assistantNomScolaire").value = cloud.assistantNom;
+    }
+
+    if (
+      cloud?.mois &&
+      $("moisScolaire") &&
+      !$("moisScolaire").value
+    ) {
+      $("moisScolaire").value = cloud.mois;
+    }
+  } catch (error) {
+    console.error("Erreur chargement cloud scolaire :", error);
+    fraisScolaires = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+  }
 }
 
 function formatDateFr(dateStr) {
@@ -148,7 +182,7 @@ async function ajouterFrais() {
     justificatif
   });
 
-  saveData();
+  await saveData();
   render();
   resetForm();
   showToast("Dépense ajoutée");
@@ -179,19 +213,19 @@ function voirJustificatif(id) {
   win.document.close();
 }
 
-function supprimerFrais(id) {
+async function supprimerFrais(id) {
   fraisScolaires = fraisScolaires.filter((x) => x.id !== id);
-  saveData();
+  await saveData();
   render();
   showToast("Dépense supprimée");
 }
 
-function viderListe() {
+async function viderListe() {
   if (!fraisScolaires.length) return;
   if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
 
   fraisScolaires = [];
-  saveData();
+  await saveData();
   render();
   showToast("Liste vidée");
 }
@@ -209,7 +243,11 @@ function render() {
     return;
   }
 
-  fraisScolaires.forEach((item) => {
+  const sorted = [...fraisScolaires].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+
+sorted.forEach((item) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${formatDateFr(item.date)}</td>
@@ -286,8 +324,13 @@ function addEasyfraisFooter(pdf) {
 }
 
 async function ajouterImagesAuPdf(pdf) {
-  for (const item of fraisScolaires) {
-    if (!item.justificatif?.data) continue;
+ const sortedPdf = [...fraisScolaires].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+
+for (const item of sortedPdf) {
+
+  if (!item.justificatif?.data) continue;
 
     try {
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -319,7 +362,7 @@ async function ajouterImagesAuPdf(pdf) {
       imgWidth *= ratio;
       imgHeight *= ratio;
 
-      pdf.addImage(
+            pdf.addImage(
         converted.dataUrl,
         "JPEG",
         (pageWidth - imgWidth) / 2,
@@ -327,10 +370,11 @@ async function ajouterImagesAuPdf(pdf) {
         imgWidth,
         imgHeight
       );
-    } catch (error) {
-      console.error("Erreur ajout image PDF scolaire :", error);
-    }
+
+     } catch (error) {
+    console.error("Erreur ajout image PDF scolaire :", error);
   }
+}
 }
 
 function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
@@ -356,11 +400,21 @@ function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
 }
 
 function getProfileLogoData() {
-  return localStorage.getItem(`profileLogoData_${uid}`) || "";
+  return (
+    currentProfile?.logoUrl ||
+    currentProfile?.logoData ||
+    localStorage.getItem(`profileLogoData_${uid}`) ||
+    ""
+  );
 }
 
 function getProfileSignatureData() {
-  return localStorage.getItem(`profileSignatureData_${uid}`) || "";
+  return (
+    currentProfile?.signatureUrl ||
+    currentProfile?.signatureData ||
+    localStorage.getItem(`profileSignatureData_${uid}`) ||
+    ""
+  );
 }
 
 async function drawLogo(pdf) {
@@ -383,14 +437,17 @@ async function drawLogo(pdf) {
   }
 }
 
-async function genererPDF() {
+
+ async function genererPDF() {
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
+
   if (!fraisScolaires.length) {
     alert("Aucune dépense à exporter.");
     return;
   }
 
-  const allowed = await requirePdfAccess();
-  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "mm", "a4");
@@ -447,8 +504,10 @@ async function genererPDF() {
   pdf.setFontSize(9.3);
 
   const stopY = rowY + 80;
-
-  for (const item of fraisScolaires) {
+const sortedPdf = [...fraisScolaires].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+ for (const item of sortedPdf) {
     const detail = [item.type, item.ecole, item.objet].filter(Boolean).join(" - ");
 
     const dateLines = pdf.splitTextToSize(formatDateFr(item.date), colDate - 4);
@@ -548,8 +607,6 @@ pdf.text("Signature : ", bx + 4, by + 42);
     .replace(/[^a-zA-Z0-9_-]/g, "");
 }
 
-const assistantFileName = cleanFileName(assistant);
-const moisLabel = cleanFileName(formatMonthLabel(mois));
 
 const fileName = generateFileName("Frais_scolaires", mois, assistant);
 
@@ -617,16 +674,31 @@ function bindEvents() {
   $("btnViderScolaire")?.addEventListener("click", viderListe);
   $("justificatifScolaire")?.addEventListener("change", updateNomJustificatif);
 
-  $("assistantNomScolaire")?.addEventListener("input", () => {
-    localStorage.setItem(`assistantNomScolaire_${uid}`, $("assistantNomScolaire").value.trim());
-  });
+  $("assistantNomScolaire")?.addEventListener("input", async () => {
 
-  $("moisScolaire")?.addEventListener("change", () => {
-    localStorage.setItem(`moisScolaire_${uid}`, $("moisScolaire").value);
-  });
+  localStorage.setItem(
+    `assistantNomScolaire_${uid}`,
+    $("assistantNomScolaire").value.trim()
+  );
+
+  await saveData();
+});
+
+  $("moisScolaire")?.addEventListener("change", async () => {
+
+  localStorage.setItem(
+    `moisScolaire_${uid}`,
+    $("moisScolaire").value
+  );
+
+  await saveData();
+});
 }
 
+
+
 onAuthStateChanged(auth, async (user) => {
+
   if (!user) {
     window.location.href = "connexion.html";
     return;
@@ -635,15 +707,13 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   uid = user.uid;
 
-  // 🔒 Vérifie PIN
   if (!ensureGlobalPinExists()) {
     window.location.href = "index.html";
     return;
   }
 
-  // 🔒 Demande PIN
   const ok = await requireGlobalPin({
-    title: "Accès au module Noël",
+    title: "Accès au module scolaire",
     message: "Entre ton code PIN pour accéder à ce module."
   });
 
@@ -651,28 +721,6 @@ onAuthStateChanged(auth, async (user) => {
     window.location.href = "index.html";
     return;
   }
-
-  // ✅ Chargement normal
-  if ($("assistantNomNoel")) {
-    $("assistantNomNoel").value =
-      localStorage.getItem(`assistantNomNoel_${uid}`) ||
-      localStorage.getItem(`assistantNom_${uid}`) ||
-      "";
-  }
-
-  if ($("moisNoel")) {
-    $("moisNoel").value =
-      localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
-  }
-
-  loadData();
-  bindEvents();
-  render();
-  await loadProfileNoel();
-});
-
-  currentUser = user;
-  uid = user.uid;
 
   if ($("assistantNomScolaire")) {
     $("assistantNomScolaire").value =
@@ -683,10 +731,13 @@ onAuthStateChanged(auth, async (user) => {
 
   if ($("moisScolaire")) {
     $("moisScolaire").value =
-      localStorage.getItem(`moisScolaire_${uid}`) || getDefaultMonthValue();
+      localStorage.getItem(`moisScolaire_${uid}`) ||
+      getDefaultMonthValue();
   }
 
-  loadData();
+  await loadProfileScolaire();
+  await loadData();
+
   bindEvents();
   render();
-  await loadProfileScolaire();
+});
