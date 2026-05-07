@@ -468,27 +468,9 @@
 
         <datalist id="profileChildrenList"></datalist>
 
-        <div class="grid grid-2" style="margin-top:16px;">
-          <div class="field">
-            <label for="signatureUpload">Signature</label>
-
-            <input
-              type="file"
-              id="signatureUpload"
-              accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-              style="display:none;"
-            />
-
-            <div class="toolbar signature-controls">
-              <label for="signatureUpload" class="btn btn-secondary">Importer la signature</label>
-              <button type="button" class="btn btn-danger" id="btnClearSignature">Supprimer la signature</button>
-            </div>
-
-            <div id="signaturePreviewWrap" class="signature-preview-wrap">
-              <img id="signaturePreview" class="signature-preview" alt="Aperçu signature" />
-            </div>
-          </div>
-        </div>
+        <div class="small-note" style="margin-top:16px;">
+  Signature synchronisée automatiquement depuis votre profil.
+</div>
 
         <div class="toolbar">
           <button type="button" class="btn btn-secondary" id="btnFillFullMonth">Mois complet</button>
@@ -595,7 +577,6 @@ let selectedPresenceCode = "PP";
       month: "",
       afName: "",
       rectif: "",
-      signatureDataUrl: "",
       children: Array.from({ length: MIN_PRESENCE_ROWS }, () => ""),
       grid: Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""))
     },
@@ -688,9 +669,7 @@ state.presence.grid = filteredGrid;
       return normalized;
     });
 
-    if (typeof state.presence.signatureDataUrl !== "string") {
-      state.presence.signatureDataUrl = "";
-    }
+   
 
     if (!Array.isArray(state.relay.rows) || state.relay.rows.length === 0) {
       state.relay.rows = [createEmptyRelayRow()];
@@ -745,19 +724,6 @@ state.presence.grid = filteredGrid;
     });
   }
 
-  function updateSignaturePreview() {
-    const wrap = document.getElementById("signaturePreviewWrap");
-    const img = document.getElementById("signaturePreview");
-    if (!wrap || !img) return;
-
-    if (state.presence.signatureDataUrl) {
-      img.src = state.presence.signatureDataUrl;
-      wrap.style.display = "block";
-    } else {
-      img.src = "";
-      wrap.style.display = "none";
-    }
-  }
 
   function renderChildrenFields() {
     const wrap = document.getElementById("childrenFields");
@@ -1027,32 +993,6 @@ state.presence.grid = filteredGrid;
       showToast("Nouvel enfant ajouté");
     });
 
-    document.getElementById("signatureUpload").addEventListener("change", (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (!file.type.startsWith("image/")) {
-        showToast("Merci de choisir une image PNG ou JPG");
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        state.presence.signatureDataUrl = reader.result || "";
-        updateSignaturePreview();
-        saveModuleSilently();
-        showToast("Signature importée");
-      };
-      reader.readAsDataURL(file);
-    });
-
-    document.getElementById("btnClearSignature").addEventListener("click", () => {
-      state.presence.signatureDataUrl = "";
-      document.getElementById("signatureUpload").value = "";
-      updateSignaturePreview();
-      saveModuleSilently();
-      showToast("Signature supprimée");
-    });
 
     document.getElementById("btnFillFullMonth").addEventListener("click", fillFullMonthPresence);
     document.getElementById("btnClearPresenceMonth").addEventListener("click", clearFullMonthPresence);
@@ -1082,7 +1022,6 @@ state.presence.grid = filteredGrid;
     renderChildrenFields();
     renderPresenceTable();
     renderRelayTable();
-    updateSignaturePreview();
   }
 
 function fillFullMonthPresence() {
@@ -1179,7 +1118,6 @@ function fillFullMonthPresence() {
       state.presence.month = parsed.presence.month || "";
       state.presence.afName = parsed.presence.afName || "";
       state.presence.rectif = parsed.presence.rectif || "";
-      state.presence.signatureDataUrl = parsed.presence.signatureDataUrl || "";
       state.presence.children = parsed.presence.children || Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
       state.presence.grid = parsed.presence.grid || Array.from({ length: MIN_PRESENCE_ROWS }, () => Array(31).fill(""));
     }
@@ -1259,6 +1197,16 @@ function fillFullMonthPresence() {
     currentProfile?.logoData ||
     localStorage.getItem(`profileLogoData_${uid}`) ||
     "";
+}
+function getProfileSignatureData() {
+  const uid = currentUser?.uid || "";
+
+  return (
+    currentProfile?.signatureUrl ||
+    currentProfile?.signatureData ||
+    localStorage.getItem(`profileSignatureData_${uid}`) ||
+    ""
+  );
 }
 
   function addLogoToPdf(pdf, dataUrl, x, y, maxW, maxH) {
@@ -1531,7 +1479,14 @@ bottomY = legendY + legendH + 8;
     pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, relayBottomY + 8);
     pdf.text("Signature :", 220, relayBottomY + 18);
     pdf.rect(220, relayBottomY + 20, 55, 18);
-    addSignatureToPdf(pdf, state.presence.signatureDataUrl, 220, relayBottomY + 20, 55, 18);
+    addSignatureToPdf(
+  pdf,
+  getProfileSignatureData(),
+  220,
+  relayBottomY + 20,
+  55,
+  18
+);
 addEasyfraisFooter(pdf);
     function formatMonthYear(monthValue) {
   if (!monthValue) return "sans_mois";
