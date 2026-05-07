@@ -5,6 +5,8 @@ import { savePdfToHistory } from "./pdf-history.js";
 import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
+
 let fraisLoisirs = [];
 let uid = null;
 let currentUser = null;
@@ -30,22 +32,46 @@ function formatMonthLabel(monthValue) {
   return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
-function formatMonthUpper(monthValue) {
-  if (!monthValue) return "";
-  const [year, month] = monthValue.split("-");
-  const months = [
-    "JANVIER", "FÉVRIER", "MARS", "AVRIL", "MAI", "JUIN",
-    "JUILLET", "AOÛT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DÉCEMBRE"
-  ];
-  return `${months[Number(month) - 1] || ""} ${year}`;
-}
 
-function saveData() {
+async function saveData() {
   localStorage.setItem(getStorageKey(), JSON.stringify(fraisLoisirs));
+
+  await saveModuleData(uid, "loisirs", {
+    fraisLoisirs,
+    assistantNom: $("assistantNomLoisirs")?.value || "",
+    mois: $("moisLoisirs")?.value || ""
+  });
 }
 
-function loadData() {
-  fraisLoisirs = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+async function loadData() {
+  try {
+    const cloud = await loadModuleData(uid, "loisirs");
+
+    if (cloud?.fraisLoisirs) {
+      fraisLoisirs = cloud.fraisLoisirs;
+    } else {
+      fraisLoisirs = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+    }
+
+    if (
+  cloud?.assistantNom &&
+  $("assistantNomLoisirs") &&
+  !$("assistantNomLoisirs").value.trim()
+) {
+  $("assistantNomLoisirs").value = cloud.assistantNom;
+}
+
+    if (cloud?.mois && $("moisLoisirs")) {
+      $("moisLoisirs").value = cloud.mois;
+    }
+
+  } catch (error) {
+    console.error("Erreur chargement cloud loisirs :", error);
+
+    fraisLoisirs = JSON.parse(
+      localStorage.getItem(getStorageKey()) || "[]"
+    );
+  }
 }
 
 function formatDateFr(dateStr) {
@@ -154,7 +180,7 @@ async function ajouterFrais() {
     justificatif
   });
 
-  saveData();
+  await saveData();
   render();
   resetForm();
   showToast("Dépense ajoutée");
@@ -185,19 +211,19 @@ function voirJustificatif(id) {
   win.document.close();
 }
 
-function supprimerFrais(id) {
+async function supprimerFrais(id) {
   fraisLoisirs = fraisLoisirs.filter((x) => x.id !== id);
-  saveData();
+  await saveData();
   render();
   showToast("Dépense supprimée");
 }
 
-function viderListe() {
+async function viderListe() {
   if (!fraisLoisirs.length) return;
   if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
 
   fraisLoisirs = [];
-  saveData();
+  await saveData();
   render();
   showToast("Liste vidée");
 }
@@ -212,8 +238,13 @@ function render() {
     $("totalMontantLoisirs").textContent = "0,00 €";
     return;
   }
+  
 
-  fraisLoisirs.forEach((item) => {
+  const sorted = [...fraisLoisirs].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+
+sorted.forEach((item) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${formatDateFr(item.date)}</td>
@@ -360,11 +391,21 @@ function drawCellText(pdf, textOrLines, x, y, width, height, align = "left") {
 }
 
 function getProfileLogoData() {
-  return localStorage.getItem(`profileLogoData_${uid}`) || "";
+  return (
+    currentProfile?.logoUrl ||
+    currentProfile?.logoData ||
+    localStorage.getItem(`profileLogoData_${uid}`) ||
+    ""
+  );
 }
 
 function getProfileSignatureData() {
-  return localStorage.getItem(`profileSignatureData_${uid}`) || "";
+  return (
+    currentProfile?.signatureUrl ||
+    currentProfile?.signatureData ||
+    localStorage.getItem(`profileSignatureData_${uid}`) ||
+    ""
+  );
 }
 
 function getAssistantName() {
@@ -401,13 +442,14 @@ async function drawLogo(pdf) {
 }
 
 async function genererPDF() {
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
+
   if (!fraisLoisirs.length) {
     alert("Aucune dépense à exporter.");
     return;
   }
-
-  const allowed = await requirePdfAccess();
-  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "mm", "a4");
@@ -643,16 +685,29 @@ function bindEvents() {
   $("btnViderLoisirs")?.addEventListener("click", viderListe);
   $("justificatifLoisirs")?.addEventListener("change", updateNomJustificatif);
 
-  $("assistantNomLoisirs")?.addEventListener("input", () => {
-    localStorage.setItem(`assistantNomLoisirs_${uid}`, $("assistantNomLoisirs").value.trim());
-  });
+  $("assistantNomLoisirs")?.addEventListener("input", async () => {
 
-  $("moisLoisirs")?.addEventListener("change", () => {
-    localStorage.setItem(`moisLoisirs_${uid}`, $("moisLoisirs").value);
-  });
+  localStorage.setItem(
+    `assistantNomLoisirs_${uid}`,
+    $("assistantNomLoisirs").value.trim()
+  );
+
+  await saveData();
+});
+
+ $("moisLoisirs")?.addEventListener("change", async () => {
+
+  localStorage.setItem(
+    `moisLoisirs_${uid}`,
+    $("moisLoisirs").value
+  );
+
+  await saveData();
+});
 }
 
 onAuthStateChanged(auth, async (user) => {
+
   if (!user) {
     window.location.href = "connexion.html";
     return;
@@ -661,15 +716,14 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   uid = user.uid;
 
-  // 🔒 Vérifie PIN
+  // 🔒 Vérification PIN
   if (!ensureGlobalPinExists()) {
     window.location.href = "index.html";
     return;
   }
 
-  // 🔒 Demande PIN
   const ok = await requireGlobalPin({
-    title: "Accès au module Noël",
+    title: "Accès au module loisirs",
     message: "Entre ton code PIN pour accéder à ce module."
   });
 
@@ -678,37 +732,19 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // ✅ Chargement normal
-  if ($("assistantNomNoel")) {
-    $("assistantNomNoel").value =
-      localStorage.getItem(`assistantNomNoel_${uid}`) ||
-      localStorage.getItem(`assistantNom_${uid}`) ||
-      "";
-  }
-
-  if ($("moisNoel")) {
-    $("moisNoel").value =
-      localStorage.getItem(`moisNoel_${uid}`) || getDefaultMonthValue();
-  }
-
-  loadData();
-  bindEvents();
-  render();
-  await loadProfileNoel();
-});
-
-  currentUser = user;
-  uid = user.uid;
-
+  // Chargement valeurs locales
   $("assistantNomLoisirs").value =
     localStorage.getItem(`assistantNomLoisirs_${uid}`) ||
     localStorage.getItem(`assistantNom_${uid}`) ||
     "";
 
   $("moisLoisirs").value =
-    localStorage.getItem(`moisLoisirs_${uid}`) || getDefaultMonthValue();
+    localStorage.getItem(`moisLoisirs_${uid}`) ||
+    getDefaultMonthValue();
 
-  loadData();
+ await loadProfileLoisirs();
+await loadData();
+
   bindEvents();
   render();
-  await loadProfileLoisirs();
+});
