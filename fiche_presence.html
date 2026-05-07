@@ -412,6 +412,21 @@
         max-width: 100px;
       }
     }
+    .bottom-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 18px;
+  padding-right: 20px;
+}
+
+.bottom-actions .btn {
+  min-width: 150px;
+  padding: 14px 24px;
+  font-size: 15px;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+}
   </style>
 </head>
 <body>
@@ -426,10 +441,8 @@
       </div>
 
       <div class="header-actions">
-        <a href="index.html" class="btn btn-secondary">Accueil</a>
-        <button class="btn btn-success" type="button" id="btnSaveModule">Enregistrer</button>
-        <button class="btn btn-primary" type="button" id="btnPdfPresence">Générer PDF</button>
-      </div>
+  <a href="index.html" class="btn btn-secondary">Accueil</a>
+</div>
     </header>
 
     <div class="tabs">
@@ -497,6 +510,15 @@
 
         <div class="summary-row" id="presenceSummary"></div>
       </div>
+      <div class="bottom-actions">
+  <button class="btn btn-success" type="button" id="btnSaveModule">
+    Enregistrer
+  </button>
+
+  <button class="btn btn-primary" type="button" id="btnPdfPresence">
+    Générer PDF
+  </button>
+</div>
     </section>
 
     <section id="tab-relais" class="tab-panel">
