@@ -5,10 +5,12 @@ import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
 const STORAGE_KEY = "parkingModuleEasyFrais";
 
 let currentUser = null;
+let currentProfile = null;
 let entries = [];
 let justificatifDataUrl = "";
 
@@ -70,27 +72,80 @@ function getFileNameMonth(monthValue) {
   return monthValue || getCurrentMonthValue();
 }
 
-function saveModule() {
+async function saveModule() {
+
   const payload = {
     mois: moisInput?.value || "",
     assistantNom: assistantInput?.value || "",
     entries
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(payload)
+  );
+
+  await saveModuleData(currentUser.uid, "parking", payload);
 }
 
-function loadModule() {
+async function loadModule() {
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
 
-    const parsed = JSON.parse(raw);
-    entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
+    const cloud = await loadModuleData(
+      currentUser.uid,
+      "parking"
+    );
 
-    if (moisInput && parsed?.mois) moisInput.value = parsed.mois;
-    if (assistantInput && parsed?.assistantNom) assistantInput.value = parsed.assistantNom;
+    if (cloud?.entries) {
+      entries = cloud.entries;
+    } else {
+      const raw = localStorage.getItem(STORAGE_KEY);
+
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        entries = Array.isArray(parsed?.entries)
+          ? parsed.entries
+          : [];
+      }
+    }
+
+    if (
+      cloud?.mois &&
+      moisInput &&
+      !moisInput.value
+    ) {
+      moisInput.value = cloud.mois;
+    }
+
+    if (
+      cloud?.assistantNom &&
+      assistantInput &&
+      !assistantInput.value.trim()
+    ) {
+      assistantInput.value = cloud.assistantNom;
+    }
+
   } catch (error) {
-    console.error("Erreur chargement parking :", error);
+
+    console.error(
+      "Erreur chargement parking :",
+      error
+    );
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+
+      if (raw) {
+        const parsed = JSON.parse(raw);
+
+        entries = Array.isArray(parsed?.entries)
+          ? parsed.entries
+          : [];
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 }
 
@@ -120,7 +175,10 @@ function renderTable() {
       </tr>
     `;
   } else {
-    body.innerHTML = entries.map((item) => `
+    const sorted = [...entries].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+    body.innerHTML = sorted.map((item)=> `
       <tr>
         <td>${escapeHtml(item.date || "-")}</td>
         <td>${escapeHtml(item.enfant || "-")}</td>
@@ -142,10 +200,10 @@ function renderTable() {
   if (totalMontant) totalMontant.textContent = formatMoney(getTotal());
 
   document.querySelectorAll(".btn-delete-entry").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const id = Number(btn.dataset.id);
       entries = entries.filter((item) => item.id !== id);
-      saveModule();
+      await saveModule();
       renderTable();
       showToast("Dépense supprimée");
     });
@@ -186,7 +244,7 @@ function validateForm() {
   return true;
 }
 
-function addEntry() {
+async function addEntry(){
   if (!validateForm()) return;
 
   const entry = {
@@ -202,13 +260,13 @@ function addEntry() {
   };
 
   entries.push(entry);
-  saveModule();
+  await saveModule();
   renderTable();
   resetForm();
   showToast("Dépense ajoutée");
 }
 
-function clearAllEntries() {
+async function clearAllEntries() {
   if (!entries.length) {
     showToast("Aucune dépense à supprimer");
     return;
@@ -218,7 +276,7 @@ function clearAllEntries() {
   if (!ok) return;
 
   entries = [];
-  saveModule();
+  await saveModule();
   renderTable();
   showToast("Liste vidée");
 }
@@ -294,11 +352,21 @@ function isImageDataUrl(value) {
 }
 
 function getProfileLogoData() {
-  return localStorage.getItem(`profileLogoData_${currentUser?.uid || ""}`) || "";
+  return (
+    currentProfile?.logoUrl ||
+    currentProfile?.logoData ||
+    localStorage.getItem(`profileLogoData_${currentUser?.uid || ""}`) ||
+    ""
+  );
 }
 
 function getProfileSignatureData() {
-  return localStorage.getItem(`profileSignatureData_${currentUser?.uid || ""}`) || "";
+  return (
+    currentProfile?.signatureUrl ||
+    currentProfile?.signatureData ||
+    localStorage.getItem(`profileSignatureData_${currentUser?.uid || ""}`) ||
+    ""
+  );
 }
 async function drawLogo(pdf) {
   const logoData = getProfileLogoData();
@@ -325,13 +393,15 @@ async function drawLogo(pdf) {
 
 
 async function generatePdf() {
+
+  const allowed = await requirePdfAccess();
+  if (!allowed) return;
+
   if (!entries.length) {
     alert("Ajoute au moins une dépense avant de générer le PDF.");
     return;
   }
 
-  const allowed = await requirePdfAccess();
-  if (!allowed) return;
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("portrait", "mm", "a4");
@@ -535,6 +605,7 @@ async function loadProfileParking() {
     if (!snap.exists()) return;
 
     const data = snap.data() || {};
+    currentProfile = data;
     const profileName = String(data.fullName || "").trim();
     const children = String(data.childrenList || "")
       .split(/\n|,/)
@@ -543,7 +614,7 @@ async function loadProfileParking() {
 
     if (assistantInput && !assistantInput.value.trim() && profileName) {
       assistantInput.value = profileName;
-      saveModule();
+      await saveModule();
     }
 
     const datalist = document.getElementById("profileChildrenList");
@@ -590,12 +661,16 @@ function bindEvents() {
   if (btnVider) btnVider.addEventListener("click", clearAllEntries);
 
   if (moisInput) {
-    moisInput.addEventListener("change", saveModule);
-  }
+  moisInput.addEventListener("change", async () => {
+    await saveModule();
+  });
+}
 
-  if (assistantInput) {
-    assistantInput.addEventListener("input", saveModule);
-  }
+if (assistantInput) {
+  assistantInput.addEventListener("input", async () => {
+    await saveModule();
+  });
+}
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -605,17 +680,28 @@ onAuthStateChanged(auth, async (user) => {
     window.location.href = "connexion.html";
     return;
   }
+  if (!ensureGlobalPinExists()) {
+  window.location.href = "index.html";
+  return;
+}
+
+const ok = await requireGlobalPin({
+  title: "Accès au module parking",
+  message: "Entre ton code PIN pour accéder à ce module."
+});
+
+if (!ok) {
+  window.location.href = "index.html";
+  return;
+}
 
   if (moisInput && !moisInput.value) {
     moisInput.value = getCurrentMonthValue();
   }
 
-  loadModule();
-  renderTable();
-  bindEvents();
-  await loadProfileParking();
-})
-const ok = await requireGlobalPin({
-  title: "Accès au module parking",
-  message: "Entre ton code PIN pour accéder à ce module."
+await loadProfileParking();
+await loadModule();
+
+bindEvents();
+renderTable();
 });
