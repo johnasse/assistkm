@@ -5,6 +5,7 @@ import { generateFileName } from "./utils.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
+import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 
 let fraisAutres = [];
 let uid = null;
@@ -31,12 +32,61 @@ function formatMonthLabel(monthValue) {
   return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
-function saveData() {
-  localStorage.setItem(getStorageKey(), JSON.stringify(fraisAutres));
+async function saveData() {
+
+  localStorage.setItem(
+    getStorageKey(),
+    JSON.stringify(fraisAutres)
+  );
+
+  await saveModuleData(uid, "autres", {
+    fraisAutres,
+    assistantNom: $("assistantNomAutres")?.value || "",
+    mois: $("moisAutres")?.value || ""
+  });
 }
 
-function loadData() {
-  fraisAutres = JSON.parse(localStorage.getItem(getStorageKey()) || "[]");
+async function loadData() {
+
+  try {
+
+    const cloud = await loadModuleData(uid, "autres");
+
+    if (cloud?.fraisAutres) {
+      fraisAutres = cloud.fraisAutres;
+    } else {
+      fraisAutres = JSON.parse(
+        localStorage.getItem(getStorageKey()) || "[]"
+      );
+    }
+
+    if (
+      cloud?.assistantNom &&
+      $("assistantNomAutres") &&
+      !$("assistantNomAutres").value.trim()
+    ) {
+      $("assistantNomAutres").value = cloud.assistantNom;
+    }
+
+    if (
+      cloud?.mois &&
+      $("moisAutres") &&
+      !$("moisAutres").value
+    ) {
+      $("moisAutres").value = cloud.mois;
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Erreur chargement cloud autres :",
+      error
+    );
+
+    fraisAutres = JSON.parse(
+      localStorage.getItem(getStorageKey()) || "[]"
+    );
+  }
 }
 
 function formatDateFr(dateStr) {
@@ -148,7 +198,7 @@ async function ajouterFrais() {
     justificatif
   });
 
-  saveData();
+  await saveData();
   render();
   resetForm();
   showToast("Dépense ajoutée");
@@ -179,19 +229,19 @@ function voirJustificatif(id) {
   win.document.close();
 }
 
-function supprimerFrais(id) {
+async function supprimerFrais(id) {
   fraisAutres = fraisAutres.filter((x) => x.id !== id);
-  saveData();
+  await saveData();
   render();
   showToast("Dépense supprimée");
 }
 
-function viderListe() {
+async function viderListe() {
   if (!fraisAutres.length) return;
   if (!confirm("Voulez-vous vraiment vider toute la liste ?")) return;
 
   fraisAutres = [];
-  saveData();
+  await saveData();
   render();
   showToast("Liste vidée");
 }
@@ -201,15 +251,19 @@ function render() {
   if (!body) return;
 
   body.innerHTML = "";
+  
+  const sorted = [...fraisAutres].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
 
-  if (!fraisAutres.length) {
+  if (!sorted.length) {
     body.innerHTML = `<tr><td colspan="8" class="empty-cell">Aucune dépense enregistrée</td></tr>`;
     if ($("totalLignesAutres")) $("totalLignesAutres").textContent = "0";
     if ($("totalMontantAutres")) $("totalMontantAutres").textContent = "0,00 €";
     return;
   }
 
-  fraisAutres.forEach((item) => {
+  sorted.forEach((item) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${formatDateFr(item.date)}</td>
@@ -271,7 +325,10 @@ async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
 }
 
 async function ajouterImagesAuPdf(pdf) {
-  for (const item of fraisAutres) {
+  const sortedPdf = [...fraisAutres].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+  for (const item of sortedPdf) {
     if (!item.justificatif?.data) continue;
 
     try {
@@ -365,7 +422,12 @@ async function getProfileLogoData() {
 
 
 function getProfileSignatureData() {
-  return localStorage.getItem(`profileSignatureData_${uid}`) || "";
+  return (
+    currentProfile?.signatureUrl ||
+    currentProfile?.signatureData ||
+    localStorage.getItem(`profileSignatureData_${uid}`) ||
+    ""
+  );
 }
 
 function getAssistantName() {
@@ -486,8 +548,10 @@ drawCellText(pdf, "Montant", tableX + colDate + colEnfant + colDetail, tableY, c
 
   const maxRowsHeight = 62;
   const stopY = rowY + maxRowsHeight;
-
-  for (const item of fraisAutres) {
+const sortedPdf = [...fraisAutres].sort(
+  (a, b) => new Date(b.date) - new Date(a.date)
+);
+  for (const item of sortedPdf) {
     const enfantText = item.enfant || "";
 const detailText = [
   item.type,
@@ -663,13 +727,25 @@ function bindEvents() {
   $("btnViderAutres")?.addEventListener("click", viderListe);
   $("justificatifAutres")?.addEventListener("change", updateNomJustificatif);
 
-  $("assistantNomAutres")?.addEventListener("input", () => {
-    localStorage.setItem(`assistantNomAutres_${uid}`, $("assistantNomAutres").value.trim());
-  });
+  $("assistantNomAutres")?.addEventListener("input", async () => {
 
-  $("moisAutres")?.addEventListener("change", () => {
-    localStorage.setItem(`moisAutres_${uid}`, $("moisAutres").value);
-  });
+  localStorage.setItem(
+    `assistantNomAutres_${uid}`,
+    $("assistantNomAutres").value.trim()
+  );
+
+  await saveData();
+});
+
+ $("moisAutres")?.addEventListener("change", async () => {
+
+  localStorage.setItem(
+    `moisAutres_${uid}`,
+    $("moisAutres").value
+  );
+
+  await saveData();
+});
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -708,10 +784,11 @@ onAuthStateChanged(auth, async (user) => {
       localStorage.getItem(`moisAutres_${uid}`) || getDefaultMonthValue();
   }
 
-  loadData();
-  bindEvents();
-  render();
   await loadProfileAutres();
+await loadData();
+
+bindEvents();
+render();
 });
 
 
