@@ -135,14 +135,31 @@ document.addEventListener("DOMContentLoaded", () => {
   initGoogleServicesIfAvailable();
 });
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
+
   if (!user) {
     window.location.href = "connexion.html";
     return;
   }
 
   currentUid = user.uid;
-  loadUserData();
+
+  if (!ensureGlobalPinExists()) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  const ok = await requireGlobalPin({
+    title: "Accès module kilométrique",
+    message: "Entre ton code PIN pour accéder au module."
+  });
+
+  if (!ok) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  await loadUserData();
 });
 
 async function loadUserData() {
@@ -852,7 +869,11 @@ function renderDeplacements() {
     return;
   }
 
- for (const item of deplacements) {
+  const sorted = [...deplacements].sort(
+  (a, b) => new Date(b.dateTrajet) - new Date(a.dateTrajet)
+);
+
+ for (const item of sorted) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td data-child>${escapeHtml(item.enfant)}</td>
@@ -1128,7 +1149,10 @@ const carteGriseData =
   docPdf.setFont("helvetica", "normal");
   docPdf.setFontSize(8.4);
 
-for (const item of deplacements) {
+  const sortedPdf = [...deplacements].sort(
+  (a, b) => new Date(b.dateTrajet) - new Date(a.dateTrajet)
+);
+for (const item of sortedPdf) {
     const rowValues = [
       safeText(item.enfant),
       safeText(item.motif),
@@ -1163,7 +1187,6 @@ for (const item of deplacements) {
       docPdf.addPage("landscape", "a4");
       addEasyfraisFooter(docPdf);
       y = 14;
-      addEasyfraisFooter(docPdf);
 
       docPdf.setFont("helvetica", "bold");
       docPdf.setFontSize(13);
@@ -1421,24 +1444,12 @@ try {
   console.error("Erreur enregistrement historique :", error);
 }
 
-const filename = `kilometrique_${moisEtat}.pdf`;
-
-// Convertir PDF en blob
-const pdfBlob = docPdf.output("blob");
-
-// Enregistrer dans Firebase + Historique
-await savePdfToHistory({
-  fileName: filename,
-  blob: pdfBlob,
-  type: "Kilométrique",
-  mois: formatMonthLabel(moisEtat)
-});
 
 // Télécharger aussi sur l'ordinateur
-docPdf.save(filename);
+docPdf.save(fileName);
 
 showToast("PDF généré et enregistré dans l'historique");
-showToast("PDF mensuel généré et enregistré dans l'historique");
+
 }
 
 function drawCellText(docPdf, textOrLines, x, y, width, height, align = "left") {
