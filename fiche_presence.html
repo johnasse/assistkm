@@ -1385,6 +1385,18 @@ pdf.text("* DVH : droits de visite et d’hébergement", legendX + 2, legendY + 
 
 // Décalage pour la suite
 bottomY = legendY + legendH + 8;
+pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, bottomY + 6);
+pdf.text("Signature :", 220, bottomY + 14);
+pdf.rect(220, bottomY + 16, 55, 18);
+
+addSignatureToPdf(
+  pdf,
+  getProfileSignatureData(),
+  220,
+  bottomY + 16,
+  55,
+  18
+);
 
     // PAGE 2
     pdf.addPage();
