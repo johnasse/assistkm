@@ -175,6 +175,11 @@ if (Array.isArray(cloudData)) {
   deplacements = [];
 }
 
+// TOUJOURS vérifier qu'une destination existe
+if (document.querySelectorAll(".destination-input").length === 0) {
+  addDestination();
+}
+
 
   loadSavedInfos();
   loadBaremes();
@@ -642,13 +647,29 @@ function saveMoisEtat() {
 
 function addDestination(value = "") {
   const container = document.getElementById("destinations");
+
+  if (!container) {
+    console.error("Container destinations introuvable");
+    return;
+  }
+
   const index = container.querySelectorAll(".dest-row").length + 1;
 
   const row = document.createElement("div");
   row.className = "dest-row";
+
   row.innerHTML = `
-    <input type="text" class="destination-input" list="destinationSuggestions" placeholder="Destination ${index}" value="${escapeHtmlAttr(value)}">
-    <button type="button" class="btn btn-danger">Supprimer</button>
+    <input
+      type="text"
+      class="destination-input"
+      list="destinationSuggestions"
+      placeholder="Destination ${index}"
+      value="${escapeHtmlAttr(value)}"
+    >
+
+    <button type="button" class="btn btn-danger">
+      Supprimer
+    </button>
   `;
 
   container.appendChild(row);
@@ -656,10 +677,13 @@ function addDestination(value = "") {
   const input = row.querySelector(".destination-input");
   const btnDelete = row.querySelector(".btn-danger");
 
-  bindAutocomplete(input);
+  if (input) {
+    bindAutocomplete(input);
+  }
 
   btnDelete.addEventListener("click", () => {
     row.remove();
+
     refreshDestinationPlaceholders();
 
     if (container.querySelectorAll(".dest-row").length === 0) {
@@ -870,7 +894,7 @@ function renderDeplacements() {
   }
 
   const sorted = [...deplacements].sort(
-  (a, b) => new Date(b.dateTrajet) - new Date(a.dateTrajet)
+  (a, b) => new Date(a.dateTrajet) - new Date(b.dateTrajet)
 );
 
  for (const item of sorted) {
@@ -1149,8 +1173,8 @@ const carteGriseData =
   docPdf.setFont("helvetica", "normal");
   docPdf.setFontSize(8.4);
 
-  const sortedPdf = [...deplacements].sort(
-  (a, b) => new Date(b.dateTrajet) - new Date(a.dateTrajet)
+ const sortedPdf = [...deplacements].sort(
+  (a, b) => new Date(a.dateTrajet) - new Date(b.dateTrajet)
 );
 for (const item of sortedPdf) {
     const rowValues = [
