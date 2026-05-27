@@ -909,7 +909,15 @@ function renderDeplacements() {
       <td>${escapeHtml(item.lieuRdv)}</td>
       <td>${escapeHtml(item.lieuRetour || "-")}</td>
       <td>${item.km.toFixed(1).replace(".", ",")}</td>
-      <td><button class="btn btn-danger table-action-btn" data-id="${item.id}">Supprimer</button></td>
+      <td class="actions-cell">
+  <button class="btn btn-primary btn-edit" data-id="${item.id}">
+    Modifier
+  </button>
+
+  <button class="btn btn-danger table-action-btn" data-id="${item.id}">
+    Supprimer
+  </button>
+</td>
     `;
     body.appendChild(tr);
 }
@@ -921,6 +929,11 @@ if (typeof window.maskChildrenNames === "function") {
       supprimerDeplacement(Number(btn.dataset.id));
     });
   });
+  document.querySelectorAll(".btn-edit").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    modifierDeplacement(Number(btn.dataset.id));
+  });
+});
 
   updateTotals();
 }
@@ -980,6 +993,48 @@ async function handleLogoChange(event) {
   } finally {
     event.target.value = "";
   }
+}
+function modifierDeplacement(id) {
+  const item = deplacements.find((d) => d.id === id);
+
+  if (!item) return;
+
+  document.getElementById("enfant").value = item.enfant || "";
+  document.getElementById("motif").value = item.motif || "";
+  document.getElementById("dateTrajet").value = item.dateTrajet || "";
+  document.getElementById("heureDebut").value = item.heureDebut || "";
+  document.getElementById("heureFin").value = item.heureFin || "";
+  document.getElementById("depart").value = item.depart || "";
+
+  document.getElementById("destinations").innerHTML = "";
+
+  const destinations = item.lieuRdv.split("/");
+
+  destinations.forEach((dest) => {
+    addDestination(dest.trim());
+  });
+
+  totalDistanceKm = item.km || 0;
+  totalAmount = item.montant || 0;
+
+  document.getElementById("distanceTotale").textContent =
+    totalDistanceKm.toFixed(1).replace(".", ",") + " km";
+
+  document.getElementById("montantTotal").textContent =
+    totalAmount.toFixed(2).replace(".", ",") + " €";
+
+  deplacements = deplacements.filter((d) => d.id !== id);
+
+  saveDeplacements();
+
+  renderDeplacements();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+
+  showToast("Déplacement chargé pour modification");
 }
 
 function clearLogo() {
