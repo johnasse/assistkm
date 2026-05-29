@@ -1,4 +1,9 @@
-import { auth } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
+import {
+  doc,
+  setDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -116,7 +121,19 @@ async function register() {
   try {
     setLoading(true);
 
-    await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(
+  auth,
+  email,
+  password
+);
+
+const user = userCredential.user;
+
+await setDoc(doc(db, "customers", user.uid), {
+  uid: user.uid,
+  email: user.email,
+  createdAt: serverTimestamp()
+}, { merge: true });
 
     showMessage("Compte créé avec succès !", "success");
 
