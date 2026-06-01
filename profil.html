@@ -849,7 +849,17 @@ import {
 
     await uploadString(storageRef, data, "data_url");
 
-    const downloadURL = await getDownloadURL(storageRef);
+   const downloadURL = await getDownloadURL(storageRef);
+
+if (dataKey() === getProfileSignatureDataKey()) {
+  await setDoc(
+    doc(db, "users", currentUser.uid, "profile", "main"),
+    {
+      signatureUrl: downloadURL
+    },
+    { merge: true }
+  );
+}
 
     localStorage.setItem(dataKey(), downloadURL);
     localStorage.setItem(nameKey(), file.name);
