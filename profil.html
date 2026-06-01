@@ -650,35 +650,9 @@ import {
     function getProfileLogoNameKey() {
       return `profileLogoName_${getUid()}`;
     }
-async function getProfileSignatureData() {
-  const uid = currentUser?.uid || "";
-
-  const stored =
-    currentProfile?.signatureUrl ||
-    localStorage.getItem(`profileSignatureData_${uid}`) ||
-    "";
-
-  if (!stored) return "";
-
-  if (stored.startsWith("data:image/")) {
-    return stored;
-  }
-
-  try {
-    const response = await fetch(stored);
-    const blob = await response.blob();
-
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error("Erreur chargement signature :", error);
-    return "";
-  }
+function getProfileSignatureDataKey() {
+  return `profileSignatureData_${getUid()}`;
 }
-const profileSignatureData = await getProfileSignatureData();
     function getProfileSignatureNameKey() {
       return `profileSignatureName_${getUid()}`;
     }
