@@ -1580,7 +1580,9 @@ function cleanFileName(str) {
 }
 
 const nomAF = cleanFileName(state.presence.afName);
-const moisFormat = formatMonthYear(state.presence.month);
+const moisFormat = formatMonthYear(
+  state.presence.month || new Date().toISOString().slice(0, 7)
+);
 
 const fileName = `feuille_de_presence_${nomAF}_${moisFormat}.pdf`;
 
