@@ -1224,6 +1224,17 @@ function fillFullMonthPresence() {
     localStorage.getItem(`profileLogoData_${uid}`) ||
     "";
 }
+async function urlToBase64(url) {
+  const response = await fetch(url);
+  const blob = await response.blob();
+
+  return await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function getProfileSignatureData() {
   const uid = currentUser?.uid || "";
 
@@ -1232,18 +1243,29 @@ async function getProfileSignatureData() {
     localStorage.getItem(`profileSignatureData_${uid}`) ||
     "";
 
-  if (localSignature) return localSignature;
+  if (localSignature?.startsWith("data:image/")) return localSignature;
+
+  const signatureUrl = currentProfile?.signatureUrl || localSignature;
+
+  if (signatureUrl?.startsWith("http")) {
+    try {
+      return await urlToBase64(signatureUrl);
+    } catch (error) {
+      console.error("Erreur conversion signature :", error);
+      return "";
+    }
+  }
 
   try {
-    return await getDownloadURL(
+    const url = await getDownloadURL(
       ref(storage, `users/${uid}/profileSignatureData_${uid}`)
     );
+    return await urlToBase64(url);
   } catch (error) {
     console.error("Signature profil introuvable :", error);
     return "";
   }
 }
-
   function addLogoToPdf(pdf, dataUrl, x, y, maxW, maxH) {
     if (!dataUrl) return;
 
