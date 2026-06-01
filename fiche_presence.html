@@ -568,13 +568,17 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <script type="module">
-  import { auth, db } from "./firebase-config.js";
+  import { auth, db, storage } from "./firebase-config.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
   import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
   import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
   import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
+import {
+  ref,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
   function getPresenceStorageKey() {
     const uid = currentUser?.uid || "guest";
@@ -1220,15 +1224,24 @@ function fillFullMonthPresence() {
     localStorage.getItem(`profileLogoData_${uid}`) ||
     "";
 }
-function getProfileSignatureData() {
+async function getProfileSignatureData() {
   const uid = currentUser?.uid || "";
 
-  return (
-    currentProfile?.signatureUrl ||
+  const localSignature =
     currentProfile?.signatureData ||
     localStorage.getItem(`profileSignatureData_${uid}`) ||
-    ""
-  );
+    "";
+
+  if (localSignature) return localSignature;
+
+  try {
+    return await getDownloadURL(
+      ref(storage, `users/${uid}/profileSignatureData_${uid}`)
+    );
+  } catch (error) {
+    console.error("Signature profil introuvable :", error);
+    return "";
+  }
 }
 
   function addLogoToPdf(pdf, dataUrl, x, y, maxW, maxH) {
@@ -1278,6 +1291,7 @@ if (!allowed) return;
     const monthLabel = formatMonthLabel(state.presence.month);
     const relayMonthLabel = formatMonthLabel(state.relay.month);
     const profileLogoData = await getProfileLogoData();
+    const profileSignatureData = await getProfileSignatureData();
 
     const leftMargin = 8;
     const topMargin = 10;
@@ -1413,7 +1427,7 @@ pdf.rect(220, bottomY + 16, 55, 18);
 
 addSignatureToPdf(
   pdf,
-  getProfileSignatureData(),
+ profileSignatureData,
   220,
   bottomY + 16,
   55,
@@ -1515,7 +1529,7 @@ addSignatureToPdf(
     pdf.rect(220, relayBottomY + 20, 55, 18);
     addSignatureToPdf(
   pdf,
-  getProfileSignatureData(),
+  profileSignatureData,
   220,
   relayBottomY + 20,
   55,
