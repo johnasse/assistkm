@@ -866,7 +866,7 @@ async function ajouterDeplacement() {
     heureDebut,
     heureFin,
     depart,
-    professionnel: document.getElementById("professionnel").value.trim(),
+   professionnel: "",
     lieuRdv,
     lieuRetour,
     km: Number(totalDistanceKm.toFixed(1)),
