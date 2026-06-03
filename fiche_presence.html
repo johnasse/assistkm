@@ -1611,7 +1611,7 @@ function initDefaults() {
     const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
 
-    if (!state.presence.month) state.presence.month = currentMonth;
+    state.presence.month = currentMonth;
     if (!state.relay.month) state.relay.month = previousMonth;
   }
 
