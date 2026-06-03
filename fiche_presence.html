@@ -1609,13 +1609,23 @@ async function saveModule() {
 }
 function forceCurrentPresenceMonth() {
   const now = new Date();
+
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
+  const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
+
   state.presence.month = currentMonth;
+  state.relay.month = previousMonth;
+
   document.getElementById("presenceMonth").value = currentMonth;
+  document.getElementById("relayMonth").value = previousMonth;
 
   daysInPresenceMonth = getDaysInMonth(currentMonth);
+  daysInRelayMonth = getDaysInMonth(previousMonth);
+
   renderPresenceTable();
+  renderRelayTable();
   saveModuleSilently();
 }
 function initDefaults() {
