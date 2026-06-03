@@ -489,7 +489,7 @@ function loadLogoInfo() {
 
 function handleMonthChange() {
   saveMoisEtat();
-  syncDateWithMonth(true);
+  syncDateWithMonth(false);
 }
 
 function syncDateWithMonth(forceReplaceDay = false) {
@@ -1591,7 +1591,6 @@ function safeText(value) {
 function resetForm() {
   document.getElementById("dateTrajet").value = "";
   document.getElementById("enfant").value = "";
-  document.getElementById("professionnel").value = "";
   document.getElementById("motif").value = "";
   document.getElementById("heureDebut").value = "";
   document.getElementById("heureFin").value = "";
@@ -1618,9 +1617,7 @@ function resetForm() {
 }
 
 function resetFormAfterAdd() {
-  document.getElementById("dateTrajet").value = "";
   document.getElementById("enfant").value = "";
-  document.getElementById("professionnel").value = "";
   document.getElementById("motif").value = "";
   document.getElementById("heureDebut").value = "";
   document.getElementById("heureFin").value = "";
@@ -1628,7 +1625,7 @@ function resetFormAfterAdd() {
   document.getElementById("retourDomicile").checked = true;
 
   syncDepartIfNeeded();
-  syncDateWithMonth(true);
+  syncDateWithMonth(false);
 
   document.getElementById("destinations").innerHTML = "";
   addDestination();
