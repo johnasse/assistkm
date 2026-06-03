@@ -1141,7 +1141,9 @@ function fillFullMonthPresence() {
     );
 
     if (parsed?.presence) {
-      state.presence.month = parsed.presence.month || "";
+  const now = new Date();
+  state.presence.month =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       state.presence.afName = parsed.presence.afName || "";
       state.presence.rectif = parsed.presence.rectif || "";
       state.presence.children = parsed.presence.children || Array.from({ length: MIN_PRESENCE_ROWS }, () => "");
@@ -1202,7 +1204,7 @@ function fillFullMonthPresence() {
           datalist.appendChild(option);
         });
       }
-
+console.log("Mois avant affichage =", state.presence.month);
       fillFromState();
       saveModuleSilently();
     } catch (error) {
@@ -1605,6 +1607,17 @@ async function saveModule() {
   savePresenceForAbattement();
   showToast("Fiche enregistrée");
 }
+function forceCurrentPresenceMonth() {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  state.presence.month = currentMonth;
+  document.getElementById("presenceMonth").value = currentMonth;
+
+  daysInPresenceMonth = getDaysInMonth(currentMonth);
+  renderPresenceTable();
+  saveModuleSilently();
+}
 function initDefaults() {
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -1638,16 +1651,18 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  await loadModule();
-  normalizeStateShape();
-  initDefaults();
+ await loadModule();
+normalizeStateShape();
+initDefaults();
 
-  activateTabs();
-  bindLegendsOnce();
-  bindFields();
-  fillFromState();
+activateTabs();
+bindLegendsOnce();
+bindFields();
 
-  await loadProfile();
+await loadProfile();
+forceCurrentPresenceMonth();
+
+fillFromState();
 });
 
 </script>
