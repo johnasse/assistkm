@@ -173,7 +173,8 @@ export async function hasPremiumAccess() {
     const subsRef = collection(db, "customers", user.uid, "subscriptions");
     const q = query(subsRef, where("status", "in", ["active", "trialing"]));
     const snap = await getDocs(q);
-
+console.log("UID =", user.uid);
+console.log("ABONNEMENTS TROUVÉS =", snap.size);
     return !snap.empty;
   } catch (error) {
     console.error("Erreur vérification premium :", error);
