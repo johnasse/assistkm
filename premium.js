@@ -167,15 +167,31 @@ export async function startStripeSubscriptionCheckout() {
 /* PREMIUM */
 export async function hasPremiumAccess() {
   const user = await getCurrentUserPromise();
+
+  console.log("USER CONNECTÉ =", user?.uid, user?.email);
+
   if (!user) return false;
 
   try {
     const subsRef = collection(db, "customers", user.uid, "subscriptions");
-    const q = query(subsRef, where("status", "in", ["active", "trialing"]));
-    const snap = await getDocs(q);
-console.log("UID =", user.uid);
-console.log("ABONNEMENTS TROUVÉS =", snap.size);
-    return !snap.empty;
+    const snap = await getDocs(subsRef);
+
+    console.log("ABONNEMENTS TROUVÉS =", snap.size);
+
+    let premium = false;
+
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      console.log("ABONNEMENT :", docSnap.id, data);
+
+      if (data.status === "active" || data.status === "trialing") {
+        premium = true;
+      }
+    });
+
+    console.log("PREMIUM =", premium);
+    return premium;
+
   } catch (error) {
     console.error("Erreur vérification premium :", error);
     return false;
