@@ -18,7 +18,7 @@ import {
 
 
 /* STRIPE */
-const STRIPE_PRICE_ID = "price_1TBXzxCA2m5OcqFbLcvPpl8n";
+const STRIPE_PRICE_ID = "price_1TeVO8CA2m5OcqFbDvCP6W8d";
 
 /* LIMITES PDF */
 const FIRST_MONTH_FREE_PDF_LIMIT = 3;
