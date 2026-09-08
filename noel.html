@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Frais de Noël</title>
+  <title>Achats de Noël</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
     <div class="top-bar">
       <a href="index.html" class="back-link">← Accueil</a>
-      <h1 class="page-title center-title">Frais de Noël</h1>
+      <h1 class="page-title center-title">Achats de Noël</h1>
     </div>
 
     <section class="card">
@@ -30,7 +30,7 @@
     </section>
 
     <section class="card">
-      <h2>Ajouter une dépense de Noël</h2>
+      <h2>Ajouter un achat de Noël</h2>
 
       <div class="grid grid-2">
         <div class="field">
@@ -39,12 +39,22 @@
         </div>
 
         <div class="field">
-          <label for="enfantNoel">Nom de l’enfant</label>
+          <label for="enfantNoel">Nom / prénom du jeune</label>
           <input type="text" id="enfantNoel" list="profileChildrenList" placeholder="Ex. Rudy" />
         </div>
 
         <div class="field">
-          <label for="typeNoel">Type de frais</label>
+          <label for="objetNoel">Intitulé de l’article</label>
+          <input type="text" id="objetNoel" placeholder="Ex. Lego, pull de Noël, repas..." />
+        </div>
+
+        <div class="field">
+          <label for="montantNoel">Montant (€)</label>
+          <input type="number" id="montantNoel" step="0.01" min="0" placeholder="Ex. 18.50" />
+        </div>
+
+        <div class="field">
+          <label for="typeNoel">Type de frais (facultatif)</label>
           <select id="typeNoel">
             <option value="">Choisir</option>
             <option value="Cadeau">Cadeau</option>
@@ -58,18 +68,8 @@
         </div>
 
         <div class="field">
-          <label for="magasinNoel">Magasin / lieu</label>
+          <label for="magasinNoel">Magasin / lieu (facultatif)</label>
           <input type="text" id="magasinNoel" placeholder="Ex. Amazon, JouéClub, Carrefour..." />
-        </div>
-
-        <div class="field">
-          <label for="objetNoel">Objet / description</label>
-          <input type="text" id="objetNoel" placeholder="Ex. Lego, pull de Noël, repas..." />
-        </div>
-
-        <div class="field">
-          <label for="montantNoel">Montant (€)</label>
-          <input type="number" id="montantNoel" step="0.01" min="0" placeholder="Ex. 18.50" />
         </div>
 
         <div class="field">
@@ -100,17 +100,16 @@
     </section>
 
     <section class="card">
-      <h2>Liste des frais de Noël</h2>
+      <h2>Demande de remboursement des achats de Noël</h2>
+      <p>Achats du mois sélectionné. Le PDF reprend le formulaire Les Nids, avec son logo et votre signature enregistrée dans Profil.</p>
 
       <div class="table-wrap">
         <table class="deplacements-table">
           <thead>
             <tr>
               <th>Date</th>
-              <th>Enfant</th>
-              <th>Type</th>
-              <th>Magasin / lieu</th>
-              <th>Objet</th>
+              <th>Nom / prénom du jeune</th>
+              <th>Intitulé de l’article</th>
               <th>Montant</th>
               <th>Justificatif</th>
               <th>Action</th>
@@ -118,7 +117,7 @@
           </thead>
           <tbody id="noelBody">
             <tr>
-              <td colspan="8" class="empty-cell">Aucune dépense enregistrée</td>
+              <td colspan="6" class="empty-cell">Aucune dépense enregistrée</td>
             </tr>
           </tbody>
         </table>
@@ -135,8 +134,9 @@
         </div>
       </div>
 
+      <p>Joignez les factures à la demande. Si un ticket concerne plusieurs enfants, distinguez les articles de chacun.</p>
       <div class="actions">
-        <button class="btn btn-success" type="button" id="btnPdfNoel">Générer PDF mensuel</button>
+        <button class="btn btn-success" type="button" id="btnPdfNoel">Générer la demande PDF</button>
         <button class="btn btn-danger" type="button" id="btnViderNoel">Vider la liste</button>
       </div>
     </section>
