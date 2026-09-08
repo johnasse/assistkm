@@ -438,6 +438,29 @@ async function drawLogo(pdf) {
 }
 
 
+// Barème des fournitures scolaires du formulaire Les Nids fourni.
+function drawBaremeScolaire(pdf) {
+  const rows = [
+    ["Maternelle", "15 €"],
+    ["Primaire", "35 €"],
+    ["Collège", "150 €"],
+    ["Lycée", "260 €"],
+    ["Enseignement supérieur", "450 €"],
+    ["Apprentissage, alternance", "540 €"]
+  ];
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8.6);
+  pdf.text("Barème - fournitures scolaires (Les Nids)", 10, 218);
+  pdf.setFont("helvetica", "normal");
+  rows.forEach(([niveau, montant], index) => {
+    const y = 221 + index * 7;
+    pdf.rect(10, y, 65, 7);
+    pdf.rect(75, y, 20, 7);
+    pdf.text(niveau, 12, y + 4.7);
+    pdf.text(montant, 93, y + 4.7, { align: "right" });
+  });
+}
+
  async function genererPDF() {
 
   const allowed = await requirePdfAccess();
@@ -579,6 +602,7 @@ const sortedPdf = [...fraisScolaires].sort(
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8.6);
+  drawBaremeScolaire(pdf);
   pdf.text("Justificatif joint au PDF", 10, 268);
 
   const bx = 108;
