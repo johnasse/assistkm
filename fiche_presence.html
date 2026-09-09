@@ -1306,260 +1306,202 @@ async function getProfileSignatureData() {
   pdf.setTextColor(0, 0, 0);
 }
 
+// Mise en page du formulaire Les Nids, alimentée par une copie de l'état du module.
+function drawPresenceForms(pdf, data, logo, signature, dateLabel) {
+  const left = 6, width = 285, nameWidth = 51, totalWidth = 12;
+  const dayWidth = (width - nameWidth - totalWidth) / 31;
+  const overflowNotes = [];
+  let started = false;
+  function nextPage() {
+    if (started) pdf.addPage("a4", "landscape");
+    started = true;
+    pdf.setTextColor(0, 0, 0);
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.25);
+  }
+  function text(value, x, y, size = 8, bold = false, options = {}) {
+    pdf.setFont("helvetica", bold ? "bold" : "normal");
+    pdf.setFontSize(size);
+    pdf.text(String(value ?? ""), x, y, options);
+  }
+  function cell(x, y, w, h, value = "", bold = false, gray = false, size = 7) {
+    pdf.setFillColor(gray ? 230 : 255);
+    pdf.rect(x, y, w, h, "FD");
+    pdf.setFont("helvetica", bold ? "bold" : "normal");
+    pdf.setFontSize(size);
+    const lines = pdf.splitTextToSize(String(value ?? ""), Math.max(1, w - 2));
+    const fit = Math.min(size, (h - 1.5) / Math.max(1, lines.length) / 0.353);
+    pdf.setFontSize(fit);
+    pdf.text(lines, x + w / 2, y + h / 2 - (lines.length - 1) * fit * 0.353 / 2 + fit * 0.12,
+      { align: "center", lineHeightFactor: 1 });
+  }
+  function monthLabel(value) {
+    if (!value) return "";
+    const [year, month] = value.split("-").map(Number);
+    return new Date(year, month - 1, 1).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  }
+  function contact() {
+    pdf.addImage(logo, "PNG", 10, 2, 29, 9.425, "presence-logo", "FAST");
+    pdf.setTextColor(218, 137, 28);
+    text("Service de Placement Familial", left, 16, 7, true);
+    pdf.setTextColor(105, 105, 105);
+    text("48 Bis Rue Stanislas Girardin - 76000 Rouen", left, 21, 6.2);
+    text("Tél : 02 32 10 91 10 / Fax : 02 32 10 91 29", left, 25, 6.2);
+    pdf.setTextColor(0, 0, 0);
+  }
+  function signatureAt(x, y, w = 75, h = 24) {
+    if (!signature) return;
+    const ratio = Math.min(w / signature.width, h / signature.height);
+    pdf.addImage(signature.dataUrl, "JPEG", x, y, signature.width * ratio, signature.height * ratio);
+  }
+  function note(value, x, y, w, maxLines, label) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    const lines = pdf.splitTextToSize(String(value || ""), w);
+    pdf.text(lines.slice(0, maxLines), x, y, { lineHeightFactor: 1.15 });
+    if (lines.length > maxLines) overflowNotes.push({ label, lines: lines.slice(maxLines) });
+  }
+  const presenceDays = getDaysInMonth(data.presence.month);
+  const childCount = Math.max(data.presence.children.length, data.presence.grid.length, 1);
+  for (let offset = 0; offset < childCount; offset += 4) {
+    nextPage();
+    contact();
+    text("FICHE DE RENSEIGNEMENTS AU DOMICILE DE L'AF", 168, 9, 10, true, { align: "center" });
+    cell(70, 15, 221, 10,
+      `Nom et prénom de l'assistant(e) familial(e) Référent(e) : ${data.presence.afName || ""}`, true, true, 9);
+    cell(70, 28, 102, 7, `Mois de : ${monthLabel(data.presence.month)}`, true, true, 9);
+    text("A remettre avant le 5 du mois en cours *", 211, 31, 7.5, true);
+    text("(* Ex : Éléments du mois de Fév. à remettre le 5 Fév.)", 211, 36, 6);
+    text("Possible d'envoyer la feuille par mail à spf-rouen@lesnids.fr", 200, 40, 5.8, true);
+    cell(left, 44, nameWidth, 9, "Identité de l'enfant", true, true, 9);
+    cell(left + nameWidth, 44, width - nameWidth, 9, "Mettre la lettre correspondant aux motifs de l'absence", true, true, 9);
+    for (let row = 0; row < 4; row++) {
+      const index = offset + row;
+      const y = 53 + row * 20;
+      const child = data.presence.children[index] || "";
+      const codes = data.presence.grid[index] || [];
+      cell(left, y, nameWidth, 6, `${index + 1}${index === 0 ? "er" : "ème"} Enfant : Nom / Prénom`, true, false, 7.7);
+      cell(left, y + 6, nameWidth, 7, child, false, false, 8);
+      for (let day = 0; day < 31; day++) {
+        const x = left + nameWidth + day * dayWidth;
+        cell(x, y, dayWidth, 6, day + 1, false, day >= presenceDays);
+        cell(x, y + 6, dayWidth, 7, day < presenceDays ? codes[day] || "" : "", true, day >= presenceDays, 7);
+      }
+      const total = codes.slice(0, presenceDays).filter(code => code === "P" || code === "PP").length;
+      cell(279, y, totalWidth, 6, "TOTAL", true, false, 6.5);
+      cell(279, y + 6, totalWidth, 7, index < childCount ? total : "", true, false, 8);
+      pdf.rect(left, y + 13, width, 7);
+    }
+    const legends = [
+      [43, "Motifs de l'absence :"], [31, "Internat (I)"], [40, "DVH parents / autres (DVH*)"],
+      [29, "Adaptation (A)"], [42, "Présence domicile AF (P / PP)"], [31, "Formation (F)"],
+      [69, "Relais (hors relais échanges) (R)"]
+    ];
+    let lx = left;
+    for (const [w, label] of legends) { cell(lx, 133, w, 10, label, true, true, 7); lx += w; }
+    text("* DVH : droits de visite et d'hébergement. PP : accueil permanent (compté comme présence).", 87, 148, 6.5);
+    pdf.rect(left, 152, width, 35);
+    text("Rectificatif du mois précédent : Relais, Hébergement, internat annulés", 7, 157, 8);
+    if (offset === 0) note(data.presence.rectif, 8, 163, 111, 6, "Rectificatif du mois précédent");
+    text(`Date : ${dateLabel}`, 220, 158, 7);
+    text("Signature :", 135, 160, 7);
+    signatureAt(135, 162);
+    text("Tourner la page pour noter les relais", 220, 198, 7.5, true);
+  }
+  const relayDays = getDaysInMonth(data.relay.month);
+  const relayRows = data.relay.rows || [];
+  const relayNameW = 30, afW = 27;
+  const relayDayW = (width - relayNameW - afW - totalWidth) / 31;
+  for (let offset = 0; offset < Math.max(1, relayRows.length); offset += 12) {
+    nextPage();
+    contact();
+    cell(142, 19, 149, 8, `MOIS DE : ${monthLabel(data.relay.month)}`, true, true, 10);
+    text(`Assistant familial : ${data.relay.afName || ""}`, 82, 12, 8);
+    cell(left, 30, width, 11, 'FICHE DE RELAIS DU MOIS PRÉCÉDENT *', true, true, 12);
+    text("(* Ex : Si salaire du mois de mars - transmettre les relais effectués en février)", 148.5, 40, 7, false, { align: "center" });
+    cell(left, 41, relayNameW, 9, "Enfants : Nom / Prénom", true, true);
+    cell(left + relayNameW, 41, afW, 9, "Nom de l'AF habituel(le)", true, true);
+    for (let day = 0; day < 31; day++) cell(left + relayNameW + afW + day * relayDayW, 41, relayDayW, 9, day + 1, true, true);
+    cell(279, 41, totalWidth, 9, "TOTAL", true, true, 6);
+    for (let i = 0; i < 12; i++) {
+      const row = relayRows[offset + i];
+      const y = 50 + i * 8.5;
+      cell(left, y, relayNameW, 8.5, row?.child || "");
+      cell(left + relayNameW, y, afW, 8.5, row?.usualAf || "");
+      for (let day = 0; day < 31; day++) cell(left + relayNameW + afW + day * relayDayW, y, relayDayW, 8.5,
+        day < relayDays ? row?.days?.[day] || "" : "", false, day >= relayDays, 7);
+      const total = (row?.days || []).slice(0, relayDays).filter(code => code === "P" || code === "PP").length;
+      cell(279, y, totalWidth, 8.5, row ? total : "", true);
+    }
+    cell(left, 158, 52, 7, `Date : ${dateLabel}`, true, true, 8);
+    cell(100, 158, 112, 7, "Signature de l'assistant(e) familial(e) :", true, true, 8);
+    signatureAt(120, 167, 75, 27);
+    if (offset === 0 && data.relay.notes) {
+      text("Remarque :", left, 173, 8, true);
+      note(data.relay.notes, left, 178, 85, 7, "Remarque relais");
+    }
+  }
+  for (const entry of overflowNotes) {
+    for (let offset = 0; offset < entry.lines.length; offset += 40) {
+      nextPage(); contact();
+      text(`${entry.label} - suite`, 90, 18, 11, true);
+      text(entry.lines.slice(offset, offset + 40).join("\n"), 10, 40, 8, false, { lineHeightFactor: 1.2 });
+    }
+  }
+  const pageCount = pdf.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) { pdf.setPage(p); text(`Page ${p} / ${pageCount}`, 148.5, 207, 8, false, { align: "center" }); }
+}
+
+async function loadPresencePdfSignature() {
+  const uid = currentUser?.uid;
+  if (!uid) return null;
+  const candidates = [];
+  let lastError = null;
+  try { candidates.push(await getDownloadURL(ref(storage, `users/${uid}/profileSignatureData_${uid}`))); }
+  catch (error) { if (error.code !== "storage/object-not-found") lastError = error; }
+  candidates.push(currentProfile?.signatureUrl, currentProfile?.signatureData, localStorage.getItem(`profileSignatureData_${uid}`));
+  for (const value of new Set(candidates.filter(Boolean))) {
+    try {
+      let imageData = value;
+      if (/^https?:\/\//i.test(value)) {
+        const response = await fetch(value);
+        if (!response.ok) throw new Error("Signature indisponible");
+        const blob = await response.blob();
+        imageData = await new Promise((resolve, reject) => {
+          const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
+        });
+      }
+      if (!String(imageData).startsWith("data:image/")) continue;
+      const img = new Image();
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = imageData; });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      const context = canvas.getContext("2d");
+      context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(img, 0, 0);
+      return { dataUrl: canvas.toDataURL("image/jpeg", 0.92), width: canvas.width, height: canvas.height };
+    } catch (error) { lastError = error; }
+  }
+  if (lastError) throw lastError;
+  return null;
+}
+
   async function generatePresencePdf() {
     const allowed = await requirePdfAccess();
-if (!allowed) return;
+    if (!allowed) return;
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("landscape", "mm", "a4");
-
     const monthLabel = formatMonthLabel(state.presence.month);
-    const relayMonthLabel = formatMonthLabel(state.relay.month);
-    const profileLogoData = await getProfileLogoData();
-    const profileSignatureData = await getProfileSignatureData();
-
-    const leftMargin = 8;
-    const topMargin = 10;
-    const pageWidth = 297;
-    const usableWidth = pageWidth - (leftMargin * 2);
-
-    const rowH = 8;
-    const nameW = 38;
-    const totalW = 12;
-
-    const pdfDaysInPresenceMonth = getDaysInMonth(state.presence.month);
-    const pdfDaysInRelayMonth = getDaysInMonth(state.relay.month);
-
-    const dayWPresence = (usableWidth - nameW - totalW) / pdfDaysInPresenceMonth;
-
-    function drawCell(x, y, w, h, text = "", align = "center", fontSize = 7, bold = false) {
-      pdf.rect(x, y, w, h);
-
-      pdf.setFont("helvetica", bold ? "bold" : "normal");
-      pdf.setFontSize(fontSize);
-
-      const safeText = String(text || "");
-      let textX = x + (w / 2);
-
-      if (align === "left") textX = x + 2;
-      if (align === "right") textX = x + w - 2;
-
-      pdf.text(safeText, textX, y + (h / 2) + 1, {
-        align,
-        baseline: "middle",
-        maxWidth: Math.max(1, w - 2)
-      });
+    const snapshot = JSON.parse(JSON.stringify(state));
+    let signature;
+    try {
+      signature = await loadPresencePdfSignature();
+    } catch (error) {
+      console.error("Erreur signature fiche de présence :", error);
+      alert("Impossible de charger la signature du profil. Vérifiez votre connexion puis réessayez.");
+      return;
     }
-
-    // PAGE 1
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
-    pdf.text("FEUILLE DE PRESENCE AU DOMICILE DE L'ASSISTANT FAMILIAL", leftMargin, topMargin);
-    addLogoToPdf(pdf, profileLogoData, 260, 6, 24, 16);
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(9);
-    pdf.text(`Nom et prénom de l'assistant familial : ${state.presence.afName || ""}`, leftMargin, 18);
-    pdf.text(`Mois : ${monthLabel}`, 220, 18);
-    pdf.setFont("helvetica", "normal");
-
-
-pdf.setFontSize(6);
-    let startX = leftMargin;
-    let startY = 36;
-
-    drawCell(startX, startY, nameW, rowH, "ENFANT", "left", 7, true);
-
-    for (let d = 1; d <= pdfDaysInPresenceMonth; d += 1) {
-      drawCell(
-        startX + nameW + (d - 1) * dayWPresence,
-        startY,
-        dayWPresence,
-        rowH,
-        d,
-        "center",
-        7,
-        true
-      );
-    }
-
-    drawCell(startX + nameW + pdfDaysInPresenceMonth * dayWPresence, startY, totalW, rowH, "TOTAL", "center", 6, true);
-
-    state.presence.children.forEach((child, rowIndex) => {
-      const y = startY + rowH + rowIndex * rowH;
-      drawCell(startX, y, nameW, rowH, child || `Enfant ${rowIndex + 1}`, "left", 7, false);
-
-      let total = 0;
-
-      for (let d = 0; d < pdfDaysInPresenceMonth; d += 1) {
-        const code = state.presence.grid[rowIndex]?.[d] || "";
-        if (code === "P" || code === "PP") total += 1;
-
-        drawCell(
-          startX + nameW + d * dayWPresence,
-          y,
-          dayWPresence,
-          rowH,
-          code,
-          "center",
-          7,
-          false
-        );
-      }
-
-      drawCell(startX + nameW + pdfDaysInPresenceMonth * dayWPresence, y, totalW, rowH, total, "center", 7, false);
-    });
-
-    let bottomY = startY + rowH * (state.presence.children.length + 1) + 6;
-
-// LÉGENDE
-pdf.setFont("helvetica", "normal");
-pdf.setFontSize(6);
-
-const legendY = bottomY;
-const legendH = 8;
-const legendX = leftMargin;
-const legendW = usableWidth;
-
-pdf.rect(legendX, legendY, legendW, legendH);
-
-const legends = [
-  "Internat (I)",
-  "DVH parents / autres (DVH*)",
-  "Adaptation (A)",
-  "Présence domicile AF (P)",
-  "Formation (F)",
-  "Relais hors échanges (R)",
-  "Accueil permanent (PP)"
-];
-
-const colW = legendW / legends.length;
-
-legends.forEach((text, index) => {
-  const x = legendX + index * colW;
-  pdf.rect(x, legendY, colW, legendH);
-  pdf.text(text, x + colW / 2, legendY + 5, { align: "center" });
-});
-
-pdf.setFontSize(6);
-pdf.text("* DVH : droits de visite et d’hébergement", legendX + 2, legendY + legendH + 4);
-
-// Décalage pour la suite
-bottomY = legendY + legendH + 8;
-pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, bottomY + 6);
-pdf.text("Signature :", 220, bottomY + 14);
-pdf.rect(220, bottomY + 16, 55, 18);
-
-addSignatureToPdf(
-  pdf,
- profileSignatureData,
-  220,
-  bottomY + 16,
-  55,
-  18
-);
-
-    // PAGE 2
-    pdf.addPage();
-
-    const relayNameW = 45;
-    const relayAfW = 42;
-    const relayTotalW = 12;
-    const relayDayW = (usableWidth - relayNameW - relayAfW - relayTotalW) / pdfDaysInRelayMonth;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
-    pdf.text("FICHE DE RELAIS DU MOIS PRECEDENT", leftMargin, topMargin);
-    addLogoToPdf(pdf, profileLogoData, 260, 6, 24, 16);
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(9);
-    pdf.text(`Nom et prénom de l'assistant familial : ${state.relay.afName || ""}`, leftMargin, 18);
-    pdf.text(`Mois : ${relayMonthLabel}`, 220, 18);
-
-    let relayY = 25;
-
-    drawCell(leftMargin, relayY, relayNameW, rowH, "ENFANT", "left", 7, true);
-    drawCell(leftMargin + relayNameW, relayY, relayAfW, rowH, "AF HABITUEL(LE)", "left", 7, true);
-
-    for (let d = 1; d <= pdfDaysInRelayMonth; d += 1) {
-      drawCell(
-        leftMargin + relayNameW + relayAfW + (d - 1) * relayDayW,
-        relayY,
-        relayDayW,
-        rowH,
-        d,
-        "center",
-        7,
-        true
-      );
-    }
-
-    drawCell(
-      leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
-      relayY,
-      relayTotalW,
-      rowH,
-      "TOTAL",
-      "center",
-      6,
-      true
-    );
-
-    state.relay.rows.forEach((row, rowIndex) => {
-      const y = relayY + rowH + rowIndex * rowH;
-      drawCell(leftMargin, y, relayNameW, rowH, row.child || "", "left", 7, false);
-      drawCell(leftMargin + relayNameW, y, relayAfW, rowH, row.usualAf || "", "left", 7, false);
-
-      let total = 0;
-
-      for (let d = 0; d < pdfDaysInRelayMonth; d += 1) {
-        const code = row.days[d] || "";
-        if (code === "P" || code === "PP") total += 1;
-
-        drawCell(
-          leftMargin + relayNameW + relayAfW + d * relayDayW,
-          y,
-          relayDayW,
-          rowH,
-          code,
-          "center",
-          7,
-          false
-        );
-      }
-
-      drawCell(
-        leftMargin + relayNameW + relayAfW + pdfDaysInRelayMonth * relayDayW,
-        y,
-        relayTotalW,
-        rowH,
-        total,
-        "center",
-        7,
-        false
-      );
-    });
-
-    let relayBottomY = relayY + rowH * (state.relay.rows.length + 2) + 10;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Remarque :", leftMargin, relayBottomY);
-    pdf.setFont("helvetica", "normal");
-    pdf.rect(leftMargin, relayBottomY + 2, 180, 18);
-    pdf.text(state.relay.notes || "", leftMargin + 2, relayBottomY + 8, { maxWidth: 176 });
-
-    pdf.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 220, relayBottomY + 8);
-    pdf.text("Signature :", 220, relayBottomY + 18);
-    pdf.rect(220, relayBottomY + 20, 55, 18);
-    addSignatureToPdf(
-  pdf,
-  profileSignatureData,
-  220,
-  relayBottomY + 20,
-  55,
-  18
-);
-addEasyfraisFooter(pdf);
+    const logo = "data:image/png;base64,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";
+    drawPresenceForms(pdf, snapshot, logo, signature, new Date().toLocaleDateString("fr-FR"));
     function formatMonthYear(monthValue) {
   if (!monthValue) return "sans_mois";
   
