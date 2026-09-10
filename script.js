@@ -1098,12 +1098,13 @@ function addEasyfraisFooter(docPdf) {
 }
 
 function drawKmModel(pdf, background, items, month, assistant, signature, rates, date) {
+  const pdfAddress = value => String(value || "").replace(/(?:,\s*|\s+-\s+|\s+)France\s*$/i, "").trim();
   const cols = [10.43,66.12,117.14,133.66,151.02,168.38,212.26,256.14,279.64];
   const rows = [];
   pdf.setFont("helvetica","normal"); pdf.setFontSize(8);
   for (const item of items) {
-    const destination = [item.lieuRdv, item.lieuRetour ? `Retour : ${item.lieuRetour}` : ""].filter(Boolean).join(" - ");
-    const values = [item.enfant,item.motif,formatDateFr(item.dateTrajet),item.heureDebut,item.heureFin,item.depart,destination];
+    const destination = pdfAddress(item.lieuRdv);
+    const values = [item.enfant,item.motif,formatDateFr(item.dateTrajet),item.heureDebut,item.heureFin,pdfAddress(item.depart),destination];
     const lines = values.map((v,i)=>pdf.splitTextToSize(String(v || "-"),cols[i+1]-cols[i]-2));
     for(let line=0;line<Math.max(...lines.map(x=>x.length));line++) rows.push({values:lines.map(x=>x[line]||""),km:line===0?Number(item.km):null});
   }
