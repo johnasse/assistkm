@@ -8,8 +8,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const userEmailEl = document.getElementById("userEmail");
   const logoutBtn = document.getElementById("logoutBtn");
 
-  onAuthStateChanged(auth, (user) => {
-    if (!user) {
+  onAuthStateChanged(auth, async (user) => {
+    if (!user || !user.emailVerified) {
+      if (user && !user.emailVerified) await signOut(auth);
       window.location.href = "login.html";
       return;
     }

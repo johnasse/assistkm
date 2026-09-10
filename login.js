@@ -7,7 +7,9 @@ import {
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendEmailVerification,
+  signOut
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const emailInput = document.getElementById("email");
@@ -86,7 +88,14 @@ async function login() {
   try {
     setLoading(true);
 
-    await signInWithEmailAndPassword(auth, email, password);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    await credential.user.reload();
+    if (!credential.user.emailVerified) {
+      await sendEmailVerification(credential.user);
+      await signOut(auth);
+      showMessage("Ton adresse mail n'est pas encore confirmée. Un nouveau mail vient d'être envoyé.");
+      return;
+    }
 
     showMessage("Connexion réussie...", "success");
 
@@ -129,17 +138,20 @@ async function register() {
 
 const user = userCredential.user;
 
+await sendEmailVerification(user);
+
 await setDoc(doc(db, "customers", user.uid), {
   uid: user.uid,
   email: user.email,
   createdAt: serverTimestamp()
 }, { merge: true });
 
-    showMessage("Compte créé avec succès !", "success");
+    showMessage("Compte créé. Consulte ta boîte mail et confirme ton adresse avant de te connecter.", "success");
+    await signOut(auth);
 
     setTimeout(() => {
-      window.location.href = "index.html";
-    }, 500);
+      window.location.href = "login.html";
+    }, 1200);
 
   } catch (error) {
     showMessage(getErrorMessage(error));
@@ -161,8 +173,10 @@ onAuthStateChanged(auth, (user) => {
   if (!authChecked) {
     authChecked = true;
 
-    if (user) {
+    if (user && user.emailVerified) {
       window.location.href = "index.html";
+    } else if (user && !user.emailVerified) {
+      signOut(auth);
     }
   }
 });
