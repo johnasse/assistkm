@@ -1106,25 +1106,49 @@ function drawKmModel(pdf, background, items, month, assistant, signature, rates,
     const destination = pdfAddress(item.lieuRdv);
     const values = [item.enfant,item.motif,formatDateFr(item.dateTrajet),item.heureDebut,item.heureFin,pdfAddress(item.depart),destination];
     const lines = values.map((v,i)=>pdf.splitTextToSize(String(v || "-"),cols[i+1]-cols[i]-2));
-    for(let line=0;line<Math.max(...lines.map(x=>x.length));line++) rows.push({values:lines.map(x=>x[line]||""),km:line===0?Number(item.km):null});
+    const lineCount = Math.max(...lines.map(x => x.length));
+    const height = Math.min(89.99, Math.max(6.428, lineCount * 3.25 + 2));
+    const fontSize = Math.min(8, (height - 2) / lineCount / 0.40625);
+    rows.push({ lines, height, fontSize, km: Number(item.km) });
   }
   function fill(value,x,y,w) {
     pdf.setFillColor(255,255,255);pdf.rect(x,y-3.5,w,4.5,"F");
     pdf.setFont("helvetica","normal");pdf.setFontSize(9);
     pdf.setFontSize(Math.min(9,9*w/Math.max(w,pdf.getTextWidth(value))));pdf.text(value,x,y);
   }
-  for(let offset=0;offset<rows.length;offset+=14) {
+  for(let offset=0;offset<rows.length;) {
     if(offset)pdf.addPage("a4","landscape");
     pdf.addImage(background,"PNG",0,0,297,210,"km-modele","FAST");
     fill(formatMonthFr(month),143,14.4,123);
     fill(assistant,137,21.7,129);
     let km=0;
-    rows.slice(offset,offset+14).forEach((row,i)=>{
-      const y=37.35+i*(89.99/14)+4;
-      pdf.setFont("helvetica","normal");pdf.setFontSize(8);
-      row.values.forEach((v,c)=>pdf.text(v,cols[c]+1,y));
-      if(row.km!==null){km+=row.km;pdf.text(row.km.toFixed(1).replace('.',','),278,y,{align:'right'});}
-    });
+    // Reconstruire le corps du tableau avec une seule ligne par déplacement.
+    pdf.setFillColor(255,255,255);
+    pdf.rect(10.17,37.14,269.77,90.07,'F');
+    pdf.setDrawColor(0,0,0);pdf.setLineWidth(0.25);
+    let rowY = 37.35;
+    const bottom = 127.34;
+    while(offset < rows.length) {
+      const row = rows[offset];
+      if(rowY + row.height > bottom + 0.001) break;
+      for(let c=0;c<8;c++) pdf.rect(cols[c],rowY,cols[c+1]-cols[c],row.height);
+      pdf.setFont('helvetica','normal');pdf.setFontSize(row.fontSize);
+      row.lines.forEach((lines,c)=>{
+        const textHeight=(lines.length-1)*row.fontSize*0.40625;
+        const textY=rowY+(row.height-textHeight)/2+row.fontSize*0.12;
+        pdf.text(lines,cols[c]+1,textY,{lineHeightFactor:1.15});
+      });
+      pdf.setFontSize(8);
+      pdf.text(row.km.toFixed(1).replace('.',','),278,rowY+row.height/2+1,{align:'right'});
+      km += row.km;
+      rowY += row.height;
+      offset++;
+    }
+    while(rowY < bottom - 0.001) {
+      const height = Math.min(6.428, bottom-rowY);
+      for(let c=0;c<8;c++) pdf.rect(cols[c],rowY,cols[c+1]-cols[c],height);
+      rowY += height;
+    }
     fill(km.toFixed(1).replace('.',','),257,131.8,21);
     fill(date,34,144.5,34);
     if(signature){const r=Math.min(75/signature.width,30/signature.height);pdf.addImage(signature.dataUrl,'JPEG',12,156,signature.width*r,signature.height*r);}
