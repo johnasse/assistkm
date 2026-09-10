@@ -491,7 +491,7 @@
         </div>
 
        <div class="legend" id="presenceLegend">
-  <button type="button" data-code="PP">Accueil permanent</button>
+  <button type="button" data-code="PP">Accueil permanent (P)</button>
   <button type="button" data-code="I">Internat</button>
   <button type="button" data-code="DVH">Droit de visite et d'hébergement</button>
   <button type="button" data-code="A">Adaptation</button>
@@ -635,6 +635,12 @@ let selectedPresenceCode = "PP";
     const [year, month] = monthValue.split("-").map(Number);
     if (!year || !month) return 31;
     return new Date(year, month, 0).getDate();
+  }
+
+  // PP reste le marqueur interne d'accueil permanent pour l'abattement.
+  // Le code visible sur la fiche et sur le PDF est P.
+  function displayPresenceCode(code) {
+    return code === "PP" ? "P" : (code || "");
   }
 
   function escapeHtml(value) {
@@ -844,8 +850,8 @@ state.presence.grid = filteredGrid;
       for (let day = 0; day < daysInPresenceMonth; day += 1) {
         const code = state.presence.grid[row][day] || "";
         if (code === "P" || code === "PP") total += 1;
-        const cls = `code-${code || "empty"}`;
-        html += `<td class="day-cell ${cls}" data-row="${row}" data-day="${day}" data-type="presence">${escapeHtml(code || "-")}</td>`;
+        const cls = `code-${displayPresenceCode(code) || "empty"}`;
+        html += `<td class="day-cell ${cls}" data-row="${row}" data-day="${day}" data-type="presence">${escapeHtml(displayPresenceCode(code) || "-")}</td>`;
       }
 
       html += `<td><strong>${total}</strong></td>`;
@@ -880,7 +886,7 @@ state.presence.grid = filteredGrid;
         const code = row.days[day] || "";
         if (code === "P") total += 1;
         const cls = `code-${code || "empty"}`;
-        html += `<td class="day-cell ${cls}" data-row="${rowIndex}" data-day="${day}" data-type="relay">${escapeHtml(code || "-")}</td>`;
+        html += `<td class="day-cell ${cls}" data-row="${rowIndex}" data-day="${day}" data-type="relay">${escapeHtml(displayPresenceCode(code) || "-")}</td>`;
       }
 
       html += `<td><strong>${total}</strong></td>`;
@@ -1385,7 +1391,7 @@ function drawPresenceForms(pdf, data, logo, signature, dateLabel) {
       for (let day = 0; day < 31; day++) {
         const x = left + nameWidth + day * dayWidth;
         cell(x, y, dayWidth, 6, day + 1, false, day >= presenceDays);
-        cell(x, y + 6, dayWidth, 7, day < presenceDays ? codes[day] || "" : "", true, day >= presenceDays, 7);
+        cell(x, y + 6, dayWidth, 7, day < presenceDays ? displayPresenceCode(codes[day]) : "", true, day >= presenceDays, 7);
       }
       const total = codes.slice(0, presenceDays).filter(code => code === "P" || code === "PP").length;
       cell(279, y, totalWidth, 6, "TOTAL", true, false, 6.5);
@@ -1394,12 +1400,12 @@ function drawPresenceForms(pdf, data, logo, signature, dateLabel) {
     }
     const legends = [
       [43, "Motifs de l'absence :"], [31, "Internat (I)"], [40, "DVH parents / autres (DVH*)"],
-      [29, "Adaptation (A)"], [42, "Présence domicile AF (P / PP)"], [31, "Formation (F)"],
+      [29, "Adaptation (A)"], [42, "Présence domicile AF (P)"], [31, "Formation (F)"],
       [69, "Relais (hors relais échanges) (R)"]
     ];
     let lx = left;
     for (const [w, label] of legends) { cell(lx, 133, w, 10, label, true, true, 7); lx += w; }
-    text("* DVH : droits de visite et d'hébergement. PP : accueil permanent (compté comme présence).", 87, 148, 6.5);
+    text("* DVH : droits de visite et d'hébergement.", 87, 148, 6.5);
     pdf.rect(left, 152, width, 35);
     text("Rectificatif du mois précédent : Relais, Hébergement, internat annulés", 7, 157, 8);
     if (offset === 0) note(data.presence.rectif, 8, 163, 111, 6, "Rectificatif du mois précédent");
@@ -1429,7 +1435,7 @@ function drawPresenceForms(pdf, data, logo, signature, dateLabel) {
       cell(left, y, relayNameW, 8.5, row?.child || "");
       cell(left + relayNameW, y, afW, 8.5, row?.usualAf || "");
       for (let day = 0; day < 31; day++) cell(left + relayNameW + afW + day * relayDayW, y, relayDayW, 8.5,
-        day < relayDays ? row?.days?.[day] || "" : "", false, day >= relayDays, 7);
+        day < relayDays ? displayPresenceCode(row?.days?.[day]) : "", false, day >= relayDays, 7);
       const total = (row?.days || []).slice(0, relayDays).filter(code => code === "P" || code === "PP").length;
       cell(279, y, totalWidth, 8.5, row ? total : "", true);
     }
