@@ -68,6 +68,9 @@
       color: white;
     }
 
+    .btn-danger { background: #dc2626; color: white; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
     .btn-primary {
       background: #2563eb;
       color: white;
@@ -236,6 +239,16 @@
         align-items: stretch;
       }
     }
+    .pdf-dialog { width: min(1100px, 96vw); height: 92vh; max-width: none; max-height: 96vh; margin: auto; padding: 16px; border: 0; border-radius: 16px; background: #f8fafc; color: #0f172a; }
+    .pdf-dialog[open] { display: flex; flex-direction: column; gap: 12px; }
+    .pdf-dialog::backdrop { background: rgba(0,0,0,.7); }
+    .pdf-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .pdf-preview-toolbar h2 { font-size: 18px; overflow-wrap: anywhere; flex: 1; min-width: 150px; }
+    .pdf-preview-toolbar .btn { width: auto; }
+    .pdf-preview-frame { width: 100%; flex: 1; min-height: 0; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }
+    .pdf-preview-status { padding: 16px 0; }
+    .pdf-dialog [hidden] { display: none !important; }
+    .pdf-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   </style>
 </head>
 <body>
@@ -244,7 +257,7 @@
     <div class="topbar">
       <div class="title-block">
         <h1>Historique PDF</h1>
-        <p>Retrouve tous tes PDF générés, sélectionne-les et fusionne-les en un seul document.</p>
+        <p>Consulte tes PDF avec le bouton Voir, télécharge-les ou fusionne-les en un seul document.</p>
       </div>
 
       <a href="index.html" class="btn btn-home">← Retour à l'accueil</a>
@@ -297,7 +310,10 @@
         <button id="btnSelectAllHistorique" class="btn btn-secondary">Tout cocher</button>
         <button id="btnUnselectAllHistorique" class="btn btn-secondary">Tout décocher</button>
         <button id="btnMergeSelected" class="btn btn-primary">Fusionner la sélection</button>
+        <button id="btnDeleteSelected" class="btn btn-danger" type="button" disabled>Supprimer la sélection</button>
       </div>
+
+      <p id="historyActionStatus" class="stats" role="status" aria-live="polite" style="margin-bottom: 14px;"></p>
 
       <div class="table-wrap">
         <table>
@@ -321,6 +337,16 @@
     </div>
 
   </div>
+
+  <dialog id="pdfPreviewDialog" class="pdf-dialog" aria-labelledby="pdfPreviewTitle">
+    <div class="pdf-preview-toolbar">
+      <h2 id="pdfPreviewTitle">Aperçu du PDF</h2>
+      <a id="pdfPreviewOpen" class="btn btn-secondary" target="_blank" rel="noopener noreferrer" hidden>Ouvrir dans un nouvel onglet</a>
+      <button id="pdfPreviewClose" class="btn btn-home" type="button" autofocus>Fermer</button>
+    </div>
+    <p id="pdfPreviewStatus" class="pdf-preview-status" role="status" aria-live="polite"></p>
+    <iframe id="pdfPreviewFrame" class="pdf-preview-frame" title="Aperçu du document PDF" hidden></iframe>
+  </dialog>
 
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
   <script type="module" src="historique.js"></script>
