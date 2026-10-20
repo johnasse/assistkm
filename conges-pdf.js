@@ -70,7 +70,7 @@ export function buildLeavePdf(JsPDF, d, assets={}) {
         const childTop=bottom?1248:494,childStep=bottom?31:31;
         children.forEach((c,i)=>{const top=childTop+i*childStep;[[c.name,4,260],[dateFr(c.start),271,154],[dateFr(c.end),432,142],[c.usual,582,200],[c.proposed,791,269]].forEach(([v,left,w])=>text(v,left,top,w,27,10));});
         text(dateFr(d.signedDate),7,bottom?1441:682,145,20,8,false,'left');
-        signature(12,bottom?1461:704,240,31);
+        signature(10,bottom?1459:702,244,36);
       }
     }
   }else{

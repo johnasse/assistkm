@@ -61,9 +61,36 @@ async function persist(d){
   localStorage.setItem(`conges_${uid}`,JSON.stringify(next));requests=next;activeId=d.id;renderRequests();
   try{await saveModuleData(uid,'conges',{requests});status('Demande enregistrée et synchronisée.');}catch(e){console.error(e);status('Demande enregistrée sur cet appareil. Synchronisation indisponible ; réenregistrez-la une fois la connexion rétablie.');}
 }
-async function imageData(source,maxWidth=1000,maxHeight=600){
+// Crop only the blank border for PDF placement; the saved profile image stays unchanged.
+function trimSignature(canvas){
+  const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+  const pixels=ctx.getImageData(0,0,w,h).data;
+  let left=w,top=h,right=-1,bottom=-1;
+  for(let row=0;row<h;row++)for(let col=0;col<w;col++){
+    const i=(row*w+col)*4,alpha=pixels[i+3]/255;
+    // Composite against white so transparent backgrounds and opaque white margins work alike.
+    const shade=Math.min(pixels[i],pixels[i+1],pixels[i+2])*alpha+255*(1-alpha);
+    if(shade<245){left=Math.min(left,col);right=Math.max(right,col);top=Math.min(top,row);bottom=Math.max(bottom,row);}
+  }
+  if(right<left)return canvas;
+  const padding=Math.max(2,Math.ceil(Math.max(right-left+1,bottom-top+1)*.02));
+  left=Math.max(0,left-padding);top=Math.max(0,top-padding);right=Math.min(w-1,right+padding);bottom=Math.min(h-1,bottom+padding);
+  const cropped=document.createElement('canvas');cropped.width=right-left+1;cropped.height=bottom-top+1;
+  cropped.getContext('2d').drawImage(canvas,left,top,cropped.width,cropped.height,0,0,cropped.width,cropped.height);
+  return cropped;
+}
+async function imageData(source,maxWidth=1000,maxHeight=600,trim=false){
   if(!source)return null;
-  return new Promise((resolve,reject)=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>{try{const canvas=document.createElement('canvas');const scale=Math.min(1,maxWidth/img.width,maxHeight/img.height);canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/png'));}catch(e){reject(e);}};img.onerror=()=>reject(new Error('Une image du formulaire est inaccessible. Rechargez la page ou importez à nouveau votre signature.'));img.src=source;});
+  return new Promise((resolve,reject)=>{
+    const img=new Image();img.crossOrigin='anonymous';
+    img.onload=()=>{try{
+      const canvas=document.createElement('canvas');const scale=Math.min(1,maxWidth/img.width,maxHeight/img.height);
+      canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      resolve((trim?trimSignature(canvas):canvas).toDataURL('image/png'));
+    }catch(e){reject(e);}};
+    img.onerror=()=>reject(new Error('Une image du formulaire est inaccessible. Rechargez la page ou importez à nouveau votre signature.'));img.src=source;
+  });
 }
 for(const [id,kind] of [['signatureFile','signature']])$(id).addEventListener('change',async e=>{const f=e.target.files[0];if(!f){signatureOverride=null;return;}try{if(!['image/png','image/jpeg'].includes(f.type)||f.size>5*1024*1024)throw new Error('Choisissez une image PNG ou JPEG de moins de 5 Mo.');const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f);});const normalized=await imageData(data);signatureOverride=normalized;status('Image chargée pour le prochain PDF.');}catch(error){e.target.value='';signatureOverride=null;status(error.message);}});
 async function run(action){if(busy||!uid)return;busy=true;$('editor').disabled=true;try{await action();}catch(e){console.error(e);status(e.message||'Impossible de terminer cette opération.');}finally{busy=false;$('editor').disabled=false;}}
@@ -76,7 +103,7 @@ $('exportPdf').addEventListener('click',()=>{
     const templateUrl=new URL(`./conges-modeles/${d.mode}.png`,import.meta.url).href;
     const signatureSource=signatureOverride||profile.signatureUrl||profile.signatureData||localStorage.getItem(`profileSignatureData_${uid}`);
     if(d.useSignature&&!signatureSource)throw new Error('Importez une signature ou décochez son ajout.');
-    const assets={template:await imageData(templateUrl,2400,3400),signature:d.useSignature?await imageData(signatureSource):null};
+    const assets={template:await imageData(templateUrl,2400,3400),signature:d.useSignature?await imageData(signatureSource,2000,1200,true):null};
     const pdf=buildLeavePdf(window.jspdf.jsPDF,d,assets);
     if(!await requirePdfAccess())return;
     await persist(d);
