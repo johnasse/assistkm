@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Demandes de congés - EasyFrais</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="conges.css"></head>
+<body><main class="container"><a href="index.html" class="back-link">← Accueil</a><h1>Demandes de congés</h1><p>Avec ou sans les enfants confiés. Un PDF A4 avec un exemplaire employeur et un exemplaire salarié.</p>
+<p id="status" role="status" aria-live="polite">Connexion en cours…</p>
+<form id="congesForm"><fieldset id="editor" disabled>
+<section class="card"><h2>Votre demande</h2><div class="conges-grid">
+<label>Type de congés<select id="mode"><option value="sans">Sans les enfants confiés</option><option value="avec">Avec les enfants confiés</option></select></label>
+<label>Nom et prénom<input id="fullName" maxlength="100" required autocomplete="name"></label>
+<label>Service<input id="service" maxlength="100" value="Service de placement familial" required></label>
+<label id="balanceLabel">Solde de CA restant (jours)<input id="balance" type="number" min="0" step="0.5"></label>
+<label id="destinationLabel" hidden>Lieu de destination<input id="destination" maxlength="160"></label></div></section>
+<section class="card"><h2>Périodes de congé</h2><p>Les jours calendaires sont proposés automatiquement, premier et dernier jours inclus. Vous pouvez ajuster le nombre de jours selon votre décompte.</p><div id="periods"></div><button type="button" id="addPeriod" class="btn btn-secondary">Ajouter une période</button></section>
+<section class="card"><h2 id="childrenTitle">Enfants et relais</h2><p id="childrenHelp">Renseignez les enfants concernés et l’organisation du relais.</p><div id="children"></div><button type="button" id="addChild" class="btn btn-secondary">Ajouter un enfant</button></section>
+<section class="card"><h2>Signature et présentation</h2><div class="conges-grid"><label>Date de la demande<input type="date" id="signedDate" required></label><label>Signature AF (facultative)<input type="file" id="signatureFile" accept="image/png,image/jpeg"></label><label class="check"><input type="checkbox" id="useSignature"> Apposer ma signature sur les deux exemplaires</label></div><p>Le PDF reprend votre feuille originale, avec le logo Les Nids et toutes ses cases. La signature du profil est disponible si elle est enregistrée. Les signatures du chef de service et du directeur restent à compléter.</p></section>
+<div class="actions"><button type="submit" class="btn btn-success">Enregistrer la demande</button><button type="button" id="exportPdf" class="btn btn-success">Télécharger le PDF</button><button type="button" id="newRequest" class="btn btn-secondary">Nouvelle demande</button></div>
+</fieldset></form><section class="card"><h2>Mes demandes enregistrées</h2><p>Retrouvez une demande pour la modifier ou générer à nouveau son PDF.</p><div id="requests"></div></section></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script type="module" src="conges.js"></script><script type="module" src="inactivity.js"></script></body></html>
