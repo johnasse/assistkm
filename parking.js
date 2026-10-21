@@ -1,4 +1,5 @@
-import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
+import { getPrivateDataUrl, fetchPrivateFile, loadPrivateProfile } from "./private-storage.js";
+import { ref } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 import { auth, db, storage } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
@@ -299,6 +300,7 @@ function addEasyfraisFooter(pdf) {
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
+  dataUrl = await getPrivateDataUrl(dataUrl);
   const img = new Image();
   img.src = dataUrl;
 
@@ -466,14 +468,14 @@ async function loadParkingPdfSignature() {
   if (!uid) return null;
   const candidates = [];
   let lastError = null;
-  try { candidates.push(await getDownloadURL(ref(storage, `users/${uid}/profileSignatureData_${uid}`))); }
+  try { candidates.push(await getPrivateDataUrl(ref(storage, `users/${uid}/profileSignatureData_${uid}`))); }
   catch (error) { if (error.code !== "storage/object-not-found") lastError = error; }
   candidates.push(currentProfile?.signatureUrl, currentProfile?.signatureData, localStorage.getItem(`profileSignatureData_${uid}`));
   for (const value of new Set(candidates.filter(Boolean))) {
     try {
       let imageData = value;
       if (/^https?:\/\//i.test(value)) {
-        const response = await fetch(value);
+        const response = await fetchPrivateFile(value);
         if (!response.ok) throw new Error("Signature indisponible");
         const blob = await response.blob();
         imageData = await new Promise((resolve, reject) => {
@@ -583,7 +585,7 @@ async function loadProfileParking() {
     const snap = await getDoc(profileRef);
     if (!snap.exists()) return;
 
-    const data = snap.data() || {};
+    const data = await loadPrivateProfile(snap.data() || {});
     currentProfile = data;
     const profileName = String(data.fullName || "").trim();
     const children = String(data.childrenList || "")

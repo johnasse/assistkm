@@ -1,5 +1,5 @@
 import { auth } from "./firebase-config.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
+import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
 export function formatMonthLabel(monthStr) {
   if (!monthStr) return "-";
@@ -23,8 +23,7 @@ export async function savePdfToHistory(docPdf, info) {
     const pdfBlob = docPdf.output("blob");
 
     const storageRef = ref(storage, storagePath);
-    await uploadBytes(storageRef, pdfBlob);
-    const downloadURL = await getDownloadURL(storageRef);
+    await uploadBytes(storageRef, pdfBlob, { contentType: "application/pdf" });
 
     const historiqueKey = `historiquePDF_${user.uid}`;
     const historique = JSON.parse(localStorage.getItem(historiqueKey) || "[]");
@@ -35,7 +34,6 @@ export async function savePdfToHistory(docPdf, info) {
       mois: info.mois || "-",
       type: info.type || "Non classé",
       dateGeneration: new Date().toLocaleString("fr-FR"),
-      downloadURL,
       storagePath
     });
 

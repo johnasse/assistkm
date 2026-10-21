@@ -1,3 +1,4 @@
+import { getPrivateDataUrl, loadPrivateProfile } from "./private-storage.js";
 import { auth, db, storage } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
@@ -6,10 +7,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/f
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
 import { saveModuleData, loadModuleData } from "./cloud-sync.js";
-import {
-  ref,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
+import { ref } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
 let map = null;
 let directionsService = null;
@@ -211,7 +209,7 @@ async function loadProfileData() {
       return;
     }
 
-    currentProfile = snap.data() || {};
+    currentProfile = await loadPrivateProfile(snap.data() || {});
     applyProfileToKilometrique();
   } catch (error) {
     console.error("Erreur chargement profil kilométrique :", error);
@@ -468,8 +466,8 @@ function setDefaultMonthIfNeeded() {
     moisInput.value = `${year}-${month}`;
   }
 }
-function loadLogoInfo() {
-  const logoData = localStorage.getItem(getLogoDataKey());
+async function loadLogoInfo() {
+  const logoData = await getPrivateDataUrl(localStorage.getItem(getLogoDataKey())).catch(() => "");
   const logoName = localStorage.getItem(getLogoNameKey()) || "";
   const info = document.getElementById("logoInfo");
   const preview = document.getElementById("logoPreview");
@@ -478,7 +476,7 @@ function loadLogoInfo() {
 
   if (logoData) {
     info.textContent = logoName ? `Logo chargé : ${logoName}` : "Logo chargé";
-    preview.src = logoData;
+    preview.src = await getPrivateDataUrl(logoData).catch(() => '');
     preview.style.display = "block";
   } else {
     info.textContent = "";
@@ -1185,17 +1183,17 @@ async function genererPDFMensuel() {
   const baremes = getBaremesFromInputs();
   const dateCreationPdf = new Date().toLocaleDateString("fr-FR");
   const logoData =
-  await getDownloadURL(ref(storage, `users/${currentUid}/profileLogoData_${currentUid}`)).catch(() =>
+  await getPrivateDataUrl(ref(storage, `users/${currentUid}/profileLogoData_${currentUid}`)).catch(() =>
     localStorage.getItem(getLogoDataKey())
   );
 
 const signatureData =
-  await getDownloadURL(ref(storage, `users/${currentUid}/profileSignatureData_${currentUid}`)).catch(() =>
+  await getPrivateDataUrl(ref(storage, `users/${currentUid}/profileSignatureData_${currentUid}`)).catch(() =>
     localStorage.getItem(getSignatureDataKey())
   );
 
 const carteGriseData =
-  await getDownloadURL(ref(storage, `users/${currentUid}/profileCarteGriseData_${currentUid}`)).catch(() =>
+  await getPrivateDataUrl(ref(storage, `users/${currentUid}/profileCarteGriseData_${currentUid}`)).catch(() =>
     localStorage.getItem(getCarteGriseDataKey())
   );
 
@@ -1445,6 +1443,7 @@ function fileToBase64(file) {
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.92) {
+  dataUrl = await getPrivateDataUrl(dataUrl);
   const img = new Image();
 img.crossOrigin = "anonymous";
 img.src = dataUrl;
@@ -1470,8 +1469,8 @@ img.src = dataUrl;
   };
 }
 
-function loadSignatureInfo() {
-  const signatureData = localStorage.getItem(getSignatureDataKey());
+async function loadSignatureInfo() {
+  const signatureData = await getPrivateDataUrl(localStorage.getItem(getSignatureDataKey())).catch(() => "");
   const signatureName = localStorage.getItem(getSignatureNameKey()) || "";
   const info = document.getElementById("signatureInfo");
   const preview = document.getElementById("signaturePreview");
@@ -1480,7 +1479,7 @@ function loadSignatureInfo() {
 
   if (signatureData) {
     info.textContent = signatureName ? `Signature enregistrée : ${signatureName}` : "Signature enregistrée";
-    preview.src = signatureData;
+    preview.src = await getPrivateDataUrl(signatureData).catch(() => '');
     preview.style.display = "block";
   } else {
     info.textContent = "";
@@ -1520,8 +1519,8 @@ function clearSignature() {
   showToast("Signature supprimée");
 }
 
-function loadCarteGriseInfo() {
-  const carteData = localStorage.getItem(getCarteGriseDataKey());
+async function loadCarteGriseInfo() {
+  const carteData = await getPrivateDataUrl(localStorage.getItem(getCarteGriseDataKey())).catch(() => "");
   const carteName = localStorage.getItem(getCarteGriseNameKey()) || "";
   const info = document.getElementById("carteGriseInfo");
   const preview = document.getElementById("carteGrisePreview");
@@ -1532,7 +1531,7 @@ function loadCarteGriseInfo() {
     info.textContent = carteName ? `Carte grise enregistrée : ${carteName}` : "Carte grise enregistrée";
 
     if (isImageDataUrl(carteData)) {
-      preview.src = carteData;
+      preview.src = await getPrivateDataUrl(carteData).catch(() => '');
       preview.style.display = "block";
     } else {
       preview.removeAttribute("src");

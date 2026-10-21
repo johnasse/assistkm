@@ -568,6 +568,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <script type="module">
+import { getPrivateDataUrl, fetchPrivateFile, loadPrivateProfile } from "./private-storage.js";
+
   import { auth, db, storage } from "./firebase-config.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
   import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
@@ -575,10 +577,7 @@
   import { saveModuleData, loadModuleData } from "./cloud-sync.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
-import {
-  ref,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
+import { ref } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
   function getPresenceStorageKey() {
     const uid = currentUser?.uid || "guest";
@@ -1178,7 +1177,7 @@ function fillFullMonthPresence() {
       const snap = await getDoc(profileRef);
       if (!snap.exists()) return;
 
-      const data = snap.data() || {};
+      const data = await loadPrivateProfile(snap.data() || {});
       currentProfile = data;
       const profileName = String(data.fullName || "").trim();
       const children = String(data.childrenList || "")
@@ -1233,7 +1232,7 @@ console.log("Mois avant affichage =", state.presence.month);
     "";
 }
 async function urlToBase64(url) {
-  const response = await fetch(url);
+  const response = await fetchPrivateFile(url);
   const blob = await response.blob();
 
   return await new Promise((resolve) => {
@@ -1265,7 +1264,7 @@ async function getProfileSignatureData() {
   }
 
   try {
-    const url = await getDownloadURL(
+    const url = await getPrivateDataUrl(
       ref(storage, `users/${uid}/profileSignatureData_${uid}`)
     );
     return await urlToBase64(url);
@@ -1463,14 +1462,14 @@ async function loadPresencePdfSignature() {
   if (!uid) return null;
   const candidates = [];
   let lastError = null;
-  try { candidates.push(await getDownloadURL(ref(storage, `users/${uid}/profileSignatureData_${uid}`))); }
+  try { candidates.push(await getPrivateDataUrl(ref(storage, `users/${uid}/profileSignatureData_${uid}`))); }
   catch (error) { if (error.code !== "storage/object-not-found") lastError = error; }
   candidates.push(currentProfile?.signatureUrl, currentProfile?.signatureData, localStorage.getItem(`profileSignatureData_${uid}`));
   for (const value of new Set(candidates.filter(Boolean))) {
     try {
       let imageData = value;
       if (/^https?:\/\//i.test(value)) {
-        const response = await fetch(value);
+        const response = await fetchPrivateFile(value);
         if (!response.ok) throw new Error("Signature indisponible");
         const blob = await response.blob();
         imageData = await new Promise((resolve, reject) => {

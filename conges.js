@@ -1,3 +1,4 @@
+import { getPrivateDataUrl } from "./private-storage.js";
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
@@ -101,9 +102,9 @@ $('exportPdf').addEventListener('click',()=>{
   if(!$('congesForm').reportValidity())return;
   run(async()=>{const d=read();if(!window.jspdf?.jsPDF)throw new Error('Le générateur PDF est indisponible. Vérifiez votre connexion puis rechargez la page.');
     const templateUrl=new URL(`./conges-modeles/${d.mode}.png`,import.meta.url).href;
-    const signatureSource=signatureOverride||profile.signatureUrl||profile.signatureData||localStorage.getItem(`profileSignatureData_${uid}`);
+    const signatureSource=signatureOverride||profile.signaturePath||profile.signatureUrl||profile.signatureData||localStorage.getItem(`profileSignatureData_${uid}`);
     if(d.useSignature&&!signatureSource)throw new Error('Importez une signature ou décochez son ajout.');
-    const assets={template:await imageData(templateUrl,2400,3400),signature:d.useSignature?await imageData(signatureSource,2000,1200,true):null};
+    const assets={template:await imageData(templateUrl,2400,3400),signature:d.useSignature?await imageData(await getPrivateDataUrl(signatureSource),2000,1200,true):null};
     const pdf=buildLeavePdf(window.jspdf.jsPDF,d,assets);
     if(!await requirePdfAccess())return;
     await persist(d);

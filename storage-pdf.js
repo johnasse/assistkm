@@ -2,7 +2,6 @@ import { storage, auth } from "./firebase-config.js";
 import {
   ref,
   uploadBytes,
-  getDownloadURL,
   deleteObject
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
@@ -19,11 +18,9 @@ export async function uploadPdfToStorage(blob, fileName) {
     contentType: "application/pdf"
   });
 
-  const downloadURL = await getDownloadURL(storageRef);
 
   return {
-    storagePath,
-    downloadURL
+    storagePath
   };
 }
 

@@ -573,17 +573,14 @@
   </div>
 
   <script type="module">
+import { getPrivateDataUrl } from "./private-storage.js";
+
  
 import { ensureGlobalPinExists, requireGlobalPin } from "./security-pin.js";
     import { auth, db, storage } from "./firebase-config.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
     import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-import {
-  ref,
-  uploadString,
-  getDownloadURL,
-  deleteObject
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
+import { ref, uploadString, deleteObject } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
     const statusMsg = document.getElementById("statusMsg");
     const errorMsg = document.getElementById("errorMsg");
     const saveBtn = document.getElementById("saveBtn");
@@ -758,7 +755,7 @@ function getProfileSignatureDataKey() {
       `users/${currentUser.uid}/${getProfileLogoDataKey()}`
     );
 
-    const logoUrl = await getDownloadURL(logoRef).catch(() => null);
+    const logoUrl = await getPrivateDataUrl(logoRef).catch(() => null);
 
     renderImagePreview(
       logoPreviewBox,
@@ -774,7 +771,7 @@ function getProfileSignatureDataKey() {
     );
 
     const signatureUrl =
-      await getDownloadURL(signatureRef).catch(() => null);
+      await getPrivateDataUrl(signatureRef).catch(() => null);
 
     renderImagePreview(
       signaturePreviewBox,
@@ -790,7 +787,7 @@ function getProfileSignatureDataKey() {
     );
 
     const carteUrl =
-      await getDownloadURL(carteRef).catch(() => null);
+      await getPrivateDataUrl(carteRef).catch(() => null);
 
     renderImagePreview(
       carteGrisePreviewBox,
@@ -847,25 +844,21 @@ function getProfileSignatureDataKey() {
 
     await uploadString(storageRef, data, "data_url");
 
-   const downloadURL = await getDownloadURL(storageRef);
+   const previewData = data;
 
-if (dataKey() === getProfileSignatureDataKey()) {
-  await setDoc(
-    doc(db, "users", currentUser.uid, "profile", "main"),
-    {
-      signatureUrl: downloadURL
-    },
-    { merge: true }
-  );
-}
+const profileField = dataKey() === getProfileSignatureDataKey() ? 'signature' : dataKey() === getProfileLogoDataKey() ? 'logo' : 'carteGrise';
+await setDoc(doc(db, 'users', currentUser.uid, 'profile', 'main'), {
+  [profileField+'Path']: storagePath,
+  [profileField+'Url']: ''
+}, { merge: true });
 
-    localStorage.setItem(dataKey(), downloadURL);
+    localStorage.setItem(dataKey(), storagePath);
     localStorage.setItem(nameKey(), file.name);
 
     renderImagePreview(
       previewBox,
       fileNameEl,
-      downloadURL,
+      previewData,
       file.name,
       placeholderText
     );
@@ -886,7 +879,7 @@ if (dataKey() === getProfileSignatureDataKey()) {
   if (dataKey() === getProfileSignatureDataKey()) {
     await setDoc(
       doc(db, "users", currentUser.uid, "profile", "main"),
-      { signatureUrl: "" },
+      { signatureUrl: "", signaturePath: "" },
       { merge: true }
     );
   }
@@ -910,7 +903,7 @@ if (dataKey() === getProfileSignatureDataKey()) {
           setStatus("Aucun profil enregistré pour le moment.");
         }
 
-        loadStoredFiles();
+        await loadStoredFiles();
       } catch (error) {
         console.error(error);
         showError("Impossible de charger le profil.");

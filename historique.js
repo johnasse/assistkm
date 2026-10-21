@@ -1,3 +1,4 @@
+import { getPrivateBlob, privateStoragePath } from "./private-storage.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { getStorage, ref, deleteObject } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
@@ -13,6 +14,13 @@ const $ = (id) => document.getElementById(id);
 function loadHistorique() {
   const storageKey = `historiquePDF_${currentUser.uid}`;
   historique = JSON.parse(localStorage.getItem(storageKey) || "[]");
+  for (const pdf of historique) {
+    if (!pdf.storagePath && pdf.downloadURL) {
+      try { pdf.storagePath = privateStoragePath(pdf.downloadURL); } catch { /* Invalid/unowned legacy files stay inaccessible. */ }
+    }
+    if (pdf.storagePath) delete pdf.downloadURL;
+  }
+  saveHistorique();
 }
 
 function saveHistorique() {
@@ -21,7 +29,7 @@ function saveHistorique() {
 }
 
 function canDownload(pdf) {
-  return !!pdf?.downloadURL || !!pdf?.data;
+  return !!pdf?.storagePath || !!pdf?.downloadURL || !!pdf?.data;
 }
 
 function renderHistorique() {
@@ -107,9 +115,7 @@ async function voirPdf(id) {
   if (!previewDialog.open) previewDialog.showModal();
   previewRequest = new AbortController();
   try {
-    const response = await fetch(pdf.downloadURL || pdf.data, { signal: previewRequest.signal });
-    if (!response.ok) throw new Error("PDF indisponible");
-    const bytes = await response.arrayBuffer();
+    const bytes = await (await getPrivateBlob(pdf, { signal: previewRequest.signal })).arrayBuffer();
     if (version !== previewVersion || !previewDialog.open) return;
     previewUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
     $("pdfPreviewFrame").src = previewUrl;
@@ -126,28 +132,24 @@ async function voirPdf(id) {
 $("pdfPreviewClose").addEventListener("click", () => previewDialog.close());
 previewDialog.addEventListener("close", resetPreview);
 window.addEventListener("pagehide", resetPreview);
-$("btnMergeSelected")?.addEventListener("click", mergeSelectedPDFs);
+$("btnMergeSelected")?.addEventListener("click", () => mergeSelectedPDFs().catch(error => {
+  console.error('Fusion privée impossible', error);
+  $('historyActionStatus').textContent = 'Impossible de fusionner les PDF. Vérifiez votre connexion et votre accès aux fichiers.';
+}));
 
-function telechargerPdf(id) {
-  const pdf = historique.find((p) => String(p.id) === String(id));
+async function telechargerPdf(id) {
+  const pdf = historique.find(p => String(p.id) === String(id));
   if (!pdf) return;
-
-  if (pdf.downloadURL) {
-    window.open(pdf.downloadURL, "_blank");
-    return;
+  try {
+    const blob = await getPrivateBlob(pdf);
+    const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+    const link = document.createElement('a'); link.href = url; link.download = pdf.nom || 'document.pdf';
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) {
+    console.error('Lecture privée du PDF impossible', error);
+    $('historyActionStatus').textContent = 'Impossible de télécharger ce PDF. Vérifiez votre connexion et votre accès au fichier.';
   }
-
-  if (pdf.data) {
-    const link = document.createElement("a");
-    link.href = pdf.data;
-    link.download = pdf.nom || "document.pdf";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    return;
-  }
-
-  alert("Ce PDF n'est pas disponible en téléchargement.");
 }
 
 function selectedIds() {
@@ -224,6 +226,9 @@ function escapeHtml(str) {
 }
 
 onAuthStateChanged(auth, async (user) => {
+  if (currentUser?.uid !== user?.uid) {
+    previewDialog.close(); resetPreview(); historique = []; renderHistorique();
+  }
   if (!user) {
     window.location.href = "connexion.html";
     return;
@@ -276,17 +281,7 @@ async function mergeSelectedPDFs() {
 
     if (!pdf) continue;
 
-    let pdfBytes;
-
-    if (pdf.downloadURL) {
-      const response = await fetch(pdf.downloadURL);
-      pdfBytes = await response.arrayBuffer();
-    } else if (pdf.data) {
-      const base64 = pdf.data.split(",")[1];
-      pdfBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    } else {
-      continue;
-    }
+    const pdfBytes = await (await getPrivateBlob(pdf)).arrayBuffer();
 
     const loadedPdf = await PDFDocument.load(pdfBytes);
     const pages = await mergedPdf.copyPages(loadedPdf, loadedPdf.getPageIndices());
@@ -305,4 +300,5 @@ async function mergeSelectedPDFs() {
   document.body.appendChild(link);
   link.click();
   link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

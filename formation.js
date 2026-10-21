@@ -1,3 +1,4 @@
+import { getPrivateDataUrl, loadPrivateProfile } from "./private-storage.js";
 import { auth, db } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
@@ -276,6 +277,7 @@ function render() {
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
+  dataUrl = await getPrivateDataUrl(dataUrl);
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = dataUrl;
@@ -609,7 +611,7 @@ async function loadProfileFormation() {
       return;
     }
 
-    const data = snap.data() || {};
+    const data = await loadPrivateProfile(snap.data() || {});
     currentProfile = data;
 
     const profileName = String(data.fullName || "").trim();

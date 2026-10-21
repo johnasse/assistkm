@@ -1,4 +1,5 @@
-import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
+import { getPrivateDataUrl, fetchPrivateFile, loadPrivateProfile } from "./private-storage.js";
+import { ref } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 import { auth, db, storage } from "./firebase-config.js";
 import { requirePdfAccess } from "./premium.js";
 import { savePdfToHistory } from "./pdf-history.js";
@@ -305,6 +306,7 @@ sorted.forEach((item) => {
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
+  dataUrl = await getPrivateDataUrl(dataUrl);
   const img = new Image();
   await new Promise((resolve, reject) => {
     img.onload = resolve;
@@ -429,7 +431,7 @@ async function getProfileSignatureData() {
   let storageError = null;
   // Même emplacement que l’aperçu de signature de la page Profil.
   try {
-    candidates.push(await getDownloadURL(ref(storage, `users/${uid}/profileSignatureData_${uid}`)));
+    candidates.push(await getPrivateDataUrl(ref(storage, `users/${uid}/profileSignatureData_${uid}`)));
   } catch (error) {
     if (error.code !== "storage/object-not-found") storageError = error;
   }
@@ -443,7 +445,7 @@ async function getProfileSignatureData() {
     try {
       if (isImageDataUrl(source)) return source;
       if (!/^https?:\/\//i.test(source)) continue;
-      const response = await fetch(source);
+      const response = await fetchPrivateFile(source);
       if (!response.ok) throw new Error("Téléchargement de la signature impossible");
       const blob = await response.blob();
       if (!blob.type.startsWith("image/")) throw new Error("Format de signature invalide");
@@ -589,7 +591,7 @@ async function loadProfileNoel() {
       return;
     }
 
-    const data = snap.data() || {};
+    const data = await loadPrivateProfile(snap.data() || {});
     currentProfile = data;
 
     const profileName = String(data.fullName || "").trim();

@@ -1,3 +1,4 @@
+import { getPrivateDataUrl } from "./private-storage.js";
 import { savePdfToHistory, formatMonthLabel } from "./pdf-history.js";
 import { auth } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
@@ -475,6 +476,7 @@ function renderHistory() {
 }
 
 async function convertImageDataUrlToJpeg(dataUrl, quality = 0.88) {
+  dataUrl = await getPrivateDataUrl(dataUrl);
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = dataUrl;
@@ -545,7 +547,7 @@ async function ajouterImagesAuPdf(pdf, expenses) {
   }
 }
 async function drawLogo(pdf) {
-  const logoData = getProfileLogoData();
+  const logoData = await getPrivateDataUrl(getProfileLogoData());
 
   if (
     !logoData ||
@@ -587,7 +589,7 @@ async function drawLogo(pdf) {
   const pdf = new jsPDF();
   await drawLogo(pdf);
 
-const signature = getProfileSignatureData();
+const signature = await getPrivateDataUrl(getProfileSignatureData());
 
   let y = 10;
 
