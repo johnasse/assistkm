@@ -568,6 +568,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <script type="module">
+import { presencePdfTemplates } from "./presence-pdf-template.js";
 import { getPrivateDataUrl, fetchPrivateFile, loadPrivateProfile } from "./private-storage.js";
 
   import { auth, db, storage } from "./firebase-config.js";
@@ -1313,149 +1314,76 @@ async function getProfileSignatureData() {
 
 // Mise en page du formulaire Les Nids, alimentée par une copie de l'état du module.
 function drawPresenceForms(pdf, data, logo, signature, dateLabel) {
-  const left = 6, width = 285, nameWidth = 51, totalWidth = 12;
-  const dayWidth = (width - nameWidth - totalWidth) / 31;
-  const overflowNotes = [];
-  let started = false;
-  function nextPage() {
-    if (started) pdf.addPage("a4", "landscape");
-    started = true;
-    pdf.setTextColor(0, 0, 0);
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setLineWidth(0.25);
+  // The sanitized reference preserves the original form's exact printed layout.
+  const px = v => v * 297 / 1178.688;
+  const month = value => {
+    if (!value) return '';
+    const [y,m] = value.split('-').map(Number);
+    return new Date(y,m-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  };
+  function text(value,x,y,width,size=8,bold=false,align='left') {
+    pdf.setFont('helvetica',bold?'bold':'normal'); pdf.setFontSize(size);
+    const s=String(value??'');
+    const tw=pdf.getTextWidth(s);
+    if(tw>px(width)) pdf.setFontSize(size*px(width)/tw);
+    pdf.text(s,px(x),px(y),{align});
   }
-  function text(value, x, y, size = 8, bold = false, options = {}) {
-    pdf.setFont("helvetica", bold ? "bold" : "normal");
-    pdf.setFontSize(size);
-    pdf.text(String(value ?? ""), x, y, options);
+  let page=0;
+  function background(index) {
+    if(page++) pdf.addPage('a4','landscape');
+    pdf.addImage(presencePdfTemplates[index],'PNG',0,0,297,210);
+    pdf.setTextColor(0,0,0);
+    // Cover the reference's page number for continuation pages.
+    pdf.setFillColor(255,255,255);pdf.rect(px(550),px(782),px(85),px(25),'F');
+    text(`Page ${page}`,589,798,80,8,false,'center');
   }
-  function cell(x, y, w, h, value = "", bold = false, gray = false, size = 7) {
-    pdf.setFillColor(gray ? 230 : 255);
-    pdf.rect(x, y, w, h, "FD");
-    pdf.setFont("helvetica", bold ? "bold" : "normal");
-    pdf.setFontSize(size);
-    const lines = pdf.splitTextToSize(String(value ?? ""), Math.max(1, w - 2));
-    const fit = Math.min(size, (h - 1.5) / Math.max(1, lines.length) / 0.353);
-    pdf.setFontSize(fit);
-    pdf.text(lines, x + w / 2, y + h / 2 - (lines.length - 1) * fit * 0.353 / 2 + fit * 0.12,
-      { align: "center", lineHeightFactor: 1 });
-  }
-  function monthLabel(value) {
-    if (!value) return "";
-    const [year, month] = value.split("-").map(Number);
-    return new Date(year, month - 1, 1).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-  }
-  function contact() {
-    pdf.addImage(logo, "PNG", 10, 2, 29, 9.425, "presence-logo", "FAST");
-    pdf.setTextColor(218, 137, 28);
-    text("Service de Placement Familial", left, 16, 7, true);
-    pdf.setTextColor(105, 105, 105);
-    text("48 Bis Rue Stanislas Girardin - 76000 Rouen", left, 21, 6.2);
-    text("Tél : 02 32 10 91 10 / Fax : 02 32 10 91 29", left, 25, 6.2);
-    pdf.setTextColor(0, 0, 0);
-  }
-  function signatureAt(x, y, w = 75, h = 24) {
-    if (!signature) return;
-    const ratio = Math.min(w / signature.width, h / signature.height);
-    pdf.addImage(signature.dataUrl, "JPEG", x, y, signature.width * ratio, signature.height * ratio);
-  }
-  function note(value, x, y, w, maxLines, label) {
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
-    const lines = pdf.splitTextToSize(String(value || ""), w);
-    pdf.text(lines.slice(0, maxLines), x, y, { lineHeightFactor: 1.15 });
-    if (lines.length > maxLines) overflowNotes.push({ label, lines: lines.slice(maxLines) });
-  }
-  const presenceDays = getDaysInMonth(data.presence.month);
-  const childCount = Math.max(data.presence.children.length, data.presence.grid.length, 1);
-  for (let offset = 0; offset < childCount; offset += 4) {
-    nextPage();
-    contact();
-    text("FICHE DE RENSEIGNEMENTS AU DOMICILE DE L'AF", 168, 9, 10, true, { align: "center" });
-    cell(70, 15, 221, 10,
-      `Nom et prénom de l'assistant(e) familial(e) Référent(e) : ${data.presence.afName || ""}`, true, true, 9);
-    cell(70, 28, 102, 7, `Mois de : ${monthLabel(data.presence.month)}`, true, true, 9);
-    text("A remettre avant le 5 du mois en cours *", 211, 31, 7.5, true);
-    text("(* Ex : Éléments du mois de Fév. à remettre le 5 Fév.)", 211, 36, 6);
-    text("Possible d'envoyer la feuille par mail à spf-rouen@lesnids.fr", 200, 40, 5.8, true);
-    cell(left, 44, nameWidth, 9, "Identité de l'enfant", true, true, 9);
-    cell(left + nameWidth, 44, width - nameWidth, 9, "Mettre la lettre correspondant aux motifs de l'absence", true, true, 9);
-    for (let row = 0; row < 4; row++) {
-      const index = offset + row;
-      const y = 53 + row * 20;
-      const child = data.presence.children[index] || "";
-      const codes = data.presence.grid[index] || [];
-      cell(left, y, nameWidth, 6, `${index + 1}${index === 0 ? "er" : "ème"} Enfant : Nom / Prénom`, true, false, 7.7);
-      cell(left, y + 6, nameWidth, 7, child, false, false, 8);
-      for (let day = 0; day < 31; day++) {
-        const x = left + nameWidth + day * dayWidth;
-        cell(x, y, dayWidth, 6, day + 1, false, day >= presenceDays);
-        cell(x, y + 6, dayWidth, 7, day < presenceDays ? displayPresenceCode(codes[day]) : "", true, day >= presenceDays, 7);
-      }
-      const total = codes.slice(0, presenceDays).filter(code => code === "P" || code === "PP").length;
-      cell(279, y, totalWidth, 6, "TOTAL", true, false, 6.5);
-      cell(279, y + 6, totalWidth, 7, index < childCount ? total : "", true, false, 8);
-      pdf.rect(left, y + 13, width, 7);
+  const count=Math.max(1,data.presence.children.length);
+  for(let offset=0;offset<count;offset+=4) {
+    background(0);
+    text(`Nom et prénom de l'assistant(e) familial (e) Référent (e) : ${data.presence.afName||''}`,318,148,770,9,true);
+    text(`Mois de : ${month(data.presence.month)}`,318,188,348,9,true);
+    const days=getDaysInMonth(data.presence.month);
+    const baselines=[290,357,424,491];
+    for(let row=0;row<4;row++) {
+      const index=offset+row, name=data.presence.children[index]||'',codes=data.presence.grid[index]||[];
+      const y=baselines[row];
+      text(name,174,y,174,8,false,'center');
+      for(let day=0;day<days;day++) text(displayPresenceCode(codes[day]).toLowerCase(),277+day*25.37,y,23,8,true,'center');
+      if(name||codes.some(Boolean)) text(codes.slice(0,days).filter(c=>c==='P'||c==='PP').length,1072,y,37,8,true,'center');
     }
-    const legends = [
-      [43, "Motifs de l'absence :"], [31, "Internat (I)"], [40, "DVH parents / autres (DVH*)"],
-      [29, "Adaptation (A)"], [42, "Présence domicile AF (P)"], [31, "Formation (F)"],
-      [69, "Relais (hors relais échanges) (R)"]
-    ];
-    let lx = left;
-    for (const [w, label] of legends) { cell(lx, 133, w, 10, label, true, true, 7); lx += w; }
-    text("* DVH : droits de visite et d'hébergement.", 87, 148, 6.5);
-    pdf.rect(left, 152, width, 35);
-    text("Rectificatif du mois précédent : Relais, Hébergement, internat annulés", 7, 157, 8);
-    if (offset === 0) note(data.presence.rectif, 8, 163, 111, 6, "Rectificatif du mois précédent");
-    text(`Date : ${dateLabel}`, 220, 158, 7);
-    text("Signature :", 135, 160, 7);
-    signatureAt(135, 162);
-    text("Tourner la page pour noter les relais", 220, 198, 7.5, true);
-  }
-  const relayDays = getDaysInMonth(data.relay.month);
-  const relayRows = data.relay.rows || [];
-  const relayNameW = 30, afW = 27;
-  const relayDayW = (width - relayNameW - afW - totalWidth) / 31;
-  for (let offset = 0; offset < Math.max(1, relayRows.length); offset += 12) {
-    nextPage();
-    contact();
-    cell(142, 19, 149, 8, `MOIS DE : ${monthLabel(data.relay.month)}`, true, true, 10);
-    text(`Assistant familial : ${data.relay.afName || ""}`, 82, 12, 8);
-    cell(left, 30, width, 11, 'FICHE DE RELAIS DU MOIS PRÉCÉDENT *', true, true, 12);
-    text("(* Ex : Si salaire du mois de mars - transmettre les relais effectués en février)", 148.5, 40, 7, false, { align: "center" });
-    cell(left, 41, relayNameW, 9, "Enfants : Nom / Prénom", true, true);
-    cell(left + relayNameW, 41, afW, 9, "Nom de l'AF habituel(le)", true, true);
-    for (let day = 0; day < 31; day++) cell(left + relayNameW + afW + day * relayDayW, 41, relayDayW, 9, day + 1, true, true);
-    cell(279, 41, totalWidth, 9, "TOTAL", true, true, 6);
-    for (let i = 0; i < 12; i++) {
-      const row = relayRows[offset + i];
-      const y = 50 + i * 8.5;
-      cell(left, y, relayNameW, 8.5, row?.child || "");
-      cell(left + relayNameW, y, afW, 8.5, row?.usualAf || "");
-      for (let day = 0; day < 31; day++) cell(left + relayNameW + afW + day * relayDayW, y, relayDayW, 8.5,
-        day < relayDays ? displayPresenceCode(row?.days?.[day]) : "", false, day >= relayDays, 7);
-      const total = (row?.days || []).slice(0, relayDays).filter(code => code === "P" || code === "PP").length;
-      cell(279, y, totalWidth, 8.5, row ? total : "", true);
+    if(offset===0 && data.presence.rectif) {
+      pdf.setFont('helvetica','normal');pdf.setFontSize(8);
+      const lines=pdf.splitTextToSize(String(data.presence.rectif),px(signature?650:990));
+      // Continue long remarks on dedicated pages rather than silently clipping.
+      pdf.text(lines.slice(0,8),px(88),px(611));
+      if(lines.length>8) throw new Error('Le rectificatif est trop long pour le cadre du modèle. Raccourcissez-le avant de générer le PDF.');
     }
-    cell(left, 158, 52, 7, `Date : ${dateLabel}`, true, true, 8);
-    cell(100, 158, 112, 7, "Signature de l'assistant(e) familial(e) :", true, true, 8);
-    signatureAt(120, 167, 75, 27);
-    if (offset === 0 && data.relay.notes) {
-      text("Remarque :", left, 173, 8, true);
-      note(data.relay.notes, left, 178, 85, 7, "Remarque relais");
+    if(signature) {
+      const w=px(230),h=px(91),r=Math.min(w/signature.width,h/signature.height);
+      pdf.addImage(signature.dataUrl,'JPEG',px(840)+(w-signature.width*r)/2,px(607)+(h-signature.height*r)/2,signature.width*r,signature.height*r);
     }
   }
-  for (const entry of overflowNotes) {
-    for (let offset = 0; offset < entry.lines.length; offset += 40) {
-      nextPage(); contact();
-      text(`${entry.label} - suite`, 90, 18, 11, true);
-      text(entry.lines.slice(offset, offset + 40).join("\n"), 10, 40, 8, false, { lineHeightFactor: 1.2 });
+  const rows=data.relay.rows||[];
+  for(let offset=0;offset<Math.max(1,rows.length);offset+=12) {
+    background(1);
+    text(`MOIS DE : ${month(data.relay.month)}`,570,201,520,10,true);
+    text(`Date : ${dateLabel}`,85,674,177,8,true);
+    const days=getDaysInMonth(data.relay.month);
+    for(let n=0;n<12;n++) {
+      const row=rows[offset+n];if(!row)continue;
+      const y=315+n*29.24;
+      text(row.child,136,y,99,8,false,'center');text(row.usualAf,226,y,69,7,false,'center');
+      for(let d=0;d<days;d++) text(displayPresenceCode(row.days?.[d]).toLowerCase(),277+d*25.37,y,23,8,false,'center');
+      if(row.child||row.usualAf||row.days?.some(Boolean))text((row.days||[]).slice(0,days).filter(c=>c==='P'||c==='PP').length,1089,y,36,8,false,'right');
+    }
+    if(offset===0 && data.relay.notes) {
+      pdf.setFontSize(7);const lines=pdf.splitTextToSize(`Remarque : ${data.relay.notes}`,px(995));
+      if(lines.length>3)throw new Error('La remarque relais est trop longue pour le modèle.');
+      pdf.text(lines,px(85),px(737));
     }
   }
-  const pageCount = pdf.getNumberOfPages();
-  for (let p = 1; p <= pageCount; p++) { pdf.setPage(p); text(`Page ${p} / ${pageCount}`, 148.5, 207, 8, false, { align: "center" }); }
 }
+
 
 async function loadPresencePdfSignature() {
   const uid = currentUser?.uid;
