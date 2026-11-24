@@ -28,30 +28,32 @@ function readDraftFields() {
 function saveDraft() {
   const values = readDraftFields();
   const key = `noelDraft_${uid}`;
+  const status = $("brouillonNoel");
   try {
     if (Object.values(values).some(Boolean)) {
       localStorage.setItem(key, JSON.stringify(values));
-      $("brouillonNoel").textContent = draftMessage;
+      if (status) status.textContent = draftMessage;
     } else {
       localStorage.removeItem(key);
-      $("brouillonNoel").textContent = "";
+      if (status) status.textContent = "";
     }
   } catch (error) {
     console.error("Erreur brouillon Noël :", error);
-    $("brouillonNoel").textContent = "Impossible de mettre à jour le brouillon sur cet appareil.";
+    if (status) status.textContent = "Impossible de mettre à jour le brouillon sur cet appareil.";
   }
 }
 
 function restoreDraft() {
+  const status = $("brouillonNoel");
   try {
     const values = JSON.parse(localStorage.getItem(`noelDraft_${uid}`) || "null");
     for (const id of draftFields) {
       $(id).value = typeof values?.[id] === "string" ? values[id] : "";
     }
-    $("brouillonNoel").textContent = values ? draftMessage : "";
+    if (status) status.textContent = values ? draftMessage : "";
   } catch (error) {
     console.error("Erreur lecture brouillon Noël :", error);
-    $("brouillonNoel").textContent = "Impossible de relire le brouillon sur cet appareil.";
+    if (status) status.textContent = "Impossible de relire le brouillon sur cet appareil.";
   }
 }
 
@@ -200,7 +202,7 @@ async function ajouterFrais() {
   const file = $("justificatifNoel")?.files?.[0] || null;
 
   if (!date || !enfant || !objet || Number.isNaN(montant) || montant <= 0) {
-    alert("Merci de remplir tous les champs correctement.");
+    alert("Renseignez la date, le nom du jeune, l’intitulé de l’article et un montant supérieur à 0 €.");
     return;
   }
 
@@ -301,6 +303,8 @@ function updateNoelSuggestions() {
   ];
 
   for (const [id, values] of suggestions) {
+    const list = $(id);
+    if (!list) continue;
     const unique = new Map();
     for (const value of values) {
       const label = typeof value === "string" ? value.trim() : "";
@@ -312,7 +316,7 @@ function updateNoelSuggestions() {
       option.value = label;
       return option;
     });
-    $(id).replaceChildren(...options);
+    list.replaceChildren(...options);
   }
 }
 
