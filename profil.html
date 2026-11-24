@@ -621,6 +621,13 @@ import { ref, uploadString, deleteObject } from "https://www.gstatic.com/firebas
     };
 
     let currentUser = null;
+    let currentProfile = {};
+    const pendingUploads = new Set();
+
+async function resolveProfileFile(source) {
+  if (typeof source !== "string" || !source.trim()) return "";
+  return await getPrivateDataUrl(source);
+}
 
     function showError(message) {
       errorMsg.style.display = "block";
@@ -748,61 +755,46 @@ function getProfileSignatureDataKey() {
     }
 
     async function loadStoredFiles() {
-  try {
-
-    const logoRef = ref(
-      storage,
-      `users/${currentUser.uid}/${getProfileLogoDataKey()}`
-    );
-
-    const logoUrl = await getPrivateDataUrl(logoRef).catch(() => null);
-
-    renderImagePreview(
-      logoPreviewBox,
-      logoFileName,
-      logoUrl,
-      "logo",
-      "Aucun logo enregistré"
-    );
-
-    const signatureRef = ref(
-      storage,
-      `users/${currentUser.uid}/${getProfileSignatureDataKey()}`
-    );
-
-    const signatureUrl =
-      await getPrivateDataUrl(signatureRef).catch(() => null);
-
-    renderImagePreview(
-      signaturePreviewBox,
-      signatureFileName,
-      signatureUrl,
-      "signature",
-      "Aucune signature enregistrée"
-    );
-
-    const carteRef = ref(
-      storage,
-      `users/${currentUser.uid}/${getProfileCarteGriseDataKey()}`
-    );
-
-    const carteUrl =
-      await getPrivateDataUrl(carteRef).catch(() => null);
-
-    renderImagePreview(
-      carteGrisePreviewBox,
-      carteGriseFileName,
-      carteUrl,
-      "carte-grise",
-      "Aucune carte grise enregistrée"
-    );
-
-  } catch (error) {
-    console.error(error);
+  const files = [
+    ["logo", getProfileLogoDataKey, getProfileLogoNameKey, logoPreviewBox, logoFileName, "Aucun logo enregistré"],
+    ["signature", getProfileSignatureDataKey, getProfileSignatureNameKey, signaturePreviewBox, signatureFileName, "Aucune signature enregistrée"],
+    ["carteGrise", getProfileCarteGriseDataKey, getProfileCarteGriseNameKey, carteGrisePreviewBox, carteGriseFileName, "Aucune carte grise enregistrée"]
+  ];
+  const failures = [];
+  for (const [field, dataKey, nameKey, box, nameEl, placeholder] of files) {
+    const explicitlyRemoved = currentProfile[field + "Removed"] === true;
+    const sources = explicitlyRemoved ? [] : [
+      currentProfile[field + "Path"], currentProfile[field + "Url"],
+      currentProfile[field + "Data"], localStorage.getItem(dataKey()),
+      `users/${currentUser.uid}/${dataKey()}`
+    ].filter(Boolean);
+    let data = "", lastError = null;
+    for (const source of new Set(sources)) {
+      try {
+        data = await resolveProfileFile(source);
+        if (data) break;
+      } catch (error) {
+        if (error.code !== "storage/object-not-found") lastError = error;
+      }
+    }
+    renderImagePreview(box, nameEl, data,
+      currentProfile[field + "FileName"] || localStorage.getItem(nameKey()) || "", placeholder);
+    if (!data && lastError) {
+      console.error("Chargement du fichier du profil :", field, lastError);
+      failures.push(field === "signature" ? "signature" : field === "logo" ? "logo" : "carte grise");
+    }
   }
+  if (failures.length) showError("Impossible de recharger : " + failures.join(", ") + ". Vérifiez votre connexion et les droits d'accès aux fichiers.");
 }
 
-   async function handleImageUpload(
+   function handleImageUpload(...args) {
+  const task = uploadProfileFile(...args);
+  pendingUploads.add(task);
+  task.finally(() => pendingUploads.delete(task));
+  return task;
+}
+
+   async function uploadProfileFile(
   input,
   dataKey,
   nameKey,
@@ -833,7 +825,8 @@ function getProfileSignatureDataKey() {
   }
 
   try {
-    setStatus("Upload du fichier vers le cloud...");
+    hideError();
+    setStatus("Enregistrement du fichier en cours...");
 
     const data = await fileToBase64(file);
 
@@ -849,9 +842,15 @@ function getProfileSignatureDataKey() {
 const profileField = dataKey() === getProfileSignatureDataKey() ? 'signature' : dataKey() === getProfileLogoDataKey() ? 'logo' : 'carteGrise';
 await setDoc(doc(db, 'users', currentUser.uid, 'profile', 'main'), {
   [profileField+'Path']: storagePath,
-  [profileField+'Url']: ''
+  [profileField+'Url']: '',
+  [profileField+'FileName']: file.name,
+  [profileField+'Removed']: false
 }, { merge: true });
 
+    currentProfile[profileField + "Path"] = storagePath;
+    currentProfile[profileField + "Url"] = "";
+    currentProfile[profileField + "FileName"] = file.name;
+    currentProfile[profileField + "Removed"] = false;
     localStorage.setItem(dataKey(), storagePath);
     localStorage.setItem(nameKey(), file.name);
 
@@ -864,28 +863,34 @@ await setDoc(doc(db, 'users', currentUser.uid, 'profile', 'main'), {
     );
 
     setStatus("Fichier synchronisé avec le cloud.");
+    return true;
   } catch (error) {
     console.error(error);
-    showError("Impossible d’envoyer le fichier.");
+    showError("Le fichier n’a pas été enregistré. Réessayez avant de quitter cette page. " + (error.message || ""));
+    return false;
   } finally {
     input.value = "";
   }
 }
 
  async function removeStoredFile(dataKey, nameKey, previewBox, fileNameEl, placeholderText) {
-  localStorage.removeItem(dataKey());
-  localStorage.removeItem(nameKey());
-
-  if (dataKey() === getProfileSignatureDataKey()) {
-    await setDoc(
-      doc(db, "users", currentUser.uid, "profile", "main"),
-      { signatureUrl: "", signaturePath: "" },
-      { merge: true }
-    );
+  if (!currentUser) return;
+  const field = dataKey() === getProfileSignatureDataKey() ? "signature" :
+    dataKey() === getProfileLogoDataKey() ? "logo" : "carteGrise";
+  try {
+    hideError();
+    const patch = { [field + "Path"]: "", [field + "Url"]: "",
+      [field + "Data"]: "", [field + "FileName"]: "", [field + "Removed"]: true };
+    await setDoc(doc(db, "users", currentUser.uid, "profile", "main"), patch, { merge: true });
+    Object.assign(currentProfile, patch);
+    localStorage.removeItem(dataKey());
+    localStorage.removeItem(nameKey());
+    clearPreview(previewBox, fileNameEl, placeholderText);
+    setStatus("Fichier retiré du profil.");
+  } catch (error) {
+    console.error(error);
+    showError("Impossible de retirer le fichier du profil.");
   }
-
-  clearPreview(previewBox, fileNameEl, placeholderText);
-  setStatus("Fichier supprimé du profil.");
 }
     async function loadProfile(uid) {
       try {
@@ -896,9 +901,11 @@ await setDoc(doc(db, 'users', currentUser.uid, 'profile', 'main'), {
         const snap = await getDoc(ref);
 
         if (snap.exists()) {
-          fillForm(snap.data() || {});
+          currentProfile = snap.data() || {};
+          fillForm(currentProfile);
           setStatus("Profil chargé.");
         } else {
+          currentProfile = {};
           fillForm({ email: currentUser?.email || "" });
           setStatus("Aucun profil enregistré pour le moment.");
         }
@@ -919,6 +926,8 @@ await setDoc(doc(db, 'users', currentUser.uid, 'profile', 'main'), {
 
       try {
         hideError();
+        const uploads = await Promise.all([...pendingUploads]);
+        if (uploads.some(result => result === false)) throw new Error("Un fichier n’a pas pu être enregistré.");
         setStatus("Enregistrement du profil...");
 
         const data = getProfileData();
@@ -1040,7 +1049,7 @@ await setDoc(doc(db, 'users', currentUser.uid, 'profile', 'main'), {
 
  onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = "connexion.html";
+    window.location.href = "login.html";
     return;
   }
 
