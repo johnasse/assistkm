@@ -566,9 +566,15 @@ function drawNoelModel(pdf, background, items, assistant, signature) {
     pdf.setFontSize(10 * nameWidth / Math.max(nameWidth, pdf.getTextWidth(assistant)));
     pdf.text(assistant, x(746), y(242));
     if (signature) {
-      const ratio = Math.min(x(350) / signature.width, y(74) / signature.height);
-      const width = signature.width * ratio, height = signature.height * ratio;
-      pdf.addImage(signature.dataUrl, "JPEG", x(1054), y(195) + (y(74) - height) / 2, width, height);
+      const boxWidth = x(396);
+      const boxHeight = y(90);
+      const ratio = Math.min(boxWidth / signature.width, boxHeight / signature.height);
+      const width = signature.width * ratio;
+      const height = signature.height * ratio;
+      pdf.addImage(signature.dataUrl, "JPEG",
+        x(1040) + (boxWidth - width) / 2,
+        y(187) + (boxHeight - height) / 2,
+        width, height);
     }
     let totalCents = 0;
     rows.slice(offset, offset + rowCount).forEach((row, index) => {
