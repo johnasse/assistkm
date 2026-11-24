@@ -45,7 +45,7 @@
 
         <div class="field">
           <label for="objetNoel">Intitulé de l’article</label>
-          <input type="text" id="objetNoel" placeholder="Ex. Lego, pull de Noël, repas..." />
+          <input type="text" id="objetNoel" list="articlesNoel" placeholder="Ex. Lego, pull de Noël, repas..." />
         </div>
 
         <div class="field">
@@ -69,7 +69,7 @@
 
         <div class="field">
           <label for="magasinNoel">Magasin / lieu (facultatif)</label>
-          <input type="text" id="magasinNoel" placeholder="Ex. Amazon, JouéClub, Carrefour..." />
+          <input type="text" id="magasinNoel" list="magasinsNoel" placeholder="Ex. Amazon, JouéClub, Carrefour..." />
         </div>
 
         <div class="field">
@@ -92,11 +92,14 @@
       </div>
 
       <datalist id="profileChildrenList"></datalist>
+      <datalist id="articlesNoel"></datalist>
+      <datalist id="magasinsNoel"></datalist>
 
       <div class="actions">
         <button class="btn btn-success" type="button" id="btnAjouterNoel">Ajouter la dépense</button>
         <button class="btn btn-secondary" type="button" id="btnResetNoel">Réinitialiser</button>
       </div>
+      <p id="brouillonNoel" class="saved-msg" role="status"></p>
     </section>
 
     <section class="card">
