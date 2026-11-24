@@ -64,10 +64,25 @@ export async function getPrivateBlob(source, { signal, maxBytes = MAX_FILE_BYTES
   if (blob.size > maxBytes) throw storageError('Le fichier dépasse la taille de lecture autorisée.', 'storage/download-size-exceeded');
   return blob;
 }
+
+// Recover image/PDF MIME types from bytes when Storage sends a generic type.
+async function restoreFileContentType(blob) {
+  const bytes = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+  const matches = values => values.every((value, i) => bytes[i] === value);
+  const ascii = (start, end) => String.fromCharCode(...bytes.slice(start, end));
+  let type = "";
+  if (matches([137, 80, 78, 71, 13, 10, 26, 10])) type = "image/png";
+  else if (matches([255, 216, 255])) type = "image/jpeg";
+  else if (["GIF87a", "GIF89a"].includes(ascii(0, 6))) type = "image/gif";
+  else if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") type = "image/webp";
+  else if (ascii(0, 5) === "%PDF-") type = "application/pdf";
+  return type && type !== blob.type ? new Blob([blob], { type }) : blob;
+}
+
 export async function getPrivateDataUrl(source) {
   if (!source) return '';
   const uid = signedInUser().uid;
-  const blob = await getPrivateBlob(source);
+  const blob = await restoreFileContentType(await getPrivateBlob(source));
   const result = await new Promise((resolve, reject) => {
     const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
   });
