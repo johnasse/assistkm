@@ -427,32 +427,25 @@ function getProfileLogoData() {
 }
 
 
-async function resolveProfileFile(source) {
-  if (typeof source !== "string" || !source.trim()) return "";
-  return await getPrivateDataUrl(source);
-}
-
-async function getProfileSignatureData() {
-  if (currentProfile?.signatureRemoved === true) return "";
+async function getProfileSignatureImage() {
+  if (currentProfile?.signatureRemoved === true) return null;
   const candidates = [
     currentProfile?.signaturePath,
     currentProfile?.signatureUrl,
     currentProfile?.signatureData,
     localStorage.getItem(`profileSignatureData_${uid}`),
     `users/${uid}/profileSignatureData_${uid}`
-  ].filter(Boolean);
+  ].filter(source => typeof source === "string" && source.trim());
   let lastError = null;
   for (const source of new Set(candidates)) {
     try {
-      const data = await resolveProfileFile(source);
-      if (isImageDataUrl(data)) return data;
-      if (data) throw new Error("Le fichier de signature n'est pas une image.");
+      return await convertImageDataUrlToJpeg(source);
     } catch (error) {
       if (error.code !== "storage/object-not-found") lastError = error;
     }
   }
   if (lastError) throw lastError;
-  return "";
+  return null;
 }
 
 async function drawLogo(pdf) {
@@ -482,11 +475,14 @@ function drawNoelModel(pdf, background, items, assistant, signature) {
   const rowCount = 15;
   const rowTop = 319;
   const rowHeight = (817 - rowTop) / rowCount;
+  const nameColor = [196, 54, 108];
   const rows = [];
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
   for (const item of items) {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
     const names = pdf.splitTextToSize(item.enfant || "-", x(410));
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
     const details = pdf.splitTextToSize(
       [item.type, item.magasin, item.objet].filter(Boolean).join(" - "), x(530));
     for (let i = 0; i < Math.max(names.length, details.length); i++) {
@@ -496,11 +492,11 @@ function drawNoelModel(pdf, background, items, assistant, signature) {
   for (let offset = 0; offset < rows.length; offset += rowCount) {
     if (offset) pdf.addPage("a4", "landscape");
     pdf.addImage(background, "JPEG", 0, 0, 297, 210, "noel-modele-2026", "FAST");
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
+    pdf.setTextColor(...nameColor);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
     const nameWidth = x(276);
-    pdf.setFontSize(Math.min(11, 11 * nameWidth / Math.max(nameWidth, pdf.getTextWidth(assistant))));
+    pdf.setFontSize(10 * nameWidth / Math.max(nameWidth, pdf.getTextWidth(assistant)));
     pdf.text(assistant, x(746), y(242));
     if (signature) {
       const ratio = Math.min(x(350) / signature.width, y(74) / signature.height);
@@ -509,11 +505,15 @@ function drawNoelModel(pdf, background, items, assistant, signature) {
     }
     let totalCents = 0;
     rows.slice(offset, offset + rowCount).forEach((row, index) => {
+      const baseline = y(rowTop + (index + 0.5) * rowHeight) + 1;
+      pdf.setTextColor(...nameColor);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.text(row.name, x(295), baseline);
+      pdf.setTextColor(0, 0, 0);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
-      const baseline = y(rowTop + (index + 0.5) * rowHeight) + 1;
       pdf.text(row.first ? formatDateFr(row.item.date) : "(suite)", x(231), baseline, { align: "center" });
-      pdf.text(row.name, x(297), baseline);
       pdf.text(row.detail, x(722), baseline);
       if (row.first) {
         const cents = Math.round(Number(row.item.montant) * 100);
@@ -521,6 +521,7 @@ function drawNoelModel(pdf, background, items, assistant, signature) {
         pdf.text((cents / 100).toFixed(2).replace(".", ",") + " €", x(1434), baseline, { align: "right" });
       }
     });
+    pdf.setTextColor(0, 0, 0);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
     pdf.text((totalCents / 100).toFixed(2).replace(".", ",") + " €", x(1434), y(845), { align: "right" });
@@ -551,14 +552,13 @@ async function genererPDF() {
     return;
   }
   await loadProfileNoel();
-  let signature = null;
+  let signature;
   try {
-    const data = await getProfileSignatureData();
-    if (!data) {
+    signature = await getProfileSignatureImage();
+    if (!signature) {
       alert("Aucune image de signature trouvée dans votre profil. Ajoutez-la dans Profil pour obtenir un PDF signé.");
       return;
     }
-    signature = await convertImageDataUrlToJpeg(data);
   } catch (error) {
     console.error("Erreur signature Noël :", error);
     alert("Impossible de charger votre signature. Vérifiez votre connexion puis réessayez.");
